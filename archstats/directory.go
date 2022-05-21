@@ -4,18 +4,24 @@ import (
 	"io/ioutil"
 )
 
-type Directory struct {
+type Directory interface {
+	Measurable
+	GetDescendantFiles() []File
+	GetDescendantSubDirectories() []Directory
+}
+
+type directory struct {
 	Path           string
-	Files          []*File
-	SubDirectories []*Directory
+	Files          []*file
+	SubDirectories []*directory
 	stats          Stats
 }
 
-func (dir *Directory) Identity() string {
+func (dir *directory) Identity() string {
 	return dir.Path
 }
 
-func (dir *Directory) Stats() Stats {
+func (dir *directory) Stats() Stats {
 	if dir.stats == nil {
 		var allStats []Stats
 		for _, directory := range dir.SubDirectories {
@@ -31,8 +37,8 @@ func (dir *Directory) Stats() Stats {
 	return dir.stats
 }
 
-func (dir *Directory) GetDescendantFiles() []*File {
-	var files []*File
+func (dir *directory) GetDescendantFiles() []File {
+	var files []File
 
 	for _, file := range dir.Files {
 		files = append(files, file)
@@ -44,10 +50,12 @@ func (dir *Directory) GetDescendantFiles() []*File {
 	return files
 }
 
-func (dir *Directory) GetDescendantSubDirectories() []*Directory {
-	var dirs []*Directory
+func (dir *directory) GetDescendantSubDirectories() []Directory {
+	var dirs []Directory
 
-	dirs = append(dirs, dir.SubDirectories...)
+	for _, subDirectory := range dir.SubDirectories {
+		dirs = append(dirs, subDirectory)
+	}
 
 	for _, directory := range dir.SubDirectories {
 		dirs = append(dirs, directory.GetDescendantSubDirectories()...)
@@ -55,8 +63,8 @@ func (dir *Directory) GetDescendantSubDirectories() []*Directory {
 	return dirs
 }
 
-func processDirectory(dirAbsolutePath string, depth int, visitors []FileVisitor) *Directory {
-	dir := &Directory{
+func processDirectory(dirAbsolutePath string, depth int, visitors []FileVisitor) *directory {
+	dir := &directory{
 		Path: dirAbsolutePath,
 	}
 

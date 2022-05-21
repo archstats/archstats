@@ -6,14 +6,14 @@ import (
 
 func RegexBasedComponents(settings RegexBasedComponentSettings) *componentsExtension {
 	return &componentsExtension{settings: settings,
-		componentMap: map[string]*Component{},
+		componentMap: map[string]*component{},
 	}
 }
 
 type componentsExtension struct {
 	settings     RegexBasedComponentSettings
 	connections  []*componentConnection
-	componentMap map[string]*Component
+	componentMap map[string]*component
 }
 
 type RegexBasedComponentSettings struct {
@@ -26,25 +26,25 @@ type componentConnection struct {
 	to   string
 }
 
-func (c *componentsExtension) VisitFile(file *File, content []byte) {
+func (c *componentsExtension) VisitFile(file *file, content []byte) {
 	componentName := getComponentName(c.settings.Definition, content)
-	if component, componentExists := c.componentMap[componentName]; componentExists {
-		component.Files = append(component.Files, file)
+	if comp, componentExists := c.componentMap[componentName]; componentExists {
+		comp.files = append(comp.files, file)
 	} else {
-		c.componentMap[componentName] = &Component{
-			Name:  componentName,
-			Files: []*File{file},
+		c.componentMap[componentName] = &component{
+			name:  componentName,
+			files: []File{file},
 		}
 	}
 	c.connections = append(c.connections, getConnections(c.settings.Import, componentName, content)...)
 }
 
-func (c *componentsExtension) Components() []*Component {
+func (c *componentsExtension) Components() []*component {
 	linkConnectionsToComponents(c.connections, c.componentMap)
-	components := make([]*Component, 0, len(c.componentMap))
+	components := make([]*component, 0, len(c.componentMap))
 	for _, component := range c.componentMap {
 		component.Stats()
-		component.AddStats(Stats{"files": len(component.Files)})
+		component.AddStats(Stats{"files": len(component.files)})
 		component.AddStats(Stats{"efferent_coupling": len(component.OutgoingConnections)})
 		component.AddStats(Stats{"afferent_coupling": len(component.IncomingConnections)})
 		components = append(components, component)
@@ -52,7 +52,7 @@ func (c *componentsExtension) Components() []*Component {
 	return components
 }
 
-func linkConnectionsToComponents(connections []*componentConnection, componentMap map[string]*Component) {
+func linkConnectionsToComponents(connections []*componentConnection, componentMap map[string]*component) {
 	for _, connection := range connections {
 		from, hasFromConnection := componentMap[connection.from]
 		to, hasToConnection := componentMap[connection.to]

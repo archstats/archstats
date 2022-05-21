@@ -6,14 +6,14 @@ type AnalysisSettings struct {
 	Extensions []Extension
 }
 type AnalysisResults struct {
-	RootDirectory *Directory
-	Components    []*Component
-	Files         []*File
-	Directories   []*Directory
+	RootDirectory *directory
+	Components    []*component
+	Files         []*file
+	Directories   []*directory
 }
 type AfterFileProcessingResults struct {
-	Files       []*File
-	Directories []*Directory
+	Files       []*file
+	Directories []*directory
 }
 type Summary struct {
 	stats Stats

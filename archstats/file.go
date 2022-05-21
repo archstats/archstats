@@ -4,7 +4,10 @@ import (
 	"os"
 )
 
-type File struct {
+type File interface {
+	Measurable
+}
+type file struct {
 	depth int
 	path  string
 	name  string
@@ -12,34 +15,34 @@ type File struct {
 }
 
 type FileVisitor interface {
-	VisitFile(*File, []byte)
+	VisitFile(*file, []byte)
 }
 
-func (f *File) Stats() Stats {
+func (f *file) Stats() Stats {
 	return f.stats
 }
 
-func (f *File) Depth() int {
+func (f *file) Depth() int {
 	return f.depth
 }
 
-func (f *File) Path() string {
+func (f *file) Path() string {
 	return f.path
 }
 
-func (f *File) Identity() string {
+func (f *file) Identity() string {
 	return f.name
 }
-func (f *File) AddStat(stat string, amount int) {
+func (f *file) AddStat(stat string, amount int) {
 	f.AddStats(Stats{stat: amount})
 }
 
-func (f *File) AddStats(stats Stats) {
+func (f *file) AddStats(stats Stats) {
 	f.stats = f.stats.Merge(stats)
 }
 
-func processFile(absolutePath string, entry os.FileInfo, visitors []FileVisitor) *File {
-	file := &File{
+func processFile(absolutePath string, entry os.FileInfo, visitors []FileVisitor) *file {
+	file := &file{
 		path: absolutePath,
 		name: entry.Name(),
 	}
@@ -54,7 +57,7 @@ func processFile(absolutePath string, entry os.FileInfo, visitors []FileVisitor)
 
 type FileSizeStatGenerator struct{}
 
-func (f *FileSizeStatGenerator) VisitFile(file *File, _ []byte) {
+func (f *FileSizeStatGenerator) VisitFile(file *file, _ []byte) {
 	fileInfo, _ := os.Stat(file.Path())
 	file.AddStat("size_in_bytes", int(fileInfo.Size()))
 }

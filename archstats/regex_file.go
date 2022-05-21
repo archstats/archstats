@@ -18,7 +18,7 @@ func (r *RegexBasedStats) AfterFileProcessing(results *AfterFileProcessingResult
 	}
 }
 
-func (r *RegexBasedStats) VisitFile(file *File, content []byte) {
+func (r *RegexBasedStats) VisitFile(file *file, content []byte) {
 	stats := Stats{}
 	for _, pattern := range r.Patterns {
 
