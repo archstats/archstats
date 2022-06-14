@@ -6,22 +6,21 @@ import (
 )
 
 func Test(t *testing.T) {
-
 	var root Directory
 	root = &directory{
-		Path: "rootPath",
-		SubDirectories: []*directory{
+		path: "rootPath",
+		subDirectories: []*directory{
 			{
-				Path: "relPath1",
-				SubDirectories: []*directory{
+				path: "relPath1",
+				subDirectories: []*directory{
 					{
-						Path: "relPath2",
-						SubDirectories: []*directory{
-							{Path: "relPathWithFile1"},
-							{Path: "relPathWithFiles2", Files: []*file{}},
+						path: "relPath2",
+						subDirectories: []*directory{
+							{path: "relPathWithFile1"},
+							{path: "relPathWithFiles2", files: []*file{}},
 						}}}}}}
 
 	assert.Equal(t, "rootPath", root.Identity())
-	assert.Len(t, root.GetDescendantSubDirectories(), 4)
+	assert.Len(t, root.SubDirectoriesRecursive(), 4)
 
 }

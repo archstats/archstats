@@ -6,14 +6,14 @@ type AnalysisSettings struct {
 	Extensions []Extension
 }
 type AnalysisResults struct {
-	RootDirectory *directory
-	Components    []*component
-	Files         []*file
-	Directories   []*directory
+	RootDirectory Directory
+	Components    []Component
+	Files         []File
+	Directories   []Directory
 }
 type AfterFileProcessingResults struct {
-	Files       []*file
-	Directories []*directory
+	Files       []File
+	Directories []Directory
 }
 type Summary struct {
 	stats Stats
@@ -23,7 +23,7 @@ type PostFileProcessor interface {
 	AfterFileProcessing(results *AfterFileProcessingResults)
 }
 
-func Analyze(rootPath string, settings AnalysisSettings) AnalysisResults {
+func Analyze(rootPath string, settings AnalysisSettings) *AnalysisResults {
 	var visitors []FileVisitor
 	var postProcessors []PostFileProcessor
 	var componentGenerator ComponentGenerator
@@ -42,18 +42,22 @@ func Analyze(rootPath string, settings AnalysisSettings) AnalysisResults {
 	root := processDirectory(rootPath, 0, visitors)
 
 	afterFileProcessingResults := &AfterFileProcessingResults{
-		Files:       root.GetDescendantFiles(),
-		Directories: root.GetDescendantSubDirectories(),
+		Files:       root.FilesRecursive(),
+		Directories: root.SubDirectoriesRecursive(),
 	}
 	for _, processor := range postProcessors {
 		processor.AfterFileProcessing(afterFileProcessingResults)
 	}
 
-	results := AnalysisResults{
+	results := &AnalysisResults{
 		RootDirectory: root,
-		Components:    componentGenerator.Components(),
-		Files:         root.GetDescendantFiles(),
-		Directories:   root.GetDescendantSubDirectories(),
+		Files:         root.FilesRecursive(),
+		Directories:   root.SubDirectoriesRecursive(),
+	}
+	if componentGenerator == nil {
+		results.Components = []Component{}
+	} else {
+		results.Components = componentGenerator.Components()
 	}
 	return results
 }

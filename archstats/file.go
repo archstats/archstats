@@ -6,6 +6,9 @@ import (
 
 type File interface {
 	Measurable
+	Stats() Stats
+	Path() string
+	AddStats(stats Stats)
 }
 type file struct {
 	depth int
@@ -15,7 +18,7 @@ type file struct {
 }
 
 type FileVisitor interface {
-	VisitFile(*file, []byte)
+	VisitFile(File, []byte)
 }
 
 func (f *file) Stats() Stats {
@@ -31,7 +34,7 @@ func (f *file) Path() string {
 }
 
 func (f *file) Identity() string {
-	return f.name
+	return f.path
 }
 func (f *file) AddStat(stat string, amount int) {
 	f.AddStats(Stats{stat: amount})
@@ -57,7 +60,7 @@ func processFile(absolutePath string, entry os.FileInfo, visitors []FileVisitor)
 
 type FileSizeStatGenerator struct{}
 
-func (f *FileSizeStatGenerator) VisitFile(file *file, _ []byte) {
+func (f *FileSizeStatGenerator) VisitFile(file File, _ []byte) {
 	fileInfo, _ := os.Stat(file.Path())
-	file.AddStat("size_in_bytes", int(fileInfo.Size()))
+	file.AddStats(Stats{"size_in_bytes": int(fileInfo.Size())})
 }

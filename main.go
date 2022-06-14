@@ -6,29 +6,10 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/ryanuber/columnize"
 	"regexp"
+	"sort"
 	"strings"
 )
 
-func parseRegexes(input []string) []archstats.RegexStatPattern {
-	var toReturn []archstats.RegexStatPattern
-	for _, s := range input {
-		toReturn = append(toReturn, parseRegex(s))
-	}
-	return toReturn
-}
-
-func parseRegex(input string) archstats.RegexStatPattern {
-	split := strings.Split(input, "=")
-	return archstats.RegexStatPattern{
-		Name:   split[0],
-		Regexp: regexp.MustCompile(split[1]),
-	}
-}
-func parseComponentSettings(lang string) {
-	if lang == "php" {
-		return
-	}
-}
 func main() {
 	genOpts := &GeneralOptions{}
 	args, err := flags.Parse(genOpts)
@@ -38,24 +19,25 @@ func main() {
 	command := args[0]
 	rootPath := args[1]
 
-	settings := archstats.AnalysisSettings{
-		Extensions: []archstats.Extension{
-			archstats.RegexBasedComponents(archstats.RegexBasedComponentSettings{
-				Definition: regexp.MustCompile("namespace (?P<component>.*);"),
-				Import:     regexp.MustCompile("use (?P<component>.*)\\\\.*;"),
-			}),
-			&archstats.FileSizeStatGenerator{},
-			&archstats.RegexBasedStats{Patterns: parseRegexes(genOpts.RegexStats)},
-		},
-	}
+	extensions := getLanguageExtensions(genOpts.Language)
+	extensions = append(extensions,
+		&archstats.FileSizeStatGenerator{},
+		&archstats.RegexBasedStats{
+			Patterns: parseRegexes(genOpts.RegexStats),
+		})
+	settings := archstats.AnalysisSettings{Extensions: extensions}
 	allResults := archstats.Analyze(rootPath, settings)
 	resultsFromCommand := getMeasurables(command, allResults)
 
+	sort.Slice(resultsFromCommand, func(i, j int) bool {
+		return strings.Compare(resultsFromCommand[i].Identity(), resultsFromCommand[j].Identity()) == 0
+	})
 	if len(resultsFromCommand) == 0 {
 		return
 	}
 
 	statsToPrint := getStats(&resultsFromCommand)
+	sort.Strings(statsToPrint)
 	delimiter := "|"
 
 	var rows []string
@@ -84,7 +66,7 @@ func getStats(all *[]archstats.Measurable) []string {
 	}
 	return keys
 }
-func getMeasurables(command string, results archstats.AnalysisResults) []archstats.Measurable {
+func getMeasurables(command string, results *archstats.AnalysisResults) []archstats.Measurable {
 	var measurables []archstats.Measurable
 	switch command {
 	case "components":
@@ -110,7 +92,7 @@ type GeneralOptions struct {
 
 	Language string `short:"l" long:"language" description:"Programming language"`
 
-	NoHeader bool `long:"no-header" short:"h" description:"No header"`
+	NoHeader bool `long:"no-header" description:"No header"`
 }
 
 func printHeader(delimiter string, statsToPrint []string) string {
@@ -133,4 +115,29 @@ func rowToString(statsToPrint []string, delimiter string, dir archstats.Measurab
 		}
 	}
 	return buf.String()
+}
+func parseRegexes(input []string) []archstats.RegexStatPattern {
+	var toReturn []archstats.RegexStatPattern
+	for _, s := range input {
+		toReturn = append(toReturn, parseRegex(s))
+	}
+	return toReturn
+}
+func parseRegex(input string) archstats.RegexStatPattern {
+	split := strings.Split(input, "=")
+	return archstats.RegexStatPattern{
+		Name:   split[0],
+		Regexp: regexp.MustCompile(split[1]),
+	}
+}
+func getLanguageExtensions(lang string) []archstats.Extension {
+	if lang == "php" {
+		return []archstats.Extension{
+			archstats.RegexBasedComponents(archstats.RegexBasedComponentSettings{
+				Definition: regexp.MustCompile("namespace (?P<component>.*);"),
+				Import:     regexp.MustCompile("(use|import) (?P<component>.*)\\\\.*;"),
+			}),
+		}
+	}
+	return []archstats.Extension{}
 }

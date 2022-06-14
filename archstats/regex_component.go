@@ -26,8 +26,11 @@ type componentConnection struct {
 	to   string
 }
 
-func (c *componentsExtension) VisitFile(file *file, content []byte) {
+func (c *componentsExtension) VisitFile(file File, content []byte) {
 	componentName := getComponentName(c.settings.Definition, content)
+	if len(componentName) == 0 {
+		componentName = "N/A"
+	}
 	if comp, componentExists := c.componentMap[componentName]; componentExists {
 		comp.files = append(comp.files, file)
 	} else {
@@ -39,15 +42,15 @@ func (c *componentsExtension) VisitFile(file *file, content []byte) {
 	c.connections = append(c.connections, getConnections(c.settings.Import, componentName, content)...)
 }
 
-func (c *componentsExtension) Components() []*component {
+func (c *componentsExtension) Components() []Component {
 	linkConnectionsToComponents(c.connections, c.componentMap)
-	components := make([]*component, 0, len(c.componentMap))
-	for _, component := range c.componentMap {
-		component.Stats()
-		component.AddStats(Stats{"files": len(component.files)})
-		component.AddStats(Stats{"efferent_coupling": len(component.OutgoingConnections)})
-		component.AddStats(Stats{"afferent_coupling": len(component.IncomingConnections)})
-		components = append(components, component)
+	components := make([]Component, 0, len(c.componentMap))
+	for _, comp := range c.componentMap {
+		comp.Stats()
+		comp.AddStats(Stats{"files": len(comp.files)})
+		comp.AddStats(Stats{"efferent_coupling": len(comp.OutgoingConnections)})
+		comp.AddStats(Stats{"afferent_coupling": len(comp.IncomingConnections)})
+		components = append(components, comp)
 	}
 	return components
 }

@@ -6,28 +6,31 @@ import (
 
 type Directory interface {
 	Measurable
-	GetDescendantFiles() []File
-	GetDescendantSubDirectories() []Directory
+	Files() []File
+	FilesRecursive() []File
+
+	SubDirectories() []Directory
+	SubDirectoriesRecursive() []Directory
 }
 
 type directory struct {
-	Path           string
-	Files          []*file
-	SubDirectories []*directory
+	path           string
+	files          []File
+	subDirectories []Directory
 	stats          Stats
 }
 
 func (dir *directory) Identity() string {
-	return dir.Path
+	return dir.path
 }
 
 func (dir *directory) Stats() Stats {
 	if dir.stats == nil {
 		var allStats []Stats
-		for _, directory := range dir.SubDirectories {
+		for _, directory := range dir.subDirectories {
 			allStats = append(allStats, directory.Stats())
 		}
-		files := dir.Files
+		files := dir.files
 		for _, file := range files {
 			allStats = append(allStats, file.Stats())
 		}
@@ -37,49 +40,56 @@ func (dir *directory) Stats() Stats {
 	return dir.stats
 }
 
-func (dir *directory) GetDescendantFiles() []File {
+func (dir *directory) Files() []File {
+	return dir.files
+}
+
+func (dir *directory) FilesRecursive() []File {
 	var files []File
 
-	for _, file := range dir.Files {
-		files = append(files, file)
+	for _, f := range dir.files {
+		files = append(files, f)
 	}
 
-	for _, directory := range dir.SubDirectories {
-		files = append(files, directory.GetDescendantFiles()...)
+	for _, d := range dir.subDirectories {
+		files = append(files, d.FilesRecursive()...)
 	}
 	return files
 }
 
-func (dir *directory) GetDescendantSubDirectories() []Directory {
+func (dir *directory) SubDirectories() []Directory {
+	return dir.subDirectories
+}
+func (dir *directory) SubDirectoriesRecursive() []Directory {
 	var dirs []Directory
 
-	for _, subDirectory := range dir.SubDirectories {
+	for _, subDirectory := range dir.SubDirectories() {
 		dirs = append(dirs, subDirectory)
 	}
 
-	for _, directory := range dir.SubDirectories {
-		dirs = append(dirs, directory.GetDescendantSubDirectories()...)
+	for _, d := range dir.subDirectories {
+		dirs = append(dirs, d.SubDirectoriesRecursive()...)
 	}
 	return dirs
 }
 
-func processDirectory(dirAbsolutePath string, depth int, visitors []FileVisitor) *directory {
+func processDirectory(dirAbsolutePath string, depth int, visitors []FileVisitor) Directory {
 	dir := &directory{
-		Path: dirAbsolutePath,
+		path: dirAbsolutePath,
 	}
 
 	files, err := ioutil.ReadDir(dirAbsolutePath)
 	if err != nil {
-		return nil
+		panic(err)
 	}
 
 	for _, entry := range files {
 		path := dirAbsolutePath + entry.Name()
 		if entry.IsDir() {
 			path += "/"
-			dir.SubDirectories = append(dir.SubDirectories, processDirectory(path, depth+1, visitors))
+			dir.subDirectories = append(dir.subDirectories, processDirectory(path, depth+1, visitors))
 		} else {
-			dir.Files = append(dir.Files, processFile(path, entry, visitors))
+			dir.files = append(dir.files, processFile(path, entry, visitors))
 		}
 	}
 	if err != nil {
