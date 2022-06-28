@@ -9,12 +9,24 @@ type File interface {
 	Stats() Stats
 	Path() string
 	AddStats(stats Stats)
+	RecordSnippet(snippet Snippet)
+}
+type Snippet interface {
+	Name() string
+	Begin() int
+	End() int
 }
 type file struct {
-	depth int
-	path  string
-	name  string
-	stats Stats
+	depth    int
+	path     string
+	name     string
+	snippets []Snippet
+	stats    Stats
+}
+
+func (f *file) RecordSnippet(snippet Snippet) {
+	f.snippets = append(f.snippets, snippet)
+	f.RecordStat(snippet.Name(), 1)
 }
 
 type FileVisitor interface {
@@ -36,7 +48,7 @@ func (f *file) Path() string {
 func (f *file) Identity() string {
 	return f.path
 }
-func (f *file) AddStat(stat string, amount int) {
+func (f *file) RecordStat(stat string, amount int) {
 	f.AddStats(Stats{stat: amount})
 }
 

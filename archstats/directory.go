@@ -73,21 +73,28 @@ func (dir *directory) SubDirectoriesRecursive() []Directory {
 	return dirs
 }
 
-func processDirectory(dirAbsolutePath string, depth int, visitors []FileVisitor) Directory {
+func ProcessDirectory(rootPath string, visitors []FileVisitor) Directory {
+	return processDirectory(rootPath, 0, visitors, ignoreContext{})
+}
+func processDirectory(dirAbsolutePath string, depth int, visitors []FileVisitor, ignoreCtx ignoreContext) Directory {
 	dir := &directory{
 		path: dirAbsolutePath,
 	}
 
 	files, err := ioutil.ReadDir(dirAbsolutePath)
+	ignoreCtx.Add(files)
 	if err != nil {
 		panic(err)
 	}
 
 	for _, entry := range files {
+		if ignoreCtx.ShouldIgnore(entry) {
+			continue
+		}
 		path := dirAbsolutePath + entry.Name()
 		if entry.IsDir() {
 			path += "/"
-			dir.subDirectories = append(dir.subDirectories, processDirectory(path, depth+1, visitors))
+			dir.subDirectories = append(dir.subDirectories, processDirectory(path, depth+1, visitors, ignoreCtx))
 		} else {
 			dir.files = append(dir.files, processFile(path, entry, visitors))
 		}

@@ -39,7 +39,7 @@ func Analyze(rootPath string, settings AnalysisSettings) *AnalysisResults {
 			componentGenerator = cg
 		}
 	}
-	root := processDirectory(rootPath, 0, visitors)
+	root := ProcessDirectory(rootPath, visitors)
 
 	afterFileProcessingResults := &AfterFileProcessingResults{
 		Files:       root.FilesRecursive(),
