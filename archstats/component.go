@@ -32,7 +32,7 @@ func (c *component) Dependencies() []Component {
 func (c *component) AddStats(stats Stats) {
 	c.stats = c.stats.Merge(stats)
 }
-func (c *component) Identity() string {
+func (c *component) Name() string {
 	return c.name
 }
 

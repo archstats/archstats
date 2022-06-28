@@ -45,7 +45,7 @@ func (f *file) Path() string {
 	return f.path
 }
 
-func (f *file) Identity() string {
+func (f *file) Name() string {
 	return f.path
 }
 func (f *file) RecordStat(stat string, amount int) {

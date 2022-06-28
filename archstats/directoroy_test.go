@@ -20,7 +20,7 @@ func Test(t *testing.T) {
 	//						{path: "relPathWithFiles2", files: []*file{}},
 	//					}}}}}}
 
-	assert.Equal(t, "rootPath", root.Identity())
+	assert.Equal(t, "rootPath", root.Name())
 	assert.Len(t, root.SubDirectoriesRecursive(), 4)
 
 }

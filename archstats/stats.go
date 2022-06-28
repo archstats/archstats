@@ -21,6 +21,6 @@ type StatsView interface {
 	Rows() []Measurable
 }
 type Measurable interface {
-	Identity() string
+	Name() string
 	Stats() Stats
 }

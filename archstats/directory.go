@@ -20,7 +20,7 @@ type directory struct {
 	stats          Stats
 }
 
-func (dir *directory) Identity() string {
+func (dir *directory) Name() string {
 	return dir.path
 }
 

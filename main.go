@@ -2,6 +2,7 @@ package main
 
 import (
 	"analyzer/archstats"
+	"encoding/json"
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"github.com/ryanuber/columnize"
@@ -11,44 +12,91 @@ import (
 )
 
 func main() {
-	genOpts := &GeneralOptions{}
-	args, err := flags.Parse(genOpts)
+	generalOptions := &GeneralOptions{}
+	args, err := flags.Parse(generalOptions)
 	if err != nil {
 		return
 	}
 	command := args[0]
 	rootPath := args[1]
 
-	extensions := getLanguageExtensions(genOpts.Language)
+	extensions := getLanguageExtensions(generalOptions.Language)
 	extensions = append(extensions,
 		&archstats.FileSizeStatGenerator{},
 		&archstats.RegexBasedStats{
-			Patterns: parseRegexes(genOpts.RegexStats),
+			Patterns: parseRegexes(generalOptions.RegexStats),
 		})
 	settings := archstats.AnalysisSettings{Extensions: extensions}
 	allResults := archstats.Analyze(rootPath, settings)
 	resultsFromCommand := getMeasurables(command, allResults)
 
-	sort.Slice(resultsFromCommand, func(i, j int) bool {
-		return strings.Compare(resultsFromCommand[i].Identity(), resultsFromCommand[j].Identity()) == 0
-	})
-	if len(resultsFromCommand) == 0 {
-		return
+	if generalOptions.SortedBy == "" {
+		sort.Slice(resultsFromCommand, func(i, j int) bool {
+			return strings.Compare(resultsFromCommand[i].Name(), resultsFromCommand[j].Name()) == 0
+		})
+	} else {
+		sort.Slice(resultsFromCommand, func(i, j int) bool {
+			return resultsFromCommand[i].Stats()[generalOptions.SortedBy] > resultsFromCommand[j].Stats()[generalOptions.SortedBy]
+		})
+	}
+	statsToPrint := getStats(&resultsFromCommand)
+
+	printRows(statsToPrint, resultsFromCommand, generalOptions)
+}
+
+func printNdjson(stats []string, command []archstats.Measurable) {
+	for _, dir := range command {
+		theJson, _ := json.Marshal(measurableToMap(dir, stats))
+
+		fmt.Println(string(theJson))
+	}
+}
+func printJson(stats []string, command []archstats.Measurable) {
+	var toPrint []map[string]string
+	for _, dir := range command {
+
+		toPrint = append(toPrint, measurableToMap(dir, stats))
+	}
+	theJson, _ := json.Marshal(toPrint)
+	fmt.Println(string(theJson))
+}
+func measurableToMap(measurable archstats.Measurable, stats []string) map[string]string {
+	toReturn := map[string]string{}
+
+	toReturn["name"] = measurable.Name()
+	for _, stat := range stats {
+		toReturn[stat] = fmt.Sprintf("%d", measurable.Stats()[stat])
 	}
 
-	statsToPrint := getStats(&resultsFromCommand)
+	return toReturn
+}
+func printRows(statsToPrint []string, resultsFromCommand []archstats.Measurable, genOpts *GeneralOptions) {
+	switch genOpts.OutputFormat {
+	case "csv":
+		fmt.Println(getRows(statsToPrint, resultsFromCommand, !genOpts.NoHeader, ","))
+	case "tsv":
+		fmt.Println(getRows(statsToPrint, resultsFromCommand, !genOpts.NoHeader, "\t"))
+	case "json":
+		printJson(statsToPrint, resultsFromCommand)
+	case "ndjson":
+		printNdjson(statsToPrint, resultsFromCommand)
+	default:
+		fmt.Println(columnize.SimpleFormat(getRows(statsToPrint, resultsFromCommand, !genOpts.NoHeader, "|")))
+	}
+}
+
+func getRows(statsToPrint []string, resultsFromCommand []archstats.Measurable, shouldPrintHeader bool, delimiter string) []string {
 	sort.Strings(statsToPrint)
-	delimiter := "|"
 
 	var rows []string
 
-	if !genOpts.NoHeader {
+	if shouldPrintHeader {
 		rows = append(rows, printHeader(delimiter, statsToPrint))
 	}
 	for _, dir := range resultsFromCommand {
 		rows = append(rows, rowToString(statsToPrint, delimiter, dir))
 	}
-	fmt.Println(columnize.SimpleFormat(rows))
+	return rows
 }
 
 func getStats(all *[]archstats.Measurable) []string {
@@ -86,13 +134,16 @@ func getMeasurables(command string, results *archstats.AnalysisResults) []archst
 	return measurables
 }
 
-// arch-stats directories|files|components|summary --regex-stat|s=routes=Route::.* --language|l=custom/php/java/c# --no-header-line=true --min-depth=0 --max-depth=1000000
 type GeneralOptions struct {
 	RegexStats []string `short:"s" long:"regex-stat" description:"Regex stat"`
 
 	Language string `short:"l" long:"language" description:"Programming language"`
 
 	NoHeader bool `long:"no-header" description:"No header"`
+
+	SortedBy string `long:"sorted-by" description:"Sorted by (default: name)"`
+
+	OutputFormat string `short:"o" long:"output-format" description:"Output format: columns, json, csv (default: columns)"`
 }
 
 func printHeader(delimiter string, statsToPrint []string) string {
@@ -103,7 +154,7 @@ func rowToString(statsToPrint []string, delimiter string, dir archstats.Measurab
 	buf := strings.Builder{}
 	stats := dir.Stats()
 
-	buf.WriteString(fmt.Sprint(dir.Identity()))
+	buf.WriteString(fmt.Sprint(dir.Name()))
 
 	for _, statToPrint := range statsToPrint {
 		theStat, hasStat := stats[statToPrint]
@@ -111,7 +162,7 @@ func rowToString(statsToPrint []string, delimiter string, dir archstats.Measurab
 		if hasStat {
 			buf.WriteString(fmt.Sprintf("%d", theStat))
 		} else {
-			buf.WriteString(fmt.Sprint("N/A"))
+			buf.WriteString("0")
 		}
 	}
 	return buf.String()
