@@ -1,4 +1,4 @@
-package archstats
+package core
 
 import (
 	"bufio"
@@ -35,7 +35,6 @@ func findGlobsInDir(entries []fs.FileInfo) []glob.Glob {
 
 	for _, entry := range entries {
 		if isIgnoreFile(entry) {
-
 			globsToReturn = append(globsToReturn, getGlobsFromFile(entry)...)
 		}
 	}

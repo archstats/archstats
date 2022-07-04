@@ -1,4 +1,4 @@
-package archstats
+package main
 
 type Stats map[string]int
 
@@ -15,12 +15,4 @@ func MergeStats(maps []Stats) Stats {
 		}
 	}
 	return newStats
-}
-
-type StatsView interface {
-	Rows() []Measurable
-}
-type Measurable interface {
-	Name() string
-	Stats() Stats
 }

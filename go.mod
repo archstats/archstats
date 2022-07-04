@@ -3,6 +3,8 @@ module analyzer
 go 1.17
 
 require (
+	bramp.net/antlr4 v0.0.0-20220104225439-4c43aeb31f4e
+	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220626175859-9abda183db8e
 	github.com/gobwas/glob v0.2.3
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/ryanuber/columnize v2.1.2+incompatible
