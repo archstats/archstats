@@ -1,7 +1,7 @@
 package regexsnippets
 
 import (
-	"analyzer/core"
+	"analyzer/walker"
 	"regexp"
 )
 
@@ -9,15 +9,15 @@ type RegexBasedSnippetsProvider struct {
 	Patterns []*regexp.Regexp
 }
 
-func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file core.File) []*core.Snippet {
-	var toReturn []*core.Snippet
+func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file walker.File) []*walker.Snippet {
+	var toReturn []*walker.Snippet
 	stringContent := string(file.Content())
 
 	for _, pattern := range s.Patterns {
 		matches := getMatches(pattern, stringContent)
 
 		for _, match := range matches {
-			theSnip := &core.Snippet{
+			theSnip := &walker.Snippet{
 				Type:  match.name,
 				File:  file.Path(),
 				Begin: match.begin,

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"analyzer/core"
 	"analyzer/regexsnippets"
+	"analyzer/walker"
 	"github.com/jessevdk/go-flags"
 	"log"
 	"os"
@@ -74,8 +74,8 @@ func runArchStats(args []string, generalOptions *GeneralOptions) {
 			Patterns: parseRegexes(generalOptions.RegexStats),
 		},
 	)
-	settings := core.AnalysisSettings{SnippetProvider: extensions}
-	allResults, _ := core.Analyze(rootPath, settings)
+	settings := walker.AnalysisSettings{SnippetProvider: extensions}
+	allResults, _ := walker.Analyze(rootPath, settings)
 	resultsFromCommand, _ := getRowsFromResults(command, allResults)
 
 	sortRows(generalOptions.SortedBy, resultsFromCommand)
