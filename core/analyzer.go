@@ -10,6 +10,7 @@ const (
 )
 
 type Results struct {
+	RootDirectory       string
 	Snippets            []*Snippet
 	SnippetsByDirectory SnippetGroup
 	SnippetsByComponent SnippetGroup
@@ -37,10 +38,10 @@ func Analyze(rootPath string, settings AnalysisSettings) (*Results, error) {
 
 	snippets := getSnippetsFromDirectory(rootPath, settings.SnippetProvider)
 
-	return calculateResults(snippets), nil
+	return calculateResults(rootPath, snippets), nil
 }
 
-func calculateResults(snippets []*Snippet) *Results {
+func calculateResults(root string, snippets []*Snippet) *Results {
 	//set Directory name for each Snippet
 	setDirectories(snippets)
 	setComponents(snippets)
@@ -65,6 +66,7 @@ func calculateResults(snippets []*Snippet) *Results {
 		return connection.To
 	})
 	return &Results{
+		RootDirectory:       root,
 		Snippets:            snippets,
 		SnippetsByDirectory: allGroups["ByDirectory"],
 		SnippetsByComponent: allGroups["ByComponent"],

@@ -78,7 +78,7 @@ func runArchStats(args []string, generalOptions *GeneralOptions) {
 	allResults, _ := core.Analyze(rootPath, settings)
 	resultsFromCommand, _ := getRowsFromResults(command, allResults)
 
-	sortRows(generalOptions, resultsFromCommand)
+	sortRows(generalOptions.SortedBy, resultsFromCommand)
 	statsToPrint := getDistinctStatsFromRows(resultsFromCommand)
 
 	printRows(statsToPrint, resultsFromCommand, generalOptions)

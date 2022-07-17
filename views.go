@@ -3,9 +3,9 @@ package main
 import (
 	"analyzer/core"
 	"fmt"
-	"strings"
 )
 
+// getRowsFromResults returns the list of rows based on the input command from the CLI
 func getRowsFromResults(command string, results *core.Results) ([]*Row, error) {
 	views := map[string]ViewFunction{
 		"components":            ComponentView,
@@ -42,29 +42,25 @@ func DirectoryRecursiveView(results *core.Results) []*Row {
 	var toReturn []*Row
 	snippetsByDirectory := results.SnippetsByDirectory
 	statsByDirectory := statsByGroup(getDistinctStatsFromResults(results), snippetsByDirectory)
-	allDirs := make([]string, len(snippetsByDirectory))
+	allDirs := make([]string, 0, len(snippetsByDirectory))
 
 	for dir, _ := range snippetsByDirectory {
 		allDirs = append(allDirs, dir)
 	}
 
-	dirLookup := createTreesFromList(allDirs, func(dir string) string {
-		return dir[:strings.LastIndex(dir, "/")]
-	})
+	dirLookup := createDirectoryTree(results.RootDirectory, allDirs)
 
-	for _, node := range dirLookup {
+	for dir, node := range dirLookup {
 		subtree := ToPaths(node.Subtree())
-
+		var stats Stats
 		for _, subDir := range subtree {
-			stats := statsByDirectory[subDir]
-			toReturn = append(toReturn, &Row{
-				Name: subDir,
-				Data: statsToRowData(stats),
-			})
+			stats = stats.Merge(statsByDirectory[subDir])
 		}
-
+		toReturn = append(toReturn, &Row{
+			Name: dir,
+			Data: statsToRowData(stats),
+		})
 	}
-
 	return toReturn
 }
 
