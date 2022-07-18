@@ -1,4 +1,4 @@
-package walker
+package snippets
 
 import (
 	"strings"
@@ -21,13 +21,6 @@ type Results struct {
 	ConnectionsTo       map[string][]*ComponentConnection
 }
 
-type SnippetGroup map[string][]*Snippet
-type groupSnippetByFunc func(*Snippet) string
-
-type ComponentConnection struct {
-	From string
-	To   string
-}
 type Extension interface{}
 
 type AnalysisSettings struct {
@@ -36,18 +29,18 @@ type AnalysisSettings struct {
 
 func Analyze(rootPath string, settings AnalysisSettings) (*Results, error) {
 
-	snippets := getSnippetsFromDirectory(rootPath, settings.SnippetProvider)
+	snippets := GetSnippetsFromDirectory(rootPath, settings.SnippetProvider)
 
 	return calculateResults(rootPath, snippets), nil
 }
 
-func calculateResults(root string, snippets []*Snippet) *Results {
+func calculateResults(root string, allSnippets []*Snippet) *Results {
 	//set Directory name for each Snippet
-	setDirectories(snippets)
-	setComponents(snippets)
+	setDirectories(allSnippets)
+	setComponents(allSnippets)
 
 	//group Snippets by Directory
-	allGroups := MultiGroupSnippetsBy(snippets, map[string]groupSnippetByFunc{
+	allGroups := MultiGroupSnippetsBy(allSnippets, map[string]GroupSnippetByFunc{
 		"ByDirectory": ByDirectory,
 		"ByComponent": ByComponent,
 		"ByFile":      ByFile,
@@ -67,7 +60,7 @@ func calculateResults(root string, snippets []*Snippet) *Results {
 	})
 	return &Results{
 		RootDirectory:       root,
-		Snippets:            snippets,
+		Snippets:            allSnippets,
 		SnippetsByDirectory: allGroups["ByDirectory"],
 		SnippetsByComponent: allGroups["ByComponent"],
 		SnippetsByFile:      allGroups["ByFile"],

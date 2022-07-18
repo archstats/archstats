@@ -1,22 +1,21 @@
 package main
 
 import (
-	"analyzer/regexsnippets"
-	"analyzer/walker"
+	"analyzer/snippets"
 	"fmt"
 	"regexp"
 )
 
-func getLanguageExtensions(lang string) []walker.SnippetProvider {
+func getLanguageExtensions(lang string) []snippets.SnippetProvider {
 	if lang == "php" {
-		return []walker.SnippetProvider{
-			&regexsnippets.RegexBasedSnippetsProvider{
+		return []snippets.SnippetProvider{
+			&snippets.RegexBasedSnippetsProvider{
 				Patterns: []*regexp.Regexp{
-					regexp.MustCompile(fmt.Sprintf("namespace (?P<%s>.*);", walker.ComponentDeclaration)),
-					regexp.MustCompile(fmt.Sprintf("(use|import) (?P<%s>.*)\\\\.*;", walker.ComponentImport)),
+					regexp.MustCompile(fmt.Sprintf("namespace (?P<%s>.*);", snippets.ComponentDeclaration)),
+					regexp.MustCompile(fmt.Sprintf("(use|import) (?P<%s>.*)\\\\.*;", snippets.ComponentImport)),
 				},
 			},
 		}
 	}
-	return []walker.SnippetProvider{}
+	return []snippets.SnippetProvider{}
 }

@@ -1,4 +1,4 @@
-package regexsnippets
+package snippets
 
 import (
 	"github.com/stretchr/testify/assert"

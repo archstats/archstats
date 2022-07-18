@@ -1,12 +1,13 @@
 package main
 
 import (
+	"analyzer/snippets"
 	"analyzer/walker"
 	"fmt"
 )
 
 // getRowsFromResults returns the list of rows based on the input command from the CLI
-func getRowsFromResults(command string, results *walker.Results) ([]*Row, error) {
+func getRowsFromResults(command string, results *snippets.Results) ([]*Row, error) {
 	views := map[string]ViewFunction{
 		"components":            ComponentView,
 		"files":                 FileView,
@@ -21,24 +22,24 @@ func getRowsFromResults(command string, results *walker.Results) ([]*Row, error)
 	}
 }
 
-type ViewFunction func(results *walker.Results) []*Row
+type ViewFunction func(results *snippets.Results) []*Row
 
 type Row struct {
 	Name string
 	Data map[string]interface{}
 }
 
-func DirectoryView(results *walker.Results) []*Row {
+func DirectoryView(results *snippets.Results) []*Row {
 	return GenericView(getDistinctStatsFromResults(results), results.SnippetsByDirectory)
 }
-func ComponentView(results *walker.Results) []*Row {
+func ComponentView(results *snippets.Results) []*Row {
 	return GenericView(getDistinctStatsFromResults(results), results.SnippetsByComponent)
 }
-func FileView(results *walker.Results) []*Row {
+func FileView(results *snippets.Results) []*Row {
 	return GenericView(getDistinctStatsFromResults(results), results.SnippetsByFile)
 }
 
-func DirectoryRecursiveView(results *walker.Results) []*Row {
+func DirectoryRecursiveView(results *snippets.Results) []*Row {
 	var toReturn []*Row
 	snippetsByDirectory := results.SnippetsByDirectory
 	statsByDirectory := statsByGroup(getDistinctStatsFromResults(results), snippetsByDirectory)
@@ -85,9 +86,9 @@ func statsToRowData(stats Stats) map[string]interface{} {
 	return toReturn
 }
 
-func snippetsToStats(allStats []string, snippets []*walker.Snippet) Stats {
+func snippetsToStats(allStats []string, snippets []*snippets.Snippet) Stats {
 	stats := Stats{}
-	all := walker.GroupSnippetsBy(snippets, walker.ByType)
+	all := snippets.GroupSnippetsBy(snippets, snippets.ByType)
 
 	for _, stat := range allStats {
 		snippetsForType := all[stat]
@@ -122,7 +123,7 @@ func getDistinctStatsFromRows(all []*Row) []string {
 	return keys
 }
 
-func getDistinctStatsFromResults(results *walker.Results) []string {
+func getDistinctStatsFromResults(results *snippets.Results) []string {
 	var toReturn []string
 	for theType, _ := range results.SnippetsByType {
 		toReturn = append(toReturn, theType)
