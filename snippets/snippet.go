@@ -30,7 +30,7 @@ func GetSnippetsFromDirectory(rootPath string, visitors []SnippetProvider) []*Sn
 	wg.Add(len(allFiles))
 	for _, theFile := range allFiles {
 		go func(file *walker.FileDescription, group *sync.WaitGroup) {
-			snippets := getSnippetsFromFile(file.AbsolutePath, file.Info, visitors)
+			snippets := getSnippetsFromFile(file.Path, file.Info, visitors)
 			lock.Lock()
 			for _, snippet := range snippets {
 				toReturn = append(toReturn, snippet)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"analyzer/snippets"
-	"analyzer/walker"
 	"fmt"
 )
 
@@ -65,7 +64,7 @@ func DirectoryRecursiveView(results *snippets.Results) []*Row {
 	return toReturn
 }
 
-func GenericView(allStats []string, group walker.SnippetGroup) []*Row {
+func GenericView(allStats []string, group snippets.SnippetGroup) []*Row {
 	var toReturn []*Row
 	for groupItem, snippets := range group {
 		stats := snippetsToStats(allStats, snippets)
@@ -86,9 +85,9 @@ func statsToRowData(stats Stats) map[string]interface{} {
 	return toReturn
 }
 
-func snippetsToStats(allStats []string, snippets []*snippets.Snippet) Stats {
+func snippetsToStats(allStats []string, allSnippets []*snippets.Snippet) Stats {
 	stats := Stats{}
-	all := snippets.GroupSnippetsBy(snippets, snippets.ByType)
+	all := snippets.GroupSnippetsBy(allSnippets, snippets.ByType)
 
 	for _, stat := range allStats {
 		snippetsForType := all[stat]
@@ -99,7 +98,7 @@ func snippetsToStats(allStats []string, snippets []*snippets.Snippet) Stats {
 	return stats
 }
 
-func statsByGroup(allStats []string, group walker.SnippetGroup) map[string]Stats {
+func statsByGroup(allStats []string, group snippets.SnippetGroup) map[string]Stats {
 	toReturn := map[string]Stats{}
 	for groupItem, snippets := range group {
 		toReturn[groupItem] = snippetsToStats(allStats, snippets)

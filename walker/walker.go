@@ -3,6 +3,7 @@ package walker
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 type File interface {
@@ -15,23 +16,27 @@ func GetAllFiles(dirAbsolutePath string) []*FileDescription {
 	return getAllFiles(dirAbsolutePath, 0, ignoreContext{})
 }
 func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*FileDescription {
+	if !strings.HasSuffix(dirAbsolutePath, "/") {
+		dirAbsolutePath = dirAbsolutePath + "/"
+	}
 	var snippets []*FileDescription
 
 	files, _ := ioutil.ReadDir(dirAbsolutePath)
-	ignoreCtx.Add(files)
+	ignoreCtx.Add(dirAbsolutePath, files)
 
 	for _, entry := range files {
-		if ignoreCtx.ShouldIgnore(entry) {
+		path := dirAbsolutePath + entry.Name()
+		if ignoreCtx.shouldIgnore(path) {
 			continue
 		}
-		path := dirAbsolutePath + entry.Name()
+
 		if entry.IsDir() {
 			path += "/"
 			snippets = append(snippets, getAllFiles(path, depth+1, ignoreCtx)...)
 		} else {
 			snippets = append(snippets, &FileDescription{
-				AbsolutePath: path,
-				Info:         entry,
+				Path: path,
+				Info: entry,
 			})
 		}
 	}
@@ -39,6 +44,6 @@ func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*
 }
 
 type FileDescription struct {
-	AbsolutePath string
-	Info         os.FileInfo
+	Path string
+	Info os.FileInfo
 }
