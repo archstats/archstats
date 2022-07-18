@@ -3,10 +3,10 @@ module analyzer
 go 1.17
 
 require (
-	github.com/dghubble/trie v0.0.0-20220428154201-8146155f623e
 	github.com/gobwas/glob v0.2.3
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/ryanuber/columnize v2.1.2+incompatible
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/stretchr/testify v1.7.1
 )
 

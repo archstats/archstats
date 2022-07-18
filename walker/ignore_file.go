@@ -2,7 +2,7 @@ package walker
 
 import (
 	"bufio"
-	"github.com/gobwas/glob"
+	ignore "github.com/sabhiram/go-gitignore"
 	"io/fs"
 	"os"
 	"strings"
@@ -12,29 +12,32 @@ var (
 	ignoreFilesConst = [...]string{".gitignore", ".archstatsignore"}
 )
 
-// TODO test ignore
 type ignoreContext struct {
-	globs []glob.Glob
+	lines []string
 }
 
-func (ctx *ignoreContext) Add(path string, files []fs.FileInfo) {
-	ctx.globs = append(findGlobsInDir(path, files))
+func (ctx *ignoreContext) getGitIgnore() *ignore.GitIgnore {
+	return ignore.CompileIgnoreLines(ctx.lines...)
 }
 
-func findGlobsInDir(path string, entries []fs.FileInfo) []glob.Glob {
-	var globsToReturn []glob.Glob
+func (ctx *ignoreContext) addIgnoreLines(dirPath string, files []fs.FileInfo) {
+	ctx.lines = append(ctx.lines, getIgnoreLinesInDir(dirPath, files)...)
+}
+
+func getIgnoreLinesInDir(path string, entries []fs.FileInfo) []string {
+	var globsToReturn []string
 
 	for _, entry := range entries {
 		shouldIgnore := isIgnoreFile(path + entry.Name())
 		if shouldIgnore {
-			globsToReturn = append(globsToReturn, getGlobsFromFile(path, entry)...)
+			globsToReturn = append(globsToReturn, getIgnoreLinesInFile(path, entry)...)
 		}
 	}
 	return globsToReturn
 }
 
-func getGlobsFromFile(path string, fileInfo fs.FileInfo) []glob.Glob {
-	var globs []glob.Glob
+func getIgnoreLinesInFile(path string, fileInfo fs.FileInfo) []string {
+	var globs []string
 	file, _ := os.Open(path + fileInfo.Name())
 
 	defer file.Close()
@@ -42,19 +45,15 @@ func getGlobsFromFile(path string, fileInfo fs.FileInfo) []glob.Glob {
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		if g, err := glob.Compile(scanner.Text()); err == nil {
-			globs = append(globs, g)
-		}
+		globs = append(globs, scanner.Text())
 	}
 	return globs
 }
-func (ctx *ignoreContext) shouldIgnore(path string) bool {
-	for _, g := range ctx.globs {
-		if g.Match(path) {
-			return true
-		}
+func shouldIgnore(path string, gitIgnore *ignore.GitIgnore) bool {
+	if isIgnoreFile(path) {
+		return true
 	}
-	return isIgnoreFile(path)
+	return gitIgnore.MatchesPath(path)
 }
 func isIgnoreFile(path string) bool {
 	for _, s := range ignoreFilesConst {

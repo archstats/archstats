@@ -22,11 +22,12 @@ func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*
 	var snippets []*FileDescription
 
 	files, _ := ioutil.ReadDir(dirAbsolutePath)
-	ignoreCtx.Add(dirAbsolutePath, files)
+	ignoreCtx.addIgnoreLines(dirAbsolutePath, files)
 
+	gitIgnore := ignoreCtx.getGitIgnore()
 	for _, entry := range files {
 		path := dirAbsolutePath + entry.Name()
-		if ignoreCtx.shouldIgnore(path) {
+		if shouldIgnore(path, gitIgnore) {
 			continue
 		}
 
