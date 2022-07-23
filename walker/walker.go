@@ -6,12 +6,6 @@ import (
 	"strings"
 )
 
-type File interface {
-	Path() string
-	Info() os.FileInfo
-	Content() []byte
-}
-
 func GetAllFiles(dirAbsolutePath string) []*FileDescription {
 	return getAllFiles(dirAbsolutePath, 0, ignoreContext{})
 }
@@ -36,8 +30,8 @@ func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*
 			snippets = append(snippets, getAllFiles(path, depth+1, ignoreCtx)...)
 		} else {
 			snippets = append(snippets, &FileDescription{
-				Path: path,
-				Info: entry,
+				path: path,
+				info: entry,
 			})
 		}
 	}
@@ -45,6 +39,14 @@ func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*
 }
 
 type FileDescription struct {
-	Path string
-	Info os.FileInfo
+	path string
+	info os.FileInfo
+}
+
+func (f *FileDescription) Path() string {
+	return f.path
+}
+
+func (f *FileDescription) Info() os.FileInfo {
+	return f.info
 }

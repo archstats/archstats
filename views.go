@@ -3,15 +3,17 @@ package main
 import (
 	"analyzer/snippets"
 	"fmt"
+	"sort"
 )
 
 // getRowsFromResults returns the list of rows based on the input command from the CLI
-func getRowsFromResults(command string, results *snippets.Results) ([]*Row, error) {
+func getRowsFromResults(command string, results *snippets.Results) (*View, error) {
 	views := map[string]ViewFunction{
 		"components":            ComponentView,
 		"files":                 FileView,
 		"directories":           DirectoryView,
 		"directories-recursive": DirectoryRecursiveView,
+		"snippets":              SnippetsView,
 	}
 
 	if view, isAnAvailableView := views[command]; isAnAvailableView {
@@ -21,27 +23,52 @@ func getRowsFromResults(command string, results *snippets.Results) ([]*Row, erro
 	}
 }
 
-type ViewFunction func(results *snippets.Results) []*Row
+type ViewFunction func(results *snippets.Results) *View
 
+type View struct {
+	orderedColumns []string
+	rows           []*Row
+}
 type Row struct {
-	Name string
 	Data map[string]interface{}
 }
 
-func DirectoryView(results *snippets.Results) []*Row {
-	return GenericView(getDistinctStatsFromResults(results), results.SnippetsByDirectory)
+func DirectoryView(results *snippets.Results) *View {
+	return GenericView(getDistinctColumnsFromResults(results), results.SnippetsByDirectory)
 }
-func ComponentView(results *snippets.Results) []*Row {
-	return GenericView(getDistinctStatsFromResults(results), results.SnippetsByComponent)
+func ComponentView(results *snippets.Results) *View {
+	return GenericView(getDistinctColumnsFromResults(results), results.SnippetsByComponent)
 }
-func FileView(results *snippets.Results) []*Row {
-	return GenericView(getDistinctStatsFromResults(results), results.SnippetsByFile)
+func FileView(results *snippets.Results) *View {
+	return GenericView(getDistinctColumnsFromResults(results), results.SnippetsByFile)
 }
 
-func DirectoryRecursiveView(results *snippets.Results) []*Row {
+func SnippetsView(results *snippets.Results) *View {
+	toReturn := make([]*Row, 0, len(results.Snippets))
+	for _, snippet := range results.Snippets {
+		toReturn = append(toReturn, &Row{
+			Data: map[string]interface{}{
+				"file":      snippet.File,
+				"directory": snippet.Directory,
+				"component": snippet.Component,
+				"type":      snippet.Type,
+				"begin":     snippet.Begin,
+				"end":       snippet.End,
+				"value":     snippet.Value,
+			},
+		})
+	}
+	return &View{
+		orderedColumns: []string{"value", "file", "directory", "component", "type", "begin", "end"},
+		rows:           toReturn,
+	}
+}
+
+func DirectoryRecursiveView(results *snippets.Results) *View {
 	var toReturn []*Row
 	snippetsByDirectory := results.SnippetsByDirectory
-	statsByDirectory := statsByGroup(getDistinctStatsFromResults(results), snippetsByDirectory)
+	allColumns := getDistinctColumnsFromResults(results)
+	statsByDirectory := statsByGroup(allColumns, snippetsByDirectory)
 	allDirs := make([]string, 0, len(snippetsByDirectory))
 
 	for dir, _ := range snippetsByDirectory {
@@ -57,28 +84,43 @@ func DirectoryRecursiveView(results *snippets.Results) []*Row {
 			stats = stats.Merge(statsByDirectory[subDir])
 		}
 		toReturn = append(toReturn, &Row{
-			Name: dir,
-			Data: statsToRowData(stats),
+			Data: statsToRowData(dir, stats),
 		})
 	}
-	return toReturn
+	columnsToReturn := []string{"name"}
+	for _, column := range allColumns {
+		columnsToReturn = append(columnsToReturn, column)
+	}
+	return &View{
+		orderedColumns: columnsToReturn,
+		rows:           toReturn,
+	}
 }
 
-func GenericView(allStats []string, group snippets.SnippetGroup) []*Row {
+func GenericView(allColumns []string, group snippets.SnippetGroup) *View {
 	var toReturn []*Row
 	for groupItem, snippets := range group {
-		stats := snippetsToStats(allStats, snippets)
-		data := statsToRowData(stats)
+		stats := snippetsToStats(allColumns, snippets)
+		data := statsToRowData(groupItem, stats)
 		toReturn = append(toReturn, &Row{
-			Name: groupItem,
+			//Name: groupItem,
 			Data: data,
 		})
 	}
-	return toReturn
+
+	columnsToReturn := []string{"name"}
+	for _, column := range allColumns {
+		columnsToReturn = append(columnsToReturn, column)
+	}
+	return &View{
+		orderedColumns: columnsToReturn,
+		rows:           toReturn,
+	}
 }
 
-func statsToRowData(stats Stats) map[string]interface{} {
-	toReturn := make(map[string]interface{}, len(stats))
+func statsToRowData(name string, stats Stats) map[string]interface{} {
+	toReturn := make(map[string]interface{}, len(stats)+1)
+	toReturn["name"] = name
 	for k, v := range stats {
 		toReturn[k] = v
 	}
@@ -122,10 +164,11 @@ func getDistinctStatsFromRows(all []*Row) []string {
 	return keys
 }
 
-func getDistinctStatsFromResults(results *snippets.Results) []string {
+func getDistinctColumnsFromResults(results *snippets.Results) []string {
 	var toReturn []string
 	for theType, _ := range results.SnippetsByType {
 		toReturn = append(toReturn, theType)
 	}
+	sort.Strings(toReturn)
 	return toReturn
 }

@@ -2,23 +2,23 @@ package main
 
 import (
 	"sort"
-	"strings"
 )
 
-func sortRows(sortFieldName string, resultsFromCommand []*Row) {
-	if len(resultsFromCommand) == 0 {
+func sortRows(sortFieldName string, resultsFromCommand *View) {
+	if len(resultsFromCommand.rows) == 0 {
 		return
 	}
 
-	aFieldExample := getFieldExample(resultsFromCommand, sortFieldName)
+	aFieldExample := getFieldExample(resultsFromCommand.rows, sortFieldName)
+	var lessFunc func(i int, j int) bool
+
 	if sortFieldName == "" || aFieldExample == nil {
-		sort.Slice(resultsFromCommand, func(i, j int) bool {
-			return strings.Compare(resultsFromCommand[i].Name, resultsFromCommand[j].Name) == 0
-		})
+		defaultColumn := resultsFromCommand.orderedColumns[0]
+		lessFunc = getLessFunc(aFieldExample, resultsFromCommand.rows, defaultColumn)
 	} else {
-		lessFunc := getLessFunc(aFieldExample, resultsFromCommand, sortFieldName)
-		sort.Slice(resultsFromCommand, lessFunc)
+		lessFunc = getLessFunc(aFieldExample, resultsFromCommand.rows, sortFieldName)
 	}
+	sort.Slice(resultsFromCommand.rows, lessFunc)
 }
 
 func getFieldExample(resultsFromCommand []*Row, sortFieldName string) interface{} {

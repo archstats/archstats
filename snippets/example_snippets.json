@@ -1,0 +1,488 @@
+[
+  {
+    "begin": 633,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 639,
+    "file": "/app/WebUI/Commands/AddCategory.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 579,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 585,
+    "file": "/app/WebUI/Commands/AlgoliaUpdateCustomerAppSearchIndeces.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 465,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 471,
+    "file": "/app/WebUI/Commands/AlgoliaUpdateDCKWSearchIndeces.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 481,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 487,
+    "file": "/app/WebUI/Commands/CheckExactAdmin.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 367,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 373,
+    "file": "/app/WebUI/Commands/ClearSendgridSpamlist.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 651,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 657,
+    "file": "/app/WebUI/Commands/ExportTranslations.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 514,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 520,
+    "file": "/app/WebUI/Commands/ClearSerializationCache.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 602,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 613,
+    "file": "/app/WebUI/Commands/ClearQueue.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 740,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 746,
+    "file": "/app/WebUI/Commands/ClearQueue.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 482,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 488,
+    "file": "/app/WebUI/Commands/CompareCreditBalancesWithCreditReceptionsAndRewardReceptions.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 600,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 606,
+    "file": "/app/WebUI/Commands/CreateGroups.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 511,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 517,
+    "file": "/app/WebUI/Commands/FindNonTranslatedTags.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 560,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 571,
+    "file": "/app/WebUI/Commands/ClearTemplateCache.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 692,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 698,
+    "file": "/app/WebUI/Commands/ClearTemplateCache.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 879,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 890,
+    "file": "/app/WebUI/Commands/FindBrokenThemes.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 1141,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1152,
+    "file": "/app/WebUI/Commands/CreateShopDetails.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 1297,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1303,
+    "file": "/app/WebUI/Commands/CreateShopDetails.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 938,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 949,
+    "file": "/app/WebUI/Commands/FindStoresWithGiftcardTransactionButWithoutGiftcardModule.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 1238,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1244,
+    "file": "/app/WebUI/Commands/FindStoresWithGiftcardTransactionButWithoutGiftcardModule.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 704,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 710,
+    "file": "/app/WebUI/Commands/FireExternalRewardCreatedEvent.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 601,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 607,
+    "file": "/app/WebUI/Commands/DatabaseCreateCommand.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 1735,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1751,
+    "file": "/app/WebUI/Commands/DatabaseCreateCommand.php",
+    "type": "function",
+    "value": "getPDOConnection"
+  },
+  {
+    "begin": 417,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 423,
+    "file": "/app/WebUI/Commands/DownCommand.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 577,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 583,
+    "file": "/app/WebUI/Commands/EnsurePermissionsAreUpToDate.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 662,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 673,
+    "file": "/app/WebUI/Commands/GenerateEntity.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 811,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 817,
+    "file": "/app/WebUI/Commands/GenerateEntity.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 743,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 749,
+    "file": "/app/WebUI/Commands/ImportLibraryAssets.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 508,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 514,
+    "file": "/app/WebUI/Commands/CustomersWithCreditBalanceButNoCreditReceptions.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 503,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 509,
+    "file": "/app/WebUI/Commands/MergeMemberGlobally.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 789,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 800,
+    "file": "/app/WebUI/Commands/MigrateLoyaltyProgramSettings.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 1073,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1079,
+    "file": "/app/WebUI/Commands/MigrateLoyaltyProgramSettings.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 997,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1008,
+    "file": "/app/WebUI/Commands/MoveLogosToShopTheme.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 1308,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1314,
+    "file": "/app/WebUI/Commands/MoveLogosToShopTheme.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 856,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 862,
+    "file": "/app/WebUI/Commands/NewImportCustomers.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 839,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 850,
+    "file": "/app/WebUI/Commands/RegenerateConversionsForMissingLogos.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 2520,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 2530,
+    "file": "/app/WebUI/Commands/RegenerateConversionsForMissingLogos.php",
+    "type": "function",
+    "value": "checkMedia"
+  },
+  {
+    "begin": 607,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 618,
+    "file": "/app/WebUI/Commands/QueueSize.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 745,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 751,
+    "file": "/app/WebUI/Commands/QueueSize.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 781,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 787,
+    "file": "/app/WebUI/Commands/SetBusinessPageUrls.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 496,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 502,
+    "file": "/app/WebUI/Commands/SetCache.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 1003,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1009,
+    "file": "/app/WebUI/Commands/SetExpirationDateForGiftcards.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 876,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 887,
+    "file": "/app/WebUI/Commands/SetStagedCreditReceptionsHashColumn.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 1669,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1669,
+    "file": "/app/WebUI/Commands/SetStagedCreditReceptionsHashColumn.php",
+    "type": "function",
+    "value": ""
+  },
+  {
+    "begin": 407,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 413,
+    "file": "/app/WebUI/Commands/UpCommand.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 560,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 566,
+    "file": "/app/WebUI/Commands/UpdateShopsWithType.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 975,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 986,
+    "file": "/app/WebUI/Commands/UpdateWorkerExtendedMetric.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 1164,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1170,
+    "file": "/app/WebUI/Commands/UpdateWorkerExtendedMetric.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 2715,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 2727,
+    "file": "/app/WebUI/Commands/UpdateWorkerExtendedMetric.php",
+    "type": "function",
+    "value": "getQueueSize"
+  },
+  {
+    "begin": 1543,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1559,
+    "file": "/app/WebUI/Commands/UpdateThemeColors.php",
+    "type": "function",
+    "value": "adjustBrightness"
+  },
+  {
+    "begin": 958,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 969,
+    "file": "/app/WebUI/Commands/UpdateWorkerMetric.php",
+    "type": "function",
+    "value": "__construct"
+  },
+  {
+    "begin": 1147,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 1153,
+    "file": "/app/WebUI/Commands/UpdateWorkerMetric.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 2646,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 2658,
+    "file": "/app/WebUI/Commands/UpdateWorkerMetric.php",
+    "type": "function",
+    "value": "getQueueSize"
+  },
+  {
+    "begin": 564,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 570,
+    "file": "/app/WebUI/Commands/UpdateCreditBalances.php",
+    "type": "function",
+    "value": "handle"
+  },
+  {
+    "begin": 846,
+    "component": "",
+    "directory": "/app/WebUI/Commands",
+    "end": 857,
+    "file": "/app/WebUI/Commands/MakeShopMenuItem.php",
+    "type": "function",
+    "value": "__construct"
+  }
+]

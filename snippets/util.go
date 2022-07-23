@@ -3,7 +3,6 @@ package snippets
 type SnippetGroup map[string][]*Snippet
 type GroupSnippetByFunc func(*Snippet) string
 
-//filter Snippets by function
 func FilterSnippets(snippets []*Snippet, filter func(*Snippet) bool) []*Snippet {
 	toReturn := make([]*Snippet, 0)
 	for _, snippet := range snippets {

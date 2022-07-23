@@ -28,7 +28,6 @@ func ToPaths(nodes []*Directory) []string {
 }
 
 func createDirectoryTree(root string, input []string) map[string]*Directory {
-
 	root = normalizeDirectoryPath(root)
 	allPaths := fillOutDirectoryTree(root, input)
 	lookupTable := make(map[string]*Directory, len(input))
@@ -43,7 +42,6 @@ func createDirectoryTree(root string, input []string) map[string]*Directory {
 			parentNode.Children = append(parentNode.Children, node)
 			node.Parent = parentNode
 		}
-
 	}
 	return lookupTable
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/stretchr/testify/assert"
-	"strconv"
 	"testing"
 )
 
@@ -10,7 +9,6 @@ func TestSortRows(t *testing.T) {
 
 	createNewLineRow := func(newLine int) *Row {
 		return &Row{
-			Name: "file" + strconv.Itoa(newLine),
 			Data: map[string]interface{}{"newLine": newLine},
 		}
 	}
@@ -33,7 +31,10 @@ func TestSortRows(t *testing.T) {
 		createNewLineRow(10),
 	}
 
-	sortRows("newLine", rowsUnsorted)
+	sortRows("newLine", &View{
+		orderedColumns: []string{"name", "newLine"},
+		rows:           rowsUnsorted,
+	})
 	for i, row := range rowsUnsorted {
 		assert.Equal(t, row.Data["newLine"], rowsSorted[i].Data["newLine"])
 	}

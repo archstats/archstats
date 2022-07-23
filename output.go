@@ -8,18 +8,19 @@ import (
 	"strings"
 )
 
-func printRows(statsToPrint []string, resultsFromCommand []*Row, genOpts *GeneralOptions) {
+func printRows(resultsFromCommand *View, genOpts *GeneralOptions) {
+	columnsToPrint := resultsFromCommand.orderedColumns
 	switch genOpts.OutputFormat {
 	case "csv":
-		fmt.Println(getRows(statsToPrint, resultsFromCommand, !genOpts.NoHeader, ","))
+		fmt.Println(getRows(columnsToPrint, resultsFromCommand.rows, !genOpts.NoHeader, ","))
 	case "tsv":
-		fmt.Println(getRows(statsToPrint, resultsFromCommand, !genOpts.NoHeader, "\t"))
+		fmt.Println(getRows(columnsToPrint, resultsFromCommand.rows, !genOpts.NoHeader, "\t"))
 	case "json":
-		printJson(statsToPrint, resultsFromCommand)
+		printJson(columnsToPrint, resultsFromCommand.rows)
 	case "ndjson":
-		printNdjson(statsToPrint, resultsFromCommand)
+		printNdjson(columnsToPrint, resultsFromCommand.rows)
 	default:
-		fmt.Println(columnize.SimpleFormat(getRows(statsToPrint, resultsFromCommand, !genOpts.NoHeader, "|")))
+		fmt.Println(columnize.SimpleFormat(getRows(columnsToPrint, resultsFromCommand.rows, !genOpts.NoHeader, "|")))
 	}
 }
 
@@ -42,7 +43,6 @@ func printJson(stats []string, command []*Row) {
 func measurableToMap(measurable *Row, stats []string) map[string]interface{} {
 	toReturn := map[string]interface{}{}
 
-	toReturn["name"] = measurable.Name
 	for _, stat := range stats {
 		toReturn[stat] = measurable.Data[stat]
 	}
@@ -50,37 +50,34 @@ func measurableToMap(measurable *Row, stats []string) map[string]interface{} {
 	return toReturn
 }
 
-func getRows(statsToPrint []string, resultsFromCommand []*Row, shouldPrintHeader bool, delimiter string) []string {
-	sort.Strings(statsToPrint)
+func getRows(columnsToPrint []string, resultsFromCommand []*Row, shouldPrintHeader bool, delimiter string) []string {
+	sort.Strings(columnsToPrint)
 
 	var rows []string
 
 	if shouldPrintHeader {
-		rows = append(rows, getHeader(delimiter, statsToPrint))
+		rows = append(rows, getHeader(delimiter, columnsToPrint))
 	}
 	for _, dir := range resultsFromCommand {
-		rows = append(rows, rowToString(statsToPrint, delimiter, dir))
+		rows = append(rows, rowToString(columnsToPrint, delimiter, dir))
 	}
 	return rows
 }
 
-func getHeader(delimiter string, statsToPrint []string) string {
-	return strings.ToUpper(fmt.Sprintf("name%s%s", delimiter, strings.Join(statsToPrint, delimiter)))
+func getHeader(delimiter string, columnsToPrint []string) string {
+	return strings.ToUpper(fmt.Sprintf("name%s%s", delimiter, strings.Join(columnsToPrint, delimiter)))
 }
-func rowToString(statsToPrint []string, delimiter string, row *Row) string {
-	buf := strings.Builder{}
-	stats := row.Data
+func rowToString(columnsToPrint []string, delimiter string, row *Row) string {
+	toReturn := make([]string, 0, len(columnsToPrint))
+	columns := row.Data
 
-	buf.WriteString(fmt.Sprint(row.Name))
-
-	for _, statToPrint := range statsToPrint {
-		theStat, hasStat := stats[statToPrint]
-		buf.WriteString(fmt.Sprintf(delimiter))
+	for _, columnToPrint := range columnsToPrint {
+		theStat, hasStat := columns[columnToPrint]
 		if hasStat {
-			buf.WriteString(fmt.Sprintf("%d", theStat))
+			toReturn = append(toReturn, fmt.Sprintf("%v", theStat))
 		} else {
-			buf.WriteString("0")
+			toReturn = append(toReturn, "-")
 		}
 	}
-	return buf.String()
+	return strings.Join(toReturn, delimiter)
 }

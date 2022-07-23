@@ -1,7 +1,6 @@
 package snippets
 
 import (
-	"analyzer/walker"
 	"regexp"
 )
 
@@ -9,7 +8,7 @@ type RegexBasedSnippetsProvider struct {
 	Patterns []*regexp.Regexp
 }
 
-func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file walker.File) []*Snippet {
+func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file File) []*Snippet {
 	var toReturn []*Snippet
 	stringContent := string(file.Content())
 

@@ -1,36 +1,42 @@
 package snippets
 
 import (
-	"analyzer/walker"
 	"os"
 	"sync"
 )
 
 type Snippet struct {
-	File      string
-	Directory string
-	Component string
-	Type      string
-	Begin     int
-	End       int
-	Value     string
+	File      string `json:"file"`
+	Directory string `json:"directory"`
+	Component string `json:"component"`
+	Type      string `json:"type"`
+	Begin     int    `json:"begin"`
+	End       int    `json:"end"`
+	Value     string `json:"value"`
+}
+type FileDescription interface {
+	Path() string
+	Info() os.FileInfo
+}
+type File interface {
+	FileDescription
+	Content() []byte
 }
 
 type SnippetProvider interface {
-	GetSnippetsFromFile(walker.File) []*Snippet
+	GetSnippetsFromFile(File) []*Snippet
 }
 
-func GetSnippetsFromDirectory(rootPath string, visitors []SnippetProvider) []*Snippet {
+func GetSnippetsFromDirectory(allFiles []FileDescription, visitors []SnippetProvider) []*Snippet {
 	var toReturn []*Snippet
-	allFiles := walker.GetAllFiles(rootPath)
 
 	wg := &sync.WaitGroup{}
 	lock := &sync.Mutex{}
 
 	wg.Add(len(allFiles))
 	for _, theFile := range allFiles {
-		go func(file *walker.FileDescription, group *sync.WaitGroup) {
-			snippets := getSnippetsFromFile(file.Path, file.Info, visitors)
+		go func(file FileDescription, group *sync.WaitGroup) {
+			snippets := getSnippetsFromFile(file.Path(), file.Info(), visitors)
 			lock.Lock()
 			for _, snippet := range snippets {
 				toReturn = append(toReturn, snippet)

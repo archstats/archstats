@@ -10,6 +10,6 @@ func TestWalker(t *testing.T) {
 
 	assert.Len(t, allFiles, 4)
 	for _, file := range allFiles {
-		assert.NotContains(t, file.Path, "ignore")
+		assert.NotContains(t, file.Path(), "ignore")
 	}
 }

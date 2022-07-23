@@ -2,6 +2,7 @@ package main
 
 import (
 	"analyzer/snippets"
+	"fmt"
 	"github.com/jessevdk/go-flags"
 	"log"
 	"os"
@@ -62,7 +63,11 @@ func main() {
 	}
 }
 
-func runArchStats(args []string, generalOptions *GeneralOptions) {
+func runArchStats(args []string, generalOptions *GeneralOptions) error {
+
+	if len(args) != 2 {
+		return fmt.Errorf("expected two arguments: <command> <directory>")
+	}
 	command := args[0]
 	rootPath := args[1]
 
@@ -74,13 +79,18 @@ func runArchStats(args []string, generalOptions *GeneralOptions) {
 		},
 	)
 	settings := snippets.AnalysisSettings{SnippetProvider: extensions}
-	allResults, _ := snippets.Analyze(rootPath, settings)
-	resultsFromCommand, _ := getRowsFromResults(command, allResults)
-
+	allResults, err := snippets.Analyze(rootPath, settings)
+	if err != nil {
+		return err
+	}
+	resultsFromCommand, err := getRowsFromResults(command, allResults)
+	if err != nil {
+		return err
+	}
 	sortRows(generalOptions.SortedBy, resultsFromCommand)
-	statsToPrint := getDistinctStatsFromRows(resultsFromCommand)
 
-	printRows(statsToPrint, resultsFromCommand, generalOptions)
+	printRows(resultsFromCommand, generalOptions)
+	return nil
 }
 
 func parseRegexes(input []string) []*regexp.Regexp {

@@ -1,6 +1,7 @@
 package snippets
 
 import (
+	"analyzer/walker"
 	"strings"
 )
 
@@ -28,13 +29,17 @@ type AnalysisSettings struct {
 }
 
 func Analyze(rootPath string, settings AnalysisSettings) (*Results, error) {
+	var allFiles []FileDescription
 
-	snippets := GetSnippetsFromDirectory(rootPath, settings.SnippetProvider)
+	for _, file := range walker.GetAllFiles(rootPath) {
+		allFiles = append(allFiles, file)
+	}
+	allSnippets := GetSnippetsFromDirectory(allFiles, settings.SnippetProvider)
 
-	return calculateResults(rootPath, snippets), nil
+	return CalculateResults(allSnippets), nil
 }
 
-func calculateResults(root string, allSnippets []*Snippet) *Results {
+func CalculateResults(allSnippets []*Snippet) *Results {
 	//set Directory name for each Snippet
 	setDirectories(allSnippets)
 	setComponents(allSnippets)
@@ -59,7 +64,6 @@ func calculateResults(root string, allSnippets []*Snippet) *Results {
 		return connection.To
 	})
 	return &Results{
-		RootDirectory:       root,
 		Snippets:            allSnippets,
 		SnippetsByDirectory: allGroups["ByDirectory"],
 		SnippetsByComponent: allGroups["ByComponent"],
