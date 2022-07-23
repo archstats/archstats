@@ -49,6 +49,22 @@ Here is a mapping between famous programming languages and their components:
 Snippets are the smallest units of code that can be analyzed in Archstats. They are references to the _architecturally significant_
 parts of a file. These snippets are then aggregated to create insights for a codebase.
 
+## Built-in snippet types
+Archstats has several built-in snippet types. These types are used to help provide semantic meaning to standard snippets across codebases.
+| Type | Description                                                                                                                                                                                                                                                                                                                                                    |
+|------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `componentDeclaration` | A component declaration is a snippet that defines a component within a file. It's usually something like a package/namespace/module declaration. More on components [here](#faq). An example of a java `componentDeclaration` is something like `package com.example.my.cool.package` where `com.example.my.cool.package` is the actual `componentDeclaration` |
+| `componentImport`      | A component import is a snippet that defines the import of a component. It's usually an import/using statement in most languages. In java it looks like this `import com.example.my.cool.package.MyCoolClass` where `com.example.my.cool.package` is the actual `componentImport`  |                                                                              |
+| `function`             | A function is a snippet that defines a function. It's usually a function declaration. In java it looks like this `public void myFunction()` where `myFunction` is the actual `function` |
+| `abstractElement` | An abstract element is an interface or abstract class. In java it looks like this `public abstract class MyAbstractClass` where `MyAbstractClass` is the actual `abstractElement` |
+| `class` | A class is a snippet that defines a class. It's usually a class declaration. In java it looks like this `public class MyClass` where `MyClass` is the actual `class` |
+
+## Language extensions
+Archstats supports a number of _optional_ language extensions. These extensions are used to assist users in getting started with Archstats. They pre-configure Archstats with build-in snippet types for the specified language.
+
+Supported language extensions are:
+- `php`
+
 ## Views
 Archstats supports a number of views. A view is an aggregation of the snippets found throughout the project. A view can be selected by using the `--view` or `-v` option.  The default view is `directories-recursive`.
 
@@ -60,23 +76,6 @@ Archstats supports a number of views. A view is an aggregation of the snippets f
 | `files`                 | Goes through all the files in a project and counts snippets by type                                                                                                                                                                                                                                                                                                                                                                  |
 | `components`            | Every unique snippet with a `componentDeclaration` type will generate a new component. If a file has a `componentDeclaration`, all snippets within that file will correspond to the related component. This view aggregates the counts of snippets per component. _Note_: requires `componentDeclaration` snippet type.                                                                                                              |
 | `component-connections` | Every snippet with a type of `componentImport` that matches a `componentDeclaration` will create a 'component connection'. The connection has a 'from' as the `componentImport` and a 'to' as the `componentDeclaration`. _Note_: requires `componentDeclaration` and `componentImport` snippet types.                                                                                                                               |
-
-## Built-in snippet types
-Archstats has several built-in snippet types. These types are used to help provide semantic meaning to standard snippets across codebases.
-| Type | Description                                                                                                                                                                                                                                                                                                                                                    |
-|------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `componentDeclaration` | A component declaration is a snippet that defines a component within a file. It's usually something like a package/namespace/module declaration. More on components [here](#faq). An example of a java `componentDeclaration` is something like `package com.example.my.cool.package` where `com.example.my.cool.package` is the actual `componentDeclaration` |
-| `componentImport`      | A component import is a snippet that defines the import of a component. It's usually an import/using statement in most languages. In java it looks like this `import com.example.my.cool.package.MyCoolClass` where `com.example.my.cool.package` is the actual `componentImport`  |                                                                              |
-| `function`             | A function is a snippet that defines a function. It's usually a function declaration. In java it looks like this `public void myFunction()` where `myFunction` is the actual `function` |
-| `abstractElement` | An abstract element is an interface or abstract class. In java it looks like this `public abstract class MyAbstractClass` where `MyAbstractClass` is the actual `abstractElement` |
-| `class` | A class is a snippet that defines a class. It's usually a class declaration. In java it looks like this `public class MyClass` where `MyClass` is the actual `class` |
-
-
-## Language extensions
-Archstats supports a number of _optional_ language extensions. These extensions are used to assist users in getting started with Archstats. They pre-configure Archstats with build-in snippet types for the specified language.
-
-Supported language extensions are:
-- PHP
 
 ## Ignoring files
 Archstats can be configured to ignore certain files. This is useful when there are files that you don't want to include in analysis.
