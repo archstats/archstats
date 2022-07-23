@@ -83,7 +83,7 @@ Archstats can be configured to ignore certain files. This is useful when there a
 Archstats recursively looks for `.gitignore`/`.archstatsignore` files throughout the project and ignores files & directories according to the [.gitignore format](https://git-scm.com/docs/gitignore).
 
 
-# More Examples
+# Examples
 
 ### In my PHP project, I want to count how many statements there are in each component/namespace.
 
