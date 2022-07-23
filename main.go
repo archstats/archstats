@@ -13,10 +13,13 @@ import (
 )
 
 type GeneralOptions struct {
-	View    string `positional-args:"0" description:"Type of view to show" required:"true"`
-	RootDir string `positional-args:"1" description:"Root directory" required:"true"`
+	Args struct {
+		RootDir string `description:"Root directory of the project" required:"true" positional-arg-name:"<project-directory>"`
+	} `positional-args:"true" required:"true"`
 
-	RegexStats []string `short:"r" long:"regex-snippets" description:"Regular Expression to match snippet types. Snippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'"`
+	View string `short:"v" long:"view" default:"directories-recursive" description:"Type of view to show" required:"true" choice:"components" choice:"component-connections" choice:"files" choice:"directories" choice:"directories-recursive" choice:"snippets"`
+
+	RegexStats []string `short:"r" long:"regex-snippet" description:"Regular Expression to match snippet types. Snippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'"`
 
 	Language string `short:"l" long:"language" choice:"php" description:"Programming language. This flag adds language-specific snippet type support for components, packages, functions, etc."`
 
@@ -26,8 +29,10 @@ type GeneralOptions struct {
 
 	OutputFormat string `short:"o" long:"output-format" choice:"table" choice:"ndjson" choice:"json" choice:"csv" choice:"tsv" description:"Output format"`
 
-	CpuProfile string `long:"cpu-profile" description:"Write cpu profile to file"`
-	MemProfile string `long:"mem-profile" description:"Write memory profile to file"`
+	Profile struct {
+		Cpu string `long:"cpu" description:"File to write CPU profile to"`
+		Mem string `long:"mem" description:"File to write memory profile to"`
+	} `group:"Profiling" hidden:"true" namespace:"profile"`
 }
 
 func main() {
@@ -39,8 +44,8 @@ func main() {
 	}
 
 	// Enable cpu profiling if requested.
-	if generalOptions.CpuProfile != "" {
-		f, err := os.Create(generalOptions.CpuProfile)
+	if generalOptions.Profile.Cpu != "" {
+		f, err := os.Create(generalOptions.Profile.Cpu)
 		if err != nil {
 			log.Fatal("could not create CPU profile: ", err)
 		}
@@ -54,8 +59,8 @@ func main() {
 	runArchStats(generalOptions)
 
 	// Enable memory profiling if requested.
-	if generalOptions.MemProfile != "" {
-		f, err := os.Create(generalOptions.MemProfile)
+	if generalOptions.Profile.Mem != "" {
+		f, err := os.Create(generalOptions.Profile.Mem)
 		if err != nil {
 			log.Fatal("could not create memory profile: ", err)
 		}
@@ -77,7 +82,7 @@ func runArchStats(generalOptions *GeneralOptions) error {
 		},
 	)
 	settings := snippets.AnalysisSettings{SnippetProviders: extensions}
-	allResults, err := Analyze(generalOptions.RootDir, settings)
+	allResults, err := Analyze(generalOptions.Args.RootDir, settings)
 	if err != nil {
 		return err
 	}
