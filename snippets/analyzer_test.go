@@ -23,48 +23,41 @@ func TestCalculateResults_ComponentConnections(t *testing.T) {
 	snippets := []*Snippet{
 		// Package/Component declarations
 		{
-			File:      "src/main/java/mainPackage/testFile1.java",
-			Directory: "src/main/java/mainPackage",
-			Type:      "componentDeclaration",
-			Value:     "mainPackage",
+			File:  "src/main/java/mainPackage/testFile1.java",
+			Type:  "componentDeclaration",
+			Value: "mainPackage",
 		},
 		{
-			File:      "src/main/java/mainPackage/subpackage1/testFile2.java",
-			Directory: "src/main/java/mainPackage/subpackage1",
-			Type:      "componentDeclaration",
-			Value:     "mainPackage.subpackage1",
+			File:  "src/main/java/mainPackage/subpackage1/testFile2.java",
+			Type:  "componentDeclaration",
+			Value: "mainPackage.subpackage1",
 		},
 		{
-			File:      "src/main/java/mainPackage/subpackage2/testFile3.java",
-			Directory: "src/main/java/mainPackage/subpackage2",
-			Type:      "componentDeclaration",
-			Value:     "mainPackage.subpackage2",
+			File:  "src/main/java/mainPackage/subpackage2/testFile3.java",
+			Type:  "componentDeclaration",
+			Value: "mainPackage.subpackage2",
 		},
 
 		// Package/Component imports
 		{
-			File:      "src/main/java/mainPackage/testFile1.java",
-			Directory: "src/main/java/mainPackage",
-			Type:      "componentImport",
-			Value:     "mainPackage.subpackage1",
+			File:  "src/main/java/mainPackage/testFile1.java",
+			Type:  "componentImport",
+			Value: "mainPackage.subpackage1",
 		},
 		{
-			File:      "src/main/java/mainPackage/testFile1.java",
-			Directory: "src/main/java/mainPackage",
-			Type:      "componentImport",
-			Value:     "someRandomPackage.thatsNotInCodebase",
+			File:  "src/main/java/mainPackage/testFile1.java",
+			Type:  "componentImport",
+			Value: "someRandomPackage.thatsNotInCodebase",
 		},
 		{
-			File:      "src/main/java/mainPackage/testFile1.java",
-			Directory: "src/main/java/mainPackage",
-			Type:      "componentImport",
-			Value:     "mainPackage.subpackage2",
+			File:  "src/main/java/mainPackage/testFile1.java",
+			Type:  "componentImport",
+			Value: "mainPackage.subpackage2",
 		},
 		{
-			File:      "src/main/java/mainPackage/subpackage1/testFile2.java",
-			Directory: "src/main/java/mainPackage/subpackage1",
-			Type:      "componentImport",
-			Value:     "mainPackage.subpackage2",
+			File:  "src/main/java/mainPackage/subpackage1/testFile2.java",
+			Type:  "componentImport",
+			Value: "mainPackage.subpackage2",
 		},
 	}
 
