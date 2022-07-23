@@ -1,7 +1,7 @@
 package main
 
 import (
-	"analyzer/snippets"
+	"archstats/snippets"
 	"fmt"
 	"regexp"
 )
