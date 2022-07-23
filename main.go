@@ -16,15 +16,15 @@ type GeneralOptions struct {
 	View    string `positional-args:"0" description:"Type of view to show" required:"true"`
 	RootDir string `positional-args:"1" description:"Root directory" required:"true"`
 
-	RegexStats []string `short:"r" long:"snippet-type" description:""`
+	RegexStats []string `short:"r" long:"regex-snippets" description:"Regular Expression to match snippet types. Snippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'"`
 
-	Language string `short:"l" long:"language" description:"Programming language. This flag adds language-specific support for components, packages, functions, etc. (Supported: php)"`
+	Language string `short:"l" long:"language" choice:"php" description:"Programming language. This flag adds language-specific snippet type support for components, packages, functions, etc."`
 
-	NoHeader bool `long:"no-header" description:"No header (only applicable csv, tsv, table)"`
+	NoHeader bool `long:"no-header" description:"No header (only applicable for csv, tsv, table)"`
 
 	SortedBy string `long:"sorted-by" short:"s" description:"Sorted by column name. For number based columns, this is in descending order."`
 
-	OutputFormat string `short:"o" long:"output-format" description:"Output format: table, ndjson, json, csv (default: table)"`
+	OutputFormat string `short:"o" long:"output-format" choice:"table" choice:"ndjson" choice:"json" choice:"csv" choice:"tsv" description:"Output format"`
 
 	CpuProfile string `long:"cpu-profile" description:"Write cpu profile to file"`
 	MemProfile string `long:"mem-profile" description:"Write memory profile to file"`
@@ -32,7 +32,7 @@ type GeneralOptions struct {
 
 func main() {
 	generalOptions := &GeneralOptions{}
-	args, err := flags.Parse(generalOptions)
+	_, err := flags.Parse(generalOptions)
 
 	if err != nil {
 		return
@@ -51,7 +51,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	runArchStats(args, generalOptions)
+	runArchStats(generalOptions)
 
 	// Enable memory profiling if requested.
 	if generalOptions.MemProfile != "" {
@@ -67,7 +67,7 @@ func main() {
 	}
 }
 
-func runArchStats(args []string, generalOptions *GeneralOptions) error {
+func runArchStats(generalOptions *GeneralOptions) error {
 
 	extensions := getLanguageExtensions(generalOptions.Language)
 
