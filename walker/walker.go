@@ -4,16 +4,52 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 )
 
-func GetAllFiles(dirAbsolutePath string) []*FileDescription {
+func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file OpenedFile)) {
+	allFiles := GetAllFiles(dirAbsolutePath)
+	wg := &sync.WaitGroup{}
+	wg.Add(len(allFiles))
+	for _, theFile := range allFiles {
+		go func(file FileDescription, group *sync.WaitGroup) {
+
+			//TODO cleanup error handling
+			content, _ := os.ReadFile(file.Path())
+			openedFile := &absoluteFile{
+				path:    file.Path(),
+				info:    file.Info(),
+				content: content,
+			}
+
+			visitor(openedFile)
+			group.Done()
+		}(theFile, wg)
+	}
+	wg.Wait()
+}
+
+func GetAllFiles(dirAbsolutePath string) []*fileDescription {
 	return getAllFiles(dirAbsolutePath, 0, ignoreContext{})
 }
-func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*FileDescription {
+
+type FileDescription interface {
+	Path() string
+	Info() os.FileInfo
+}
+type OpenedFile interface {
+	FileDescription
+	Content() []byte
+}
+type FileVisitor interface {
+	Visit(file OpenedFile)
+}
+
+func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*fileDescription {
 	if !strings.HasSuffix(dirAbsolutePath, "/") {
 		dirAbsolutePath = dirAbsolutePath + "/"
 	}
-	var snippets []*FileDescription
+	var snippets []*fileDescription
 
 	files, _ := ioutil.ReadDir(dirAbsolutePath)
 	ignoreCtx.addIgnoreLines(dirAbsolutePath, files)
@@ -29,7 +65,7 @@ func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*
 			path += "/"
 			snippets = append(snippets, getAllFiles(path, depth+1, ignoreCtx)...)
 		} else {
-			snippets = append(snippets, &FileDescription{
+			snippets = append(snippets, &fileDescription{
 				path: path,
 				info: entry,
 			})
@@ -38,15 +74,33 @@ func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*
 	return snippets
 }
 
-type FileDescription struct {
+type fileDescription struct {
 	path string
 	info os.FileInfo
 }
 
-func (f *FileDescription) Path() string {
+func (f *fileDescription) Path() string {
 	return f.path
 }
 
-func (f *FileDescription) Info() os.FileInfo {
+func (f *fileDescription) Info() os.FileInfo {
 	return f.info
+}
+
+type absoluteFile struct {
+	path    string
+	info    os.FileInfo
+	content []byte
+}
+
+func (a *absoluteFile) Content() []byte {
+	return a.content
+}
+
+func (a *absoluteFile) Path() string {
+	return a.path
+}
+
+func (a *absoluteFile) Info() os.FileInfo {
+	return a.info
 }

@@ -1,4 +1,4 @@
-module analyzer
+module archstats
 
 go 1.17
 

@@ -1,7 +1,6 @@
 package snippets
 
 import (
-	"analyzer/walker"
 	"strings"
 )
 
@@ -25,18 +24,7 @@ type Results struct {
 type Extension interface{}
 
 type AnalysisSettings struct {
-	SnippetProvider []SnippetProvider
-}
-
-func Analyze(rootPath string, settings AnalysisSettings) (*Results, error) {
-	var allFiles []FileDescription
-
-	for _, file := range walker.GetAllFiles(rootPath) {
-		allFiles = append(allFiles, file)
-	}
-	allSnippets := GetSnippetsFromDirectory(allFiles, settings.SnippetProvider)
-
-	return CalculateResults(allSnippets), nil
+	SnippetProviders []SnippetProvider
 }
 
 func CalculateResults(allSnippets []*Snippet) *Results {

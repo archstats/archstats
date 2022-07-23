@@ -13,7 +13,7 @@ func sortRows(sortFieldName string, resultsFromCommand *View) {
 	var lessFunc func(i int, j int) bool
 
 	if sortFieldName == "" || aFieldExample == nil {
-		defaultColumn := resultsFromCommand.orderedColumns[0]
+		defaultColumn := resultsFromCommand.OrderedColumns[0]
 		lessFunc = getLessFunc(aFieldExample, resultsFromCommand.rows, defaultColumn)
 	} else {
 		lessFunc = getLessFunc(aFieldExample, resultsFromCommand.rows, sortFieldName)

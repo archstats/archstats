@@ -1,24 +1,28 @@
 package main
 
 import (
-	"analyzer/snippets"
-	"fmt"
+	"archstats/snippets"
+	"archstats/walker"
 	"github.com/jessevdk/go-flags"
 	"log"
 	"os"
 	"regexp"
 	"runtime"
 	"runtime/pprof"
+	"sync"
 )
 
 type GeneralOptions struct {
-	RegexStats []string `short:"s" long:"regex-stat" description:"Regex stat"`
+	View    string `positional-args:"0" description:"Type of view to show" required:"true"`
+	RootDir string `positional-args:"1" description:"Root directory" required:"true"`
 
-	Language string `short:"l" long:"language" description:"Programming language"`
+	RegexStats []string `short:"r" long:"snippet-type" description:""`
+
+	Language string `short:"l" long:"language" description:"Programming language. This flag adds language-specific support for components, packages, functions, etc. (Supported: php)"`
 
 	NoHeader bool `long:"no-header" description:"No header (only applicable csv, tsv, table)"`
 
-	SortedBy string `long:"sorted-by" description:"Sorted by (default: name). For number based columns, this is in descending order."`
+	SortedBy string `long:"sorted-by" short:"s" description:"Sorted by column name. For number based columns, this is in descending order."`
 
 	OutputFormat string `short:"o" long:"output-format" description:"Output format: table, ndjson, json, csv (default: table)"`
 
@@ -65,12 +69,6 @@ func main() {
 
 func runArchStats(args []string, generalOptions *GeneralOptions) error {
 
-	if len(args) != 2 {
-		return fmt.Errorf("expected two arguments: <command> <directory>")
-	}
-	command := args[0]
-	rootPath := args[1]
-
 	extensions := getLanguageExtensions(generalOptions.Language)
 
 	extensions = append(extensions,
@@ -78,12 +76,12 @@ func runArchStats(args []string, generalOptions *GeneralOptions) error {
 			Patterns: parseRegexes(generalOptions.RegexStats),
 		},
 	)
-	settings := snippets.AnalysisSettings{SnippetProvider: extensions}
-	allResults, err := snippets.Analyze(rootPath, settings)
+	settings := snippets.AnalysisSettings{SnippetProviders: extensions}
+	allResults, err := Analyze(generalOptions.RootDir, settings)
 	if err != nil {
 		return err
 	}
-	resultsFromCommand, err := getRowsFromResults(command, allResults)
+	resultsFromCommand, err := getRowsFromResults(generalOptions.View, allResults)
 	if err != nil {
 		return err
 	}
@@ -91,6 +89,22 @@ func runArchStats(args []string, generalOptions *GeneralOptions) error {
 
 	printRows(resultsFromCommand, generalOptions)
 	return nil
+}
+func Analyze(rootPath string, settings snippets.AnalysisSettings) (*snippets.Results, error) {
+
+	var allSnippets []*snippets.Snippet
+	lock := sync.Mutex{}
+
+	walker.WalkDirectoryConcurrently(rootPath, func(file walker.OpenedFile) {
+		var foundSnippets []*snippets.Snippet
+		for _, provider := range settings.SnippetProviders {
+			foundSnippets = append(foundSnippets, provider.GetSnippetsFromFile(file)...)
+		}
+		lock.Lock()
+		allSnippets = append(allSnippets, foundSnippets...)
+		lock.Unlock()
+	})
+	return snippets.CalculateResults(allSnippets), nil
 }
 
 func parseRegexes(input []string) []*regexp.Regexp {

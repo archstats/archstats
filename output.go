@@ -9,7 +9,7 @@ import (
 )
 
 func printRows(resultsFromCommand *View, genOpts *GeneralOptions) {
-	columnsToPrint := resultsFromCommand.orderedColumns
+	columnsToPrint := resultsFromCommand.OrderedColumns
 	switch genOpts.OutputFormat {
 	case "csv":
 		fmt.Println(getRows(columnsToPrint, resultsFromCommand.rows, !genOpts.NoHeader, ","))

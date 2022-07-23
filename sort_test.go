@@ -32,7 +32,7 @@ func TestSortRows(t *testing.T) {
 	}
 
 	sortRows("newLine", &View{
-		orderedColumns: []string{"name", "newLine"},
+		OrderedColumns: []string{"name", "newLine"},
 		rows:           rowsUnsorted,
 	})
 	for i, row := range rowsUnsorted {

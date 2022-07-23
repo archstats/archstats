@@ -1,7 +1,7 @@
 package main
 
 import (
-	"analyzer/snippets"
+	"archstats/snippets"
 	"fmt"
 	"sort"
 )
@@ -10,6 +10,7 @@ import (
 func getRowsFromResults(command string, results *snippets.Results) (*View, error) {
 	views := map[string]ViewFunction{
 		"components":            ComponentView,
+		"component-connections": ComponentConnectionsView,
 		"files":                 FileView,
 		"directories":           DirectoryView,
 		"directories-recursive": DirectoryRecursiveView,
@@ -26,11 +27,27 @@ func getRowsFromResults(command string, results *snippets.Results) (*View, error
 type ViewFunction func(results *snippets.Results) *View
 
 type View struct {
-	orderedColumns []string
+	OrderedColumns []string
 	rows           []*Row
 }
 type Row struct {
 	Data map[string]interface{}
+}
+
+func ComponentConnectionsView(results *snippets.Results) *View {
+	connections := make([]*Row, 0, len(results.Connections))
+	for _, connection := range results.Connections {
+		connections = append(connections, &Row{
+			Data: map[string]interface{}{
+				"from": connection.From,
+				"to":   connection.To,
+			},
+		})
+	}
+	return &View{
+		OrderedColumns: []string{"from", "to"},
+		rows:           connections,
+	}
 }
 
 func DirectoryView(results *snippets.Results) *View {
@@ -59,7 +76,7 @@ func SnippetsView(results *snippets.Results) *View {
 		})
 	}
 	return &View{
-		orderedColumns: []string{"value", "file", "directory", "component", "type", "begin", "end"},
+		OrderedColumns: []string{"value", "file", "directory", "component", "type", "begin", "end"},
 		rows:           toReturn,
 	}
 }
@@ -92,7 +109,7 @@ func DirectoryRecursiveView(results *snippets.Results) *View {
 		columnsToReturn = append(columnsToReturn, column)
 	}
 	return &View{
-		orderedColumns: columnsToReturn,
+		OrderedColumns: columnsToReturn,
 		rows:           toReturn,
 	}
 }
@@ -113,7 +130,7 @@ func GenericView(allColumns []string, group snippets.SnippetGroup) *View {
 		columnsToReturn = append(columnsToReturn, column)
 	}
 	return &View{
-		orderedColumns: columnsToReturn,
+		OrderedColumns: columnsToReturn,
 		rows:           toReturn,
 	}
 }
@@ -146,22 +163,6 @@ func statsByGroup(allStats []string, group snippets.SnippetGroup) map[string]Sta
 		toReturn[groupItem] = snippetsToStats(allStats, snippets)
 	}
 	return toReturn
-}
-
-func getDistinctStatsFromRows(all []*Row) []string {
-	allStats := map[string]bool{}
-	for _, row := range all {
-		for s, _ := range row.Data {
-			allStats[s] = true
-		}
-	}
-	keys := make([]string, len(allStats))
-	i := 0
-	for k := range allStats {
-		keys[i] = k
-		i++
-	}
-	return keys
 }
 
 func getDistinctColumnsFromResults(results *snippets.Results) []string {
