@@ -17,14 +17,46 @@ Archstats is distributed as a [Go module](https://go.dev/blog/using-go-modules).
 go get -u github.com/RyanSusana/archstats
 ```
 
-# Basic usage
-For instructions on how to use Archstats, run:
+# Usage
+
+For instructions on how to use Archstats and the available options, run:
 ```shell
 archstats --help
 ```
 Here's a simple example. It gets a count of all functions, per directory, in the project. **Notice the use of [named capture groups](https://www.regular-expressions.info/named.html)**:
 ```shell
 archstats directories-recursive path/to/project --regex-snippet "function (?P<functions>.*)\(.*\)" --sorted-by functions
+```
+
+## Ignoring files
+Archstats can be configured to ignore certain files. This is useful when there are files that you don't want to include in analysis.
+Archstats recursively looks for `.gitignore`/`.archstatsignore` files throughout the project and ignores files & directories according to the [.gitignore format](https://git-scm.com/docs/gitignore).
+
+
+# More Examples
+
+### In my PHP project, I want to count how many statements there are in each component/namespace.
+
+```shell
+archstats components path/to/project --language php --regex-snippet "(?P<statements>.*;)" --sorted-by statements
+```
+
+### In my PHP project, I want to know how many functions are in each file.
+
+```shell
+archstats files path/to/project --language php --regex-snippet "function (?P<functions>.*)\(.*\)" --sorted-by functions
+```
+
+### In my PHP project, I want to see the connections (afferent/efferent couplings) between components.
+
+```shell
+archstats component-connections path/to/project --language php
+```
+
+### In my PHP project, I want to recursively count the number of Laravel routes per directory
+
+```shell
+archstats directories-recursive path/to/project --language php --regex-snippet "(?P<routes>Route::(.*))" --sorted-by routes
 ```
 
 # FAQ
@@ -51,33 +83,3 @@ Here is a mapping between famous programming languages and their components:
 
 Snippets are the smallest units of code that can be analyzed in Archstats. They are references to the _significant_
 contents of a file. These snippets are then aggregated to create insights for a codebase.
-
-# Examples
-
-### In my PHP project, I want to count how many statements there are in each component/namespace.
-
-```shell
-archstats components path/to/project --language php --regex-snippet "(?P<statements>.*;)" --sorted-by statements
-```
-
-### In my PHP project, I want to know how many functions are in each file.
-
-```shell
-archstats files path/to/project --language php --regex-snippet "function (?P<functions>.*)\(.*\)" --sorted-by functions
-```
-
-### In my PHP project, I want to see the connections (afferent/efferent couplings) between components.
-
-```shell
-archstats component-connections path/to/project --language php
-```
-
-### In my PHP project, I want to recursively count the number of Laravel routes per directory
-    
-```shell
-archstats directories-recursive path/to/project --language php --regex-snippet "(?P<routes>Route::(.*))" --sorted-by routes
-```
-
-# Ignoring files
-Archstats can be configured to ignore certain files. This is useful when there are files that you don't want to include in analysis.
-Archstats recursively looks for `.gitignore`/`.archstatsignore` files throughout the project and ignores files & directories according to the [.gitignore format](https://git-scm.com/docs/gitignore).
