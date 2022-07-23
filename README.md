@@ -1,5 +1,5 @@
+[![Go](https://github.com/RyanSusana/archstats/actions/workflows/ci.yml/badge.svg)](https://github.com/RyanSusana/archstats/actions/workflows/ci.yml)
 # Archstats Introduction
-
 Archstats is a command line tool that assists in
 generating [package metrics for software projects](https://en.wikipedia.org/wiki/Software_package_metrics). It's based
 on static code analysis.
