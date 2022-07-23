@@ -36,16 +36,22 @@ type Row struct {
 
 func ComponentConnectionsView(results *snippets.Results) *View {
 	connections := make([]*Row, 0, len(results.Connections))
-	for _, connection := range results.Connections {
+	grouped := snippets.GroupConnectionsBy(results.Connections, func(connection *snippets.ComponentConnection) string {
+		return connection.From + " -> " + connection.To
+	})
+
+	for connectionName, groupedConnections := range grouped {
 		connections = append(connections, &Row{
 			Data: map[string]interface{}{
-				"from": connection.From,
-				"to":   connection.To,
+				"name":  connectionName,
+				"from":  groupedConnections[0].From,
+				"to":    groupedConnections[0].To,
+				"count": len(groupedConnections),
 			},
 		})
 	}
 	return &View{
-		OrderedColumns: []string{"from", "to"},
+		OrderedColumns: []string{"from", "to", "count"},
 		rows:           connections,
 	}
 }

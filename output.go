@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ryanuber/columnize"
-	"sort"
 	"strings"
 )
 
@@ -51,7 +50,6 @@ func measurableToMap(measurable *Row, stats []string) map[string]interface{} {
 }
 
 func getRows(columnsToPrint []string, resultsFromCommand []*Row, shouldPrintHeader bool, delimiter string) []string {
-	sort.Strings(columnsToPrint)
 
 	var rows []string
 
@@ -65,7 +63,7 @@ func getRows(columnsToPrint []string, resultsFromCommand []*Row, shouldPrintHead
 }
 
 func getHeader(delimiter string, columnsToPrint []string) string {
-	return strings.ToUpper(fmt.Sprintf("name%s%s", delimiter, strings.Join(columnsToPrint, delimiter)))
+	return strings.ToUpper(strings.Join(columnsToPrint, delimiter))
 }
 func rowToString(columnsToPrint []string, delimiter string, row *Row) string {
 	toReturn := make([]string, 0, len(columnsToPrint))
