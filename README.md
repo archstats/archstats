@@ -59,8 +59,8 @@ Archstats has several built-in snippet types. These types are used to help provi
 | `abstractElement` | An abstract element is an interface or abstract class. In java it looks like this `public abstract class MyAbstractClass` where `MyAbstractClass` is the actual `abstractElement` |
 | `class` | A class is a snippet that defines a class. It's usually a class declaration. In java it looks like this `public class MyClass` where `MyClass` is the actual `class` |
 
-## Language extensions
-Archstats supports a number of _optional_ language extensions. These extensions are used to assist users in getting started with Archstats. They pre-configure Archstats with build-in snippet types for the specified language.
+## Extensions
+Archstats supports a number of _optional_ extensions. These extensions are used to assist users in getting started with Archstats. They pre-configure Archstats with built-in snippet types for specified languages and frameworks. They can be configured with the `--extensions` or `-e` option.
 
 Supported language extensions are:
 - `php`

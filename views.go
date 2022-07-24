@@ -3,7 +3,17 @@ package main
 import (
 	"archstats/snippets"
 	"fmt"
+	"golang.org/x/exp/slices"
+	"math"
 	"sort"
+)
+
+const (
+	AfferentCouplings    = "afferent_couplings"
+	EfferentCouplings    = "efferent_couplings"
+	Instability          = "instability"
+	Abstractness         = "abstractness"
+	DistanceMainSequence = "distance_main_sequence"
 )
 
 // getRowsFromResults returns the list of rows based on the input command from the CLI
@@ -60,7 +70,23 @@ func DirectoryView(results *snippets.Results) *View {
 	return GenericView(getDistinctColumnsFromResults(results), results.SnippetsByDirectory)
 }
 func ComponentView(results *snippets.Results) *View {
-	return GenericView(getDistinctColumnsFromResults(results), results.SnippetsByComponent)
+	view := GenericView(getDistinctColumnsFromResults(results), results.SnippetsByComponent)
+
+	for _, row := range view.rows {
+		component := row.Data["name"].(string)
+		afferentCouplings, efferentCouplings := len(results.ConnectionsTo[component]), len(results.ConnectionsFrom[component])
+		abstractness := row.Data["abstractness"].(float64)
+		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
+		distanceMainSequence := abstractness + instability - 1
+
+		row.Data[AfferentCouplings] = afferentCouplings
+		row.Data[EfferentCouplings] = efferentCouplings
+		row.Data[Instability] = instability
+		row.Data[DistanceMainSequence] = distanceMainSequence
+	}
+	view.OrderedColumns = append(view.OrderedColumns, AfferentCouplings, EfferentCouplings, Instability)
+
+	return view
 }
 func FileView(results *snippets.Results) *View {
 	return GenericView(getDistinctColumnsFromResults(results), results.SnippetsByFile)
@@ -122,22 +148,32 @@ func DirectoryRecursiveView(results *snippets.Results) *View {
 
 func GenericView(allColumns []string, group snippets.SnippetGroup) *View {
 	var toReturn []*Row
-	for groupItem, snippets := range group {
-		stats := snippetsToStats(allColumns, snippets)
+	for groupItem, groupedSnippets := range group {
+		stats := snippetsToStats(allColumns, groupedSnippets)
 		data := statsToRowData(groupItem, stats)
+		addAbstractness(data, stats)
 		toReturn = append(toReturn, &Row{
-			//Name: groupItem,
 			Data: data,
 		})
 	}
 
 	columnsToReturn := []string{"name"}
+	if slices.Contains(allColumns, snippets.AbstractType) {
+		columnsToReturn = append(columnsToReturn, "abstractness")
+	}
 	for _, column := range allColumns {
 		columnsToReturn = append(columnsToReturn, column)
 	}
 	return &View{
 		OrderedColumns: columnsToReturn,
 		rows:           toReturn,
+	}
+}
+func addAbstractness(data map[string]interface{}, stats Stats) {
+	if _, hasAbstractTypes := data[snippets.AbstractType]; hasAbstractTypes {
+		abstractTypes, types := stats[snippets.AbstractType], stats[snippets.Type]
+		abstractness := math.Max(0, math.Min(1, float64(abstractTypes)/float64(types)))
+		data[Abstractness] = abstractness
 	}
 }
 

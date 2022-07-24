@@ -21,7 +21,7 @@ type GeneralOptions struct {
 
 	RegexStats []string `short:"r" long:"regex-snippet" description:"Regular Expression to match snippet types. Snippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'"`
 
-	Language string `short:"l" long:"language" choice:"php" description:"Programming language. This flag adds language-specific snippet type support for components, packages, functions, etc."`
+	Extensions []string `short:"e" long:"extensions"  description:"This option adds support for additional extensions. The value of this option is a comma separated list of extensions. The supported extensions are: php"`
 
 	NoHeader bool `long:"no-header" description:"No header (only applicable for csv, tsv, table)"`
 
@@ -74,7 +74,10 @@ func main() {
 
 func runArchStats(generalOptions *GeneralOptions) error {
 
-	extensions := getLanguageExtensions(generalOptions.Language)
+	var extensions []snippets.SnippetProvider
+	for _, extension := range generalOptions.Extensions {
+		extensions = append(extensions, getExtensions(extension)...)
+	}
 
 	extensions = append(extensions,
 		&snippets.RegexBasedSnippetsProvider{

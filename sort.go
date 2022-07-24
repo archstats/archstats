@@ -37,6 +37,10 @@ func getLessFunc(aFieldExample interface{}, resultsFromCommand []*Row, sortField
 		return func(i, j int) bool {
 			return resultsFromCommand[i].Data[sortFieldName].(string) > resultsFromCommand[j].Data[sortFieldName].(string)
 		}
+	case float32, float64:
+		return func(i, j int) bool {
+			return resultsFromCommand[i].Data[sortFieldName].(float64) > resultsFromCommand[j].Data[sortFieldName].(float64)
+		}
 	default:
 		return func(i, j int) bool {
 			iValue, isIInteger := resultsFromCommand[i].Data[sortFieldName].(int)

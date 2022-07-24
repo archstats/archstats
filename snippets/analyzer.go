@@ -7,6 +7,8 @@ import (
 const (
 	ComponentDeclaration = "componentDeclaration"
 	ComponentImport      = "componentImport"
+	AbstractType         = "abstractType"
+	Type                 = "type"
 )
 
 type Results struct {
