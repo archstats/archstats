@@ -24,39 +24,39 @@ func TestCalculateResults_ComponentConnections(t *testing.T) {
 		// Package/Component declarations
 		{
 			File:  "src/main/java/mainPackage/testFile1.java",
-			Type:  "componentDeclaration",
+			Type:  "component_declaration",
 			Value: "mainPackage",
 		},
 		{
 			File:  "src/main/java/mainPackage/subpackage1/testFile2.java",
-			Type:  "componentDeclaration",
+			Type:  "component_declaration",
 			Value: "mainPackage.subpackage1",
 		},
 		{
 			File:  "src/main/java/mainPackage/subpackage2/testFile3.java",
-			Type:  "componentDeclaration",
+			Type:  "component_declaration",
 			Value: "mainPackage.subpackage2",
 		},
 
 		// Package/Component imports
 		{
 			File:  "src/main/java/mainPackage/testFile1.java",
-			Type:  "componentImport",
+			Type:  "component_import",
 			Value: "mainPackage.subpackage1",
 		},
 		{
 			File:  "src/main/java/mainPackage/testFile1.java",
-			Type:  "componentImport",
+			Type:  "component_import",
 			Value: "someRandomPackage.thatsNotInCodebase",
 		},
 		{
 			File:  "src/main/java/mainPackage/testFile1.java",
-			Type:  "componentImport",
+			Type:  "component_import",
 			Value: "mainPackage.subpackage2",
 		},
 		{
 			File:  "src/main/java/mainPackage/subpackage1/testFile2.java",
-			Type:  "componentImport",
+			Type:  "component_import",
 			Value: "mainPackage.subpackage2",
 		},
 	}

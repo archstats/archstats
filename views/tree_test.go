@@ -1,4 +1,4 @@
-package main
+package views
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -21,11 +21,11 @@ func TestDirectoryTree(t *testing.T) {
 		"/users/bob/a/b/c/d",
 	}
 	dirs := createDirectoryTree("/users/bob/a/", dirPaths)
-	assert.Contains(t, ToPaths(dirs["/users/bob/a"].Subtree()), "/users/bob/a/b/c/d/e/f")
-	assert.Len(t, ToPaths(dirs["/users/bob/a/b/c/d/e/f"].Subtree()), 1)
+	assert.Contains(t, toPaths(dirs["/users/bob/a"].subtree()), "/users/bob/a/b/c/d/e/f")
+	assert.Len(t, toPaths(dirs["/users/bob/a/b/c/d/e/f"].subtree()), 1)
 
 	for _, path := range missingPaths {
-		assert.Contains(t, ToPaths(dirs["/users/bob/a"].Subtree()), path)
+		assert.Contains(t, toPaths(dirs["/users/bob/a"].subtree()), path)
 	}
-	assert.Len(t, ToPaths(dirs["/users/bob/a"].Subtree()), len(missingPaths)+len(dirPaths))
+	assert.Len(t, toPaths(dirs["/users/bob/a"].subtree()), len(missingPaths)+len(dirPaths))
 }

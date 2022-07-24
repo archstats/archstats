@@ -1,27 +1,28 @@
 package main
 
 import (
+	"archstats/views"
 	"sort"
 )
 
-func sortRows(sortFieldName string, resultsFromCommand *View) {
-	if len(resultsFromCommand.rows) == 0 {
+func sortRows(sortFieldName string, resultsFromCommand *views.View) {
+	if len(resultsFromCommand.Rows) == 0 {
 		return
 	}
 
-	aFieldExample := getFieldExample(resultsFromCommand.rows, sortFieldName)
+	aFieldExample := getFieldExample(resultsFromCommand.Rows, sortFieldName)
 	var lessFunc func(i int, j int) bool
 
 	if sortFieldName == "" || aFieldExample == nil {
 		defaultColumn := resultsFromCommand.OrderedColumns[0]
-		lessFunc = getLessFunc(aFieldExample, resultsFromCommand.rows, defaultColumn)
+		lessFunc = getLessFunc(aFieldExample, resultsFromCommand.Rows, defaultColumn)
 	} else {
-		lessFunc = getLessFunc(aFieldExample, resultsFromCommand.rows, sortFieldName)
+		lessFunc = getLessFunc(aFieldExample, resultsFromCommand.Rows, sortFieldName)
 	}
-	sort.Slice(resultsFromCommand.rows, lessFunc)
+	sort.Slice(resultsFromCommand.Rows, lessFunc)
 }
 
-func getFieldExample(resultsFromCommand []*Row, sortFieldName string) interface{} {
+func getFieldExample(resultsFromCommand []*views.Row, sortFieldName string) interface{} {
 	for _, row := range resultsFromCommand {
 		if row.Data[sortFieldName] != nil {
 			return row.Data[sortFieldName]
@@ -31,7 +32,7 @@ func getFieldExample(resultsFromCommand []*Row, sortFieldName string) interface{
 	return 0
 }
 
-func getLessFunc(aFieldExample interface{}, resultsFromCommand []*Row, sortFieldName string) func(i int, j int) bool {
+func getLessFunc(aFieldExample interface{}, resultsFromCommand []*views.Row, sortFieldName string) func(i int, j int) bool {
 	switch aFieldExample.(type) {
 	case string:
 		return func(i, j int) bool {

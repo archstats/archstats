@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archstats/views"
 	"encoding/json"
 	"fmt"
 	"github.com/ryanuber/columnize"
@@ -8,7 +9,7 @@ import (
 	"strings"
 )
 
-func printRows(resultsFromCommand *View, genOpts *GeneralOptions) {
+func printRows(resultsFromCommand *views.View, genOpts *GeneralOptions) {
 	availableColumns := resultsFromCommand.OrderedColumns
 
 	if len(genOpts.Columns) > 0 {
@@ -26,26 +27,26 @@ func printRows(resultsFromCommand *View, genOpts *GeneralOptions) {
 	}
 	switch genOpts.OutputFormat {
 	case "csv":
-		fmt.Println(getRows(availableColumns, resultsFromCommand.rows, !genOpts.NoHeader, ","))
+		fmt.Println(getRows(availableColumns, resultsFromCommand.Rows, !genOpts.NoHeader, ","))
 	case "tsv":
-		fmt.Println(getRows(availableColumns, resultsFromCommand.rows, !genOpts.NoHeader, "\t"))
+		fmt.Println(getRows(availableColumns, resultsFromCommand.Rows, !genOpts.NoHeader, "\t"))
 	case "json":
-		printJson(availableColumns, resultsFromCommand.rows)
+		printJson(availableColumns, resultsFromCommand.Rows)
 	case "ndjson":
-		printNdjson(availableColumns, resultsFromCommand.rows)
+		printNdjson(availableColumns, resultsFromCommand.Rows)
 	default:
-		fmt.Println(columnize.SimpleFormat(getRows(availableColumns, resultsFromCommand.rows, !genOpts.NoHeader, "|")))
+		fmt.Println(columnize.SimpleFormat(getRows(availableColumns, resultsFromCommand.Rows, !genOpts.NoHeader, "|")))
 	}
 }
 
-func printNdjson(columnsToPrint []string, command []*Row) {
+func printNdjson(columnsToPrint []string, command []*views.Row) {
 	for _, dir := range command {
 		theJson, _ := json.Marshal(measurableToMap(dir, columnsToPrint))
 
 		fmt.Println(string(theJson))
 	}
 }
-func printJson(columnsToPrint []string, command []*Row) {
+func printJson(columnsToPrint []string, command []*views.Row) {
 	var toPrint []map[string]interface{}
 	for _, dir := range command {
 		toPrint = append(toPrint, measurableToMap(dir, columnsToPrint))
@@ -53,7 +54,7 @@ func printJson(columnsToPrint []string, command []*Row) {
 	theJson, _ := json.Marshal(toPrint)
 	fmt.Println(string(theJson))
 }
-func measurableToMap(measurable *Row, stats []string) map[string]interface{} {
+func measurableToMap(measurable *views.Row, stats []string) map[string]interface{} {
 	toReturn := map[string]interface{}{}
 
 	for _, stat := range stats {
@@ -63,7 +64,7 @@ func measurableToMap(measurable *Row, stats []string) map[string]interface{} {
 	return toReturn
 }
 
-func getRows(columnsToPrint []string, resultsFromCommand []*Row, shouldPrintHeader bool, delimiter string) []string {
+func getRows(columnsToPrint []string, resultsFromCommand []*views.Row, shouldPrintHeader bool, delimiter string) []string {
 
 	var rows []string
 
@@ -79,7 +80,7 @@ func getRows(columnsToPrint []string, resultsFromCommand []*Row, shouldPrintHead
 func getHeader(delimiter string, columnsToPrint []string) string {
 	return strings.ToUpper(strings.Join(columnsToPrint, delimiter))
 }
-func rowToString(columnsToPrint []string, delimiter string, row *Row) string {
+func rowToString(columnsToPrint []string, delimiter string, row *views.Row) string {
 	toReturn := make([]string, 0, len(columnsToPrint))
 	columns := row.Data
 

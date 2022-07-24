@@ -1,4 +1,4 @@
-package main
+package views
 
 import (
 	"strings"
@@ -10,16 +10,16 @@ type Directory struct {
 	Children []*Directory
 }
 
-func (node *Directory) Subtree() []*Directory {
+func (node *Directory) subtree() []*Directory {
 	var nodes []*Directory
 	nodes = append(nodes, node)
 	for _, child := range node.Children {
-		nodes = append(nodes, child.Subtree()...)
+		nodes = append(nodes, child.subtree()...)
 	}
 	return nodes
 }
 
-func ToPaths(nodes []*Directory) []string {
+func toPaths(nodes []*Directory) []string {
 	var paths []string
 	for _, node := range nodes {
 		paths = append(paths, normalizeDirectoryPath(node.Id))

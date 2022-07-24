@@ -2,6 +2,7 @@ package main
 
 import (
 	"archstats/snippets"
+	"archstats/views"
 	"archstats/walker"
 	"github.com/jessevdk/go-flags"
 	"log"
@@ -91,7 +92,7 @@ func runArchStats(generalOptions *GeneralOptions) error {
 	if err != nil {
 		return err
 	}
-	resultsFromCommand, err := getRowsFromResults(generalOptions.View, allResults)
+	resultsFromCommand, err := views.GetRowsFromResults(generalOptions.View, allResults)
 	if err != nil {
 		return err
 	}
