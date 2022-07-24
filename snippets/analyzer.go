@@ -5,9 +5,9 @@ import (
 )
 
 const (
-	ComponentDeclaration = "componentDeclaration"
-	ComponentImport      = "componentImport"
-	AbstractType         = "abstractType"
+	ComponentDeclaration = "component_declaration"
+	ComponentImport      = "component_import"
+	AbstractType         = "abstract_type"
 	Type                 = "type"
 )
 

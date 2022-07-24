@@ -23,6 +23,8 @@ type GeneralOptions struct {
 
 	Extensions []string `short:"e" long:"extensions"  description:"This option adds support for additional extensions. The value of this option is a comma separated list of extensions. The supported extensions are: php"`
 
+	Columns []string `short:"c" long:"column" description:"When this option is present, it will only show columns in the comma-separated list of columns."`
+
 	NoHeader bool `long:"no-header" description:"No header (only applicable for csv, tsv, table)"`
 
 	SortedBy string `long:"sorted-by" short:"s" description:"Sorted by column name. For number based columns, this is in descending order."`

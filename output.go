@@ -4,37 +4,51 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ryanuber/columnize"
+	"golang.org/x/exp/slices"
 	"strings"
 )
 
 func printRows(resultsFromCommand *View, genOpts *GeneralOptions) {
-	columnsToPrint := resultsFromCommand.OrderedColumns
+	availableColumns := resultsFromCommand.OrderedColumns
+
+	if len(genOpts.Columns) > 0 {
+		var columnsToPrint []string
+		for _, columns := range genOpts.Columns {
+			for _, untrimmedColumn := range strings.Split(columns, ",") {
+
+				column := strings.ToLower(strings.Trim(untrimmedColumn, " "))
+				if slices.Contains(availableColumns, column) {
+					columnsToPrint = append(columnsToPrint, column)
+				}
+			}
+		}
+		availableColumns = columnsToPrint
+	}
 	switch genOpts.OutputFormat {
 	case "csv":
-		fmt.Println(getRows(columnsToPrint, resultsFromCommand.rows, !genOpts.NoHeader, ","))
+		fmt.Println(getRows(availableColumns, resultsFromCommand.rows, !genOpts.NoHeader, ","))
 	case "tsv":
-		fmt.Println(getRows(columnsToPrint, resultsFromCommand.rows, !genOpts.NoHeader, "\t"))
+		fmt.Println(getRows(availableColumns, resultsFromCommand.rows, !genOpts.NoHeader, "\t"))
 	case "json":
-		printJson(columnsToPrint, resultsFromCommand.rows)
+		printJson(availableColumns, resultsFromCommand.rows)
 	case "ndjson":
-		printNdjson(columnsToPrint, resultsFromCommand.rows)
+		printNdjson(availableColumns, resultsFromCommand.rows)
 	default:
-		fmt.Println(columnize.SimpleFormat(getRows(columnsToPrint, resultsFromCommand.rows, !genOpts.NoHeader, "|")))
+		fmt.Println(columnize.SimpleFormat(getRows(availableColumns, resultsFromCommand.rows, !genOpts.NoHeader, "|")))
 	}
 }
 
-func printNdjson(stats []string, command []*Row) {
+func printNdjson(columnsToPrint []string, command []*Row) {
 	for _, dir := range command {
-		theJson, _ := json.Marshal(measurableToMap(dir, stats))
+		theJson, _ := json.Marshal(measurableToMap(dir, columnsToPrint))
 
 		fmt.Println(string(theJson))
 	}
 }
-func printJson(stats []string, command []*Row) {
+func printJson(columnsToPrint []string, command []*Row) {
 	var toPrint []map[string]interface{}
 	for _, dir := range command {
-
-		toPrint = append(toPrint, measurableToMap(dir, stats))
+		toPrint = append(toPrint, measurableToMap(dir, columnsToPrint))
 	}
 	theJson, _ := json.Marshal(toPrint)
 	fmt.Println(string(theJson))
