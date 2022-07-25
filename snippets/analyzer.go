@@ -29,7 +29,7 @@ type AnalysisSettings struct {
 	SnippetProviders []SnippetProvider
 }
 
-func CalculateResults(allSnippets []*Snippet) *Results {
+func CalculateResults(rootPath string, allSnippets []*Snippet) *Results {
 	//set Directory name for each Snippet
 	setDirectories(allSnippets)
 	setComponents(allSnippets)
@@ -54,6 +54,7 @@ func CalculateResults(allSnippets []*Snippet) *Results {
 		return connection.To
 	})
 	return &Results{
+		RootDirectory:       rootPath,
 		Snippets:            allSnippets,
 		SnippetsByDirectory: allGroups["ByDirectory"],
 		SnippetsByComponent: allGroups["ByComponent"],

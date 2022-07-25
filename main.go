@@ -142,7 +142,7 @@ func Analyze(rootPath string, settings snippets.AnalysisSettings) (*snippets.Res
 	if len(allSnippets) == 0 {
 		return nil, errors.New("could not find any snippets")
 	}
-	return snippets.CalculateResults(allSnippets), nil
+	return snippets.CalculateResults(rootPath, allSnippets), nil
 }
 
 func parseRegexes(input []string) []*regexp.Regexp {
