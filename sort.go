@@ -1,7 +1,7 @@
 package main
 
 import (
-	"archstats/views"
+	"github.com/RyanSusana/archstats/views"
 	"sort"
 )
 

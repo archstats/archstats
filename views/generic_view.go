@@ -1,7 +1,7 @@
 package views
 
 import (
-	"archstats/snippets"
+	"github.com/RyanSusana/archstats/snippets"
 	"golang.org/x/exp/slices"
 	"math"
 	"sort"

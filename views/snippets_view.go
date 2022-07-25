@@ -1,6 +1,6 @@
 package views
 
-import "archstats/snippets"
+import "github.com/RyanSusana/archstats/snippets"
 
 func SnippetsView(results *snippets.Results) *View {
 	toReturn := make([]*Row, 0, len(results.Snippets))

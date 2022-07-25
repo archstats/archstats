@@ -1,8 +1,8 @@
 package main
 
 import (
-	"archstats/snippets"
 	"fmt"
+	"github.com/RyanSusana/archstats/snippets"
 	"regexp"
 )
 

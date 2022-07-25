@@ -1,9 +1,9 @@
 package main
 
 import (
-	"archstats/snippets"
-	"archstats/views"
-	"archstats/walker"
+	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/views"
+	"github.com/RyanSusana/archstats/walker"
 	"github.com/jessevdk/go-flags"
 	"log"
 	"os"

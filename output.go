@@ -1,9 +1,9 @@
 package main
 
 import (
-	"archstats/views"
 	"encoding/json"
 	"fmt"
+	"github.com/RyanSusana/archstats/views"
 	"github.com/ryanuber/columnize"
 	"golang.org/x/exp/slices"
 	"strings"

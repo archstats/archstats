@@ -1,6 +1,6 @@
 package views
 
-import "archstats/snippets"
+import "github.com/RyanSusana/archstats/snippets"
 
 func ComponentConnectionsView(results *snippets.Results) *View {
 	connections := make([]*Row, 0, len(results.Connections))

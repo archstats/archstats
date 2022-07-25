@@ -1,8 +1,8 @@
 package views
 
 import (
-	"archstats/snippets"
 	"fmt"
+	"github.com/RyanSusana/archstats/snippets"
 )
 
 // GetRowsFromResults returns the list of Rows based on the input command from the CLI

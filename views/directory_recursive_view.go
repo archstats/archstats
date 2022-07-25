@@ -1,6 +1,6 @@
 package views
 
-import "archstats/snippets"
+import "github.com/RyanSusana/archstats/snippets"
 
 func DirectoryRecursiveView(results *snippets.Results) *View {
 	var toReturn []*Row
