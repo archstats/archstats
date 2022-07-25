@@ -1,12 +1,15 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"github.com/RyanSusana/archstats/snippets"
 	"github.com/RyanSusana/archstats/views"
 	"github.com/RyanSusana/archstats/walker"
 	"github.com/jessevdk/go-flags"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/pprof"
@@ -18,9 +21,9 @@ type GeneralOptions struct {
 		RootDir string `description:"Root directory of the project" required:"true" positional-arg-name:"<project-directory>"`
 	} `positional-args:"true" required:"true"`
 
-	View string `short:"v" long:"view" default:"directories-recursive" description:"Type of view to show" required:"true" choice:"components" choice:"component-connections" choice:"files" choice:"directories" choice:"directories-recursive" choice:"snippets"`
+	View string `short:"v" long:"view" default:"directories-recursive" description:"Type of view to show" required:"true"`
 
-	RegexStats []string `short:"r" long:"regex-snippet" description:"Regular Expression to match snippet types. Snippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'"`
+	Snippets []string `short:"s" long:"snippet" description:"Regular Expression to match snippet types. Snippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'"`
 
 	Extensions []string `short:"e" long:"extensions"  description:"This option adds support for additional extensions. The value of this option is a comma separated list of extensions. The supported extensions are: php"`
 
@@ -28,7 +31,7 @@ type GeneralOptions struct {
 
 	NoHeader bool `long:"no-header" description:"No header (only applicable for csv, tsv, table)"`
 
-	SortedBy string `long:"sorted-by" short:"s" description:"Sorted by column name. For number based columns, this is in descending order."`
+	SortedBy string `long:"sorted-by"  description:"Sorted by column name. For number based columns, this is in descending order."`
 
 	OutputFormat string `short:"o" long:"output-format" choice:"table" choice:"ndjson" choice:"json" choice:"csv" choice:"tsv" description:"Output format"`
 
@@ -39,10 +42,14 @@ type GeneralOptions struct {
 }
 
 func main() {
+	exitCode := 0
+	defer func() { os.Exit(exitCode) }()
+
 	generalOptions := &GeneralOptions{}
-	_, err := flags.Parse(generalOptions)
+	_, err := flags.NewParser(generalOptions, flags.Default|flags.IgnoreUnknown).Parse()
 
 	if err != nil {
+		exitCode = printError(err)
 		return
 	}
 
@@ -59,7 +66,10 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	runArchStats(generalOptions)
+	err = runArchStats(generalOptions)
+	if err != nil {
+		exitCode = printError(err)
+	}
 
 	// Enable memory profiling if requested.
 	if generalOptions.Profile.Mem != "" {
@@ -75,8 +85,12 @@ func main() {
 	}
 }
 
+func printError(err error) int {
+	fmt.Printf("Error: %s", err)
+	return 1
+}
 func runArchStats(generalOptions *GeneralOptions) error {
-
+	generalOptions.Args.RootDir, _ = filepath.Abs(generalOptions.Args.RootDir)
 	var extensions []snippets.SnippetProvider
 	for _, extension := range generalOptions.Extensions {
 		extensions = append(extensions, getExtensions(extension)...)
@@ -84,10 +98,11 @@ func runArchStats(generalOptions *GeneralOptions) error {
 
 	extensions = append(extensions,
 		&snippets.RegexBasedSnippetsProvider{
-			Patterns: parseRegexes(generalOptions.RegexStats),
+			Patterns: parseRegexes(generalOptions.Snippets),
 		},
 	)
 	settings := snippets.AnalysisSettings{SnippetProviders: extensions}
+
 	allResults, err := Analyze(generalOptions.Args.RootDir, settings)
 	if err != nil {
 		return err
@@ -115,6 +130,9 @@ func Analyze(rootPath string, settings snippets.AnalysisSettings) (*snippets.Res
 		allSnippets = append(allSnippets, foundSnippets...)
 		lock.Unlock()
 	})
+	if len(allSnippets) == 0 {
+		return nil, errors.New("could not find any snippets")
+	}
 	return snippets.CalculateResults(allSnippets), nil
 }
 

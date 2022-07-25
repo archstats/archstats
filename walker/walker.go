@@ -3,6 +3,7 @@ package walker
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -46,8 +47,9 @@ type FileVisitor interface {
 }
 
 func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*fileDescription {
-	if !strings.HasSuffix(dirAbsolutePath, "/") {
-		dirAbsolutePath = dirAbsolutePath + "/"
+	separator := string(filepath.Separator)
+	if !strings.HasSuffix(dirAbsolutePath, separator) {
+		dirAbsolutePath = dirAbsolutePath + separator
 	}
 	var snippets []*fileDescription
 
@@ -62,7 +64,7 @@ func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*
 		}
 
 		if entry.IsDir() {
-			path += "/"
+			path += separator
 			snippets = append(snippets, getAllFiles(path, depth+1, ignoreCtx)...)
 		} else {
 			snippets = append(snippets, &fileDescription{

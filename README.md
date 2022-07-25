@@ -25,7 +25,7 @@ archstats --help
 ```
 Here's a simple example. It gets a count of all functions, per directory, in the project. The `--view component` option is a special feature that depends on certain [built-in snippet types](#built-in-snippet-types) **Notice the use of [named capture groups](https://www.regular-expressions.info/named.html)**:
 ```shell
-archstats path/to/project --view components --regex-snippet "function (?P<functions>.*)\(.*\)" -e php -c name,abstractness,instability,functions,efferent_couplings --sorted-by abstractness
+archstats path/to/project --view components --snippet "function (?P<functions>.*)\(.*\)" -e php -c name,abstractness,instability,functions,efferent_couplings --sorted-by abstractness
 ```
 This might output something like this:
 ```shell
@@ -107,23 +107,23 @@ Archstats recursively looks for `.gitignore`/`.archstatsignore` files throughout
 ### In my PHP project, I want to count how many statements there are in each component/namespace.
 
 ```shell
-archstats path/to/project --view components --language php --regex-snippet "(?P<statements>.*;)" --sorted-by statements
+archstats path/to/project --view components --extension php --snippet "(?P<statements>.*;)" --sorted-by statements
 ```
 
 ### In my PHP project, I want to know how many functions are in each file.
 
 ```shell
-archstats path/to/project --view files --language php --regex-snippet "function (?P<functions>.*)\(.*\)" --sorted-by functions
+archstats path/to/project --view files --extension php --snippet "function (?P<functions>.*)\(.*\)" --sorted-by functions
 ```
 
 ### In my PHP project, I want to see the connections (afferent/efferent couplings) between components.
 
 ```shell
-archstats path/to/project --view component-connections --language php
+archstats path/to/project --view component-connections --extension php
 ```
 
 ### In my PHP project, I want to recursively count the number of Laravel routes per directory
 
 ```shell
-archstats path/to/project --view directories-recursive --language php --regex-snippet "(?P<routes>Route::(.*))" --sorted-by routes
+archstats path/to/project --view directories-recursive --extension php --snippet "(?P<routes>Route::(.*))" --sorted-by routes
 ```

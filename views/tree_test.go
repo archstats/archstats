@@ -20,7 +20,11 @@ func TestDirectoryTree(t *testing.T) {
 		"/users/bob/a/b/c/d/e",
 		"/users/bob/a/b/c/d",
 	}
+	allPaths := append(dirPaths, missingPaths...)
+
 	dirs := createDirectoryTree("/users/bob/a/", dirPaths)
+
+	assert.Equal(t, len(allPaths), len(dirs))
 	assert.Contains(t, toPaths(dirs["/users/bob/a"].subtree()), "/users/bob/a/b/c/d/e/f")
 	assert.Len(t, toPaths(dirs["/users/bob/a/b/c/d/e/f"].subtree()), 1)
 

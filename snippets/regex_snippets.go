@@ -1,6 +1,7 @@
 package snippets
 
 import (
+	"fmt"
 	"regexp"
 )
 
@@ -16,6 +17,13 @@ func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file File) []*Snippet {
 		matches := getMatches(pattern, stringContent)
 
 		for _, match := range matches {
+
+			if match.begin == -1 || match.end == -1 {
+
+				fmt.Println(match.name)
+				fmt.Println(file.Path())
+				fmt.Println(fmt.Sprintf("%d:%d", match.begin, match.end))
+			}
 			theSnip := &Snippet{
 				Type:  match.name,
 				File:  file.Path(),
@@ -41,11 +49,14 @@ func getMatches(regex *regexp.Regexp, content string) []*subexpMatch {
 			nameOfGroup := names[i]
 
 			if nameOfGroup != "" {
-				toReturn = append(toReturn, &subexpMatch{
+				subMatch := &subexpMatch{
 					name:  nameOfGroup,
 					begin: pair[0],
 					end:   pair[1],
-				})
+				}
+				if !(subMatch.begin == -1 || subMatch.end == -1) {
+					toReturn = append(toReturn, subMatch)
+				}
 			}
 		}
 	}
