@@ -21,7 +21,8 @@ type GeneralOptions struct {
 		RootDir string `description:"Root directory of the project" required:"true" positional-arg-name:"<project-directory>"`
 	} `positional-args:"true" required:"true"`
 
-	View string `short:"v" long:"view" default:"directories-recursive" description:"Type of view to show" required:"true"`
+	View     string `short:"v" long:"view" default:"directories-recursive" description:"Type of view to show" required:"true"`
+	AllViews bool   `long:"all-views" description:"Show all views in JSON format."`
 
 	Snippets []string `short:"s" long:"snippet" description:"Regular Expression to match snippet types. Snippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'"`
 
@@ -31,7 +32,7 @@ type GeneralOptions struct {
 
 	NoHeader bool `long:"no-header" description:"No header (only applicable for csv, tsv, table)"`
 
-	SortedBy string `long:"sorted-by"  description:"Sorted by column name. For number based columns, this is in descending order."`
+	SortedBy string `long:"sorted-by" description:"Sorted by column name. For number based columns, this is in descending order."`
 
 	OutputFormat string `short:"o" long:"output-format" choice:"table" choice:"ndjson" choice:"json" choice:"csv" choice:"tsv" description:"Output format"`
 
@@ -107,15 +108,23 @@ func runArchStats(generalOptions *GeneralOptions) error {
 	if err != nil {
 		return err
 	}
-	resultsFromCommand, err := views.GetRowsFromResults(generalOptions.View, allResults)
-	if err != nil {
-		return err
-	}
-	sortRows(generalOptions.SortedBy, resultsFromCommand)
 
-	printRows(resultsFromCommand, generalOptions)
+	if generalOptions.AllViews {
+		allViews := views.GetAllViews(allResults)
+		printAllViews(allViews)
+	} else {
+		resultsFromCommand, err := views.GetView(generalOptions.View, allResults)
+		if err != nil {
+			return err
+		}
+		sortRows(generalOptions.SortedBy, resultsFromCommand)
+
+		printRows(resultsFromCommand, generalOptions)
+	}
+
 	return nil
 }
+
 func Analyze(rootPath string, settings snippets.AnalysisSettings) (*snippets.Results, error) {
 
 	var allSnippets []*snippets.Snippet

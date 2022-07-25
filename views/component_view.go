@@ -17,8 +17,8 @@ func ComponentView(results *snippets.Results) *View {
 
 		row.Data[AfferentCouplings] = afferentCouplings
 		row.Data[EfferentCouplings] = efferentCouplings
-		row.Data[Instability] = instability
-		row.Data[DistanceMainSequence] = distanceMainSequence
+		row.Data[Instability] = nanToZero(instability)
+		row.Data[DistanceMainSequence] = nanToZero(distanceMainSequence)
 	}
 	view.OrderedColumns = append(view.OrderedColumns, AfferentCouplings, EfferentCouplings, Instability)
 

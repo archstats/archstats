@@ -5,21 +5,34 @@ import (
 	"github.com/RyanSusana/archstats/snippets"
 )
 
-// GetRowsFromResults returns the list of Rows based on the input command from the CLI
-func GetRowsFromResults(command string, results *snippets.Results) (*View, error) {
-	views := map[string]ViewFunction{
+func GetAllViews(results *snippets.Results) map[string]*View {
+	views := getViewFunctionMap()
+	allViews := make(map[string]*View, len(views))
+
+	for viewName, view := range views {
+		allViews[viewName] = view(results)
+	}
+	return allViews
+}
+
+// GetView returns the list of Rows based on the input command from the CLI
+func GetView(command string, results *snippets.Results) (*View, error) {
+	views := getViewFunctionMap()
+	if view, isAnAvailableView := views[command]; isAnAvailableView {
+		return view(results), nil
+	} else {
+		return nil, fmt.Errorf("%s is not a recognized view", command)
+	}
+}
+
+func getViewFunctionMap() map[string]ViewFunction {
+	return map[string]ViewFunction{
 		"components":            ComponentView,
 		"component-connections": ComponentConnectionsView,
 		"files":                 FileView,
 		"directories":           DirectoryView,
 		"directories-recursive": DirectoryRecursiveView,
 		"snippets":              SnippetsView,
-	}
-
-	if view, isAnAvailableView := views[command]; isAnAvailableView {
-		return view(results), nil
-	} else {
-		return nil, fmt.Errorf("%s is not a recognized view", command)
 	}
 }
 

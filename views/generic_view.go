@@ -34,7 +34,7 @@ func addAbstractness(data map[string]interface{}, stats Stats) {
 	if _, hasAbstractTypes := data[snippets.AbstractType]; hasAbstractTypes {
 		abstractTypes, types := stats[snippets.AbstractType], stats[snippets.Type]
 		abstractness := math.Max(0, math.Min(1, float64(abstractTypes)/float64(types)))
-		data[Abstractness] = abstractness
+		data[Abstractness] = nanToZero(abstractness)
 	}
 }
 
