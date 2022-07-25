@@ -23,9 +23,24 @@ For instructions on how to use Archstats and the available options, run:
 ```shell
 archstats --help
 ```
-Here's a simple example. It gets a count of all functions, per directory, in the project. **Notice the use of [named capture groups](https://www.regular-expressions.info/named.html)**:
+Here's a simple example. It gets a count of all functions, per directory, in the project. The `--view component` option is a special feature that depends on certain [built-in snippet types](#built-in-snippet-types) **Notice the use of [named capture groups](https://www.regular-expressions.info/named.html)**:
 ```shell
-archstats path/to/project --regex-snippet "function (?P<functions>.*)\(.*\)" --sorted-by functions
+archstats path/to/project --view components --regex-snippet "function (?P<functions>.*)\(.*\)" -e php -c name,abstractness,instability,functions,efferent_couplings --sorted-by abstractness
+```
+This might output something like this:
+```shell
+NAME                                                                                  ABSTRACTNESS          INSTABILITY            FUNCTIONS  EFFERENT_COUPLINGS
+App\Mail\Base                                                                         1                     0.03571428571428571    0          1
+App\Http\Controllers\Api\Business\v1                                                  1                     0.1674641148325359     17         35
+App\Main\Repositories\Interfaces                                                      1                     0.07915831663326653    304        158
+App\Main\Models\Collections\Base                                                      1                     0                      3          0
+App\Http\Controllers                                                                  1                     0.11023622047244094    17         28
+App\Main\Models\Interfaces                                                            1                     0.012319355602937692   3500       52
+App\Http\Controllers\Api\Admin\v1                                                     1                     0.13333333333333333    2          4
+App\Main\Automations\Actions                                                          1                     0.36                   11         9
+App\Main\Algolia\Indeces                                                              1                     0.16666666666666666    8          1
+App\Main\Models\Collections\Interfaces                                                1                     0.4666666666666667     11         7
+... More Rows
 ```
 ## Components
 The term 'component' is loosely defined within the software industry. For the sake of alignment I chose to go with the
@@ -66,8 +81,9 @@ Most of the built-in snippet types are used to support [metrics](https://en.wiki
 ## Extensions
 Archstats supports a number of _optional_ extensions. These extensions are used to assist users in getting started with Archstats. They pre-configure Archstats with built-in snippet types for specified languages and frameworks. They can be configured with the `--extensions` or `-e` option.
 
-Supported language extensions are:
-- `php`
+Supported extensions are:
+- `php` - Adds support for PHP namespaces as components.
+- `java` - Adds support for Java packages as components.
 
 ## Views
 Archstats supports a number of views. A view is an aggregation of the snippets found throughout the project. A view can be selected by using the `--view` or `-v` option.  The default view is `directories-recursive`.
