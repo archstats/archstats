@@ -15,7 +15,6 @@ func printAllViews(allViews map[string]*views.View) {
 
 	theViews := make(map[string][]rowData)
 	for viewName, view := range allViews {
-		fmt.Println(viewName)
 		theViews[viewName] = rowsToMaps(view.OrderedColumns, view.Rows)
 	}
 	theJson, _ := json.Marshal(theViews)
