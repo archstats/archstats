@@ -11,7 +11,7 @@ import (
 
 type rowData map[string]interface{}
 
-func printAllViews(allViews map[string]*views.View) {
+func printAllViews(allViews map[string]*views.View) string {
 
 	theViews := make(map[string][]rowData)
 	for viewName, view := range allViews {
@@ -19,9 +19,9 @@ func printAllViews(allViews map[string]*views.View) {
 	}
 	theJson, _ := json.Marshal(theViews)
 
-	fmt.Println(string(theJson))
+	return string(theJson)
 }
-func printRows(resultsFromCommand *views.View, genOpts *GeneralOptions) {
+func printRows(resultsFromCommand *views.View, genOpts *GeneralOptions) string {
 	availableColumns := resultsFromCommand.OrderedColumns
 
 	if len(genOpts.Columns) > 0 {
@@ -37,30 +37,26 @@ func printRows(resultsFromCommand *views.View, genOpts *GeneralOptions) {
 		}
 		availableColumns = columnsToPrint
 	}
+
 	switch genOpts.OutputFormat {
 	case "csv":
-		fmt.Println(getRows(availableColumns, resultsFromCommand.Rows, !genOpts.NoHeader, ","))
+		return strings.Join(getRows(availableColumns, resultsFromCommand.Rows, true, ","), "\n")
 	case "tsv":
-		fmt.Println(getRows(availableColumns, resultsFromCommand.Rows, !genOpts.NoHeader, "\t"))
+		return strings.Join(getRows(availableColumns, resultsFromCommand.Rows, !genOpts.NoHeader, "\t"), "\n")
 	case "json":
-		printJson(availableColumns, resultsFromCommand.Rows)
+		return string(getJson(availableColumns, resultsFromCommand.Rows))
 	case "ndjson":
-		printNdjson(availableColumns, resultsFromCommand.Rows)
+		var stringBuilder strings.Builder
+		for _, dir := range resultsFromCommand.Rows {
+			theJson, _ := json.Marshal(measurableToMap(dir, availableColumns))
+
+			stringBuilder.WriteString(string(theJson))
+			stringBuilder.WriteString("\n")
+		}
+		return stringBuilder.String()
 	default:
-		fmt.Println(columnize.SimpleFormat(getRows(availableColumns, resultsFromCommand.Rows, !genOpts.NoHeader, "|")))
+		return columnize.SimpleFormat(getRows(availableColumns, resultsFromCommand.Rows, !genOpts.NoHeader, "|"))
 	}
-}
-
-func printNdjson(columnsToPrint []string, command []*views.Row) {
-	for _, dir := range command {
-		theJson, _ := json.Marshal(measurableToMap(dir, columnsToPrint))
-
-		fmt.Println(string(theJson))
-	}
-}
-func printJson(columnsToPrint []string, rows []*views.Row) {
-	theJson := getJson(columnsToPrint, rows)
-	fmt.Println(string(theJson))
 }
 
 func getJson(columnsToPrint []string, rows []*views.Row) []byte {

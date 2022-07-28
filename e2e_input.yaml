@@ -1,0 +1,9 @@
+cases:
+  - name: case_1
+    repo: https://github.com/RyanSusana/elepy.git
+    commit: b1eeb16ab45a670ab76a1db816c7adf68a88aa44
+    options: --view components --extension java
+    ignore: |
+      *.*
+      !*.java
+    expectedOutputFile:

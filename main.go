@@ -7,7 +7,6 @@ import (
 	"github.com/RyanSusana/archstats/views"
 	"github.com/RyanSusana/archstats/walker"
 	"github.com/jessevdk/go-flags"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,7 +25,7 @@ type GeneralOptions struct {
 
 	Snippets []string `short:"s" long:"snippet" description:"Regular Expression to match snippet types. Snippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'"`
 
-	Extensions []string `short:"e" long:"extensions"  description:"This option adds support for additional extensions. The value of this option is a comma separated list of extensions. The supported extensions are: php"`
+	Extensions []string `short:"e" long:"extension"  description:"This option adds support for additional extensions. The value of this option is a comma separated list of extensions. The supported extensions are: php"`
 
 	Columns []string `short:"c" long:"column" description:"When this option is present, it will only show columns in the comma-separated list of columns."`
 
@@ -46,51 +45,55 @@ func main() {
 	exitCode := 0
 	defer func() { os.Exit(exitCode) }()
 
-	generalOptions := &GeneralOptions{}
-	_, err := flags.NewParser(generalOptions, flags.Default|flags.IgnoreUnknown).Parse()
-
+	output, err := RunArchstats(os.Args[1:])
 	if err != nil {
 		exitCode = printError(err)
-		return
+	} else {
+		fmt.Println(output)
 	}
+}
 
+func RunArchstats(args []string) (string, error) {
+	generalOptions := &GeneralOptions{}
+	_, err := flags.NewParser(generalOptions, flags.Default|flags.IgnoreUnknown).ParseArgs(args)
+
+	if err != nil {
+		return "", err
+	}
 	// Enable cpu profiling if requested.
 	if generalOptions.Profile.Cpu != "" {
 		f, err := os.Create(generalOptions.Profile.Cpu)
 		if err != nil {
-			log.Fatal("could not create CPU profile: ", err)
+			return "", err
 		}
 		defer f.Close() // TODO handle error
 		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Fatal("could not start CPU profile: ", err)
+			return "", err
 		}
 		defer pprof.StopCPUProfile()
 	}
 
-	err = runArchStats(generalOptions)
-	if err != nil {
-		exitCode = printError(err)
-	}
+	output, err := runArchStats(generalOptions)
 
 	// Enable memory profiling if requested.
 	if generalOptions.Profile.Mem != "" {
 		f, err := os.Create(generalOptions.Profile.Mem)
 		if err != nil {
-			log.Fatal("could not create memory profile: ", err)
+			return "", err
 		}
 		defer f.Close() // TODO handle error
 		runtime.GC()
 		if err := pprof.WriteHeapProfile(f); err != nil {
-			log.Fatal("could not write memory profile: ", err)
+			return "", err
 		}
 	}
+	if err != nil {
+		return "", err
+	} else {
+		return output, nil
+	}
 }
-
-func printError(err error) int {
-	fmt.Printf("Error: %s", err)
-	return 1
-}
-func runArchStats(generalOptions *GeneralOptions) error {
+func runArchStats(generalOptions *GeneralOptions) (string, error) {
 	generalOptions.Args.RootDir, _ = filepath.Abs(generalOptions.Args.RootDir)
 	var extensions []snippets.SnippetProvider
 	for _, extension := range generalOptions.Extensions {
@@ -106,23 +109,20 @@ func runArchStats(generalOptions *GeneralOptions) error {
 
 	allResults, err := Analyze(generalOptions.Args.RootDir, settings)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if generalOptions.AllViews {
 		allViews := views.GetAllViews(allResults)
-		printAllViews(allViews)
+		return printAllViews(allViews), nil
 	} else {
 		resultsFromCommand, err := views.GetView(generalOptions.View, allResults)
 		if err != nil {
-			return err
+			return "", err
 		}
 		sortRows(generalOptions.SortedBy, resultsFromCommand)
-
-		printRows(resultsFromCommand, generalOptions)
+		return printRows(resultsFromCommand, generalOptions), nil
 	}
-
-	return nil
 }
 
 func Analyze(rootPath string, settings snippets.AnalysisSettings) (*snippets.Results, error) {
@@ -151,4 +151,8 @@ func parseRegexes(input []string) []*regexp.Regexp {
 		toReturn = append(toReturn, regexp.MustCompile(s))
 	}
 	return toReturn
+}
+func printError(err error) int {
+	fmt.Printf("Error: %s", err)
+	return 1
 }
