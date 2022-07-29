@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/pprof"
+	"sort"
 	"sync"
 )
 
@@ -54,8 +55,7 @@ func main() {
 }
 
 func RunArchstats(args []string) (string, error) {
-	generalOptions := &GeneralOptions{}
-	_, err := flags.NewParser(generalOptions, flags.Default|flags.IgnoreUnknown).ParseArgs(args)
+	generalOptions, err := getOptions(args)
 
 	if err != nil {
 		return "", err
@@ -92,6 +92,12 @@ func RunArchstats(args []string) (string, error) {
 	} else {
 		return output, nil
 	}
+}
+
+func getOptions(args []string) (*GeneralOptions, error) {
+	generalOptions := &GeneralOptions{}
+	_, err := flags.NewParser(generalOptions, flags.Default|flags.IgnoreUnknown).ParseArgs(args)
+	return generalOptions, err
 }
 func runArchStats(generalOptions *GeneralOptions) (string, error) {
 	generalOptions.Args.RootDir, _ = filepath.Abs(generalOptions.Args.RootDir)
@@ -138,6 +144,16 @@ func Analyze(rootPath string, settings snippets.AnalysisSettings) (*snippets.Res
 		lock.Lock()
 		allSnippets = append(allSnippets, foundSnippets...)
 		lock.Unlock()
+	})
+	// Pre-sort the snippets to make sure they are in the same order every time.
+	sort.Slice(allSnippets, func(i, j int) bool {
+		if allSnippets[i].File != allSnippets[j].File {
+			return allSnippets[i].File < allSnippets[j].File
+		}
+		if allSnippets[i].Begin != allSnippets[j].Begin {
+			return allSnippets[i].Begin < allSnippets[j].Begin
+		}
+		return allSnippets[i].End < allSnippets[j].End
 	})
 	if len(allSnippets) == 0 {
 		return nil, errors.New("could not find any snippets")

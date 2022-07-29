@@ -36,7 +36,7 @@ func getLessFunc(aFieldExample interface{}, resultsFromCommand []*views.Row, sor
 	switch aFieldExample.(type) {
 	case string:
 		return func(i, j int) bool {
-			return resultsFromCommand[i].Data[sortFieldName].(string) > resultsFromCommand[j].Data[sortFieldName].(string)
+			return resultsFromCommand[i].Data[sortFieldName].(string) < resultsFromCommand[j].Data[sortFieldName].(string)
 		}
 	case float32, float64:
 		return func(i, j int) bool {

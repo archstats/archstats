@@ -51,7 +51,7 @@ func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*
 	if !strings.HasSuffix(dirAbsolutePath, separator) {
 		dirAbsolutePath = dirAbsolutePath + separator
 	}
-	var snippets []*fileDescription
+	var fileDescriptions []*fileDescription
 
 	files, _ := ioutil.ReadDir(dirAbsolutePath)
 	ignoreCtx.addIgnoreLines(dirAbsolutePath, files)
@@ -65,15 +65,15 @@ func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*
 
 		if entry.IsDir() {
 			path += separator
-			snippets = append(snippets, getAllFiles(path, depth+1, ignoreCtx)...)
+			fileDescriptions = append(fileDescriptions, getAllFiles(path, depth+1, ignoreCtx)...)
 		} else {
-			snippets = append(snippets, &fileDescription{
+			fileDescriptions = append(fileDescriptions, &fileDescription{
 				path: path,
 				info: entry,
 			})
 		}
 	}
-	return snippets
+	return fileDescriptions
 }
 
 type fileDescription struct {
