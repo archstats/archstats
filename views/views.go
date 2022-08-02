@@ -27,12 +27,13 @@ func GetView(command string, results *snippets.Results) (*View, error) {
 
 func getViewFunctionMap() map[string]ViewFunction {
 	return map[string]ViewFunction{
+		"summary":               SummaryView,
 		"components":            ComponentView,
 		"component-connections": ComponentConnectionsView,
 		"files":                 FileView,
 		"directories":           DirectoryView,
 		"directories-recursive": DirectoryRecursiveView,
-		"snippets":              SnippetsView,
+		//"snippets":              SnippetsView, TODO: this is a noisy, not insightful, view. But it's handy for something like `--raw-snippets`
 	}
 }
 

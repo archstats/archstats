@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-const TestDataPath = "./testdata"
+const TestDataPath = "./temp_testdata"
 
 func Test_E2E(t *testing.T) {
 
