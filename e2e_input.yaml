@@ -20,4 +20,15 @@ cases:
       !*.java
       **/test/**
       **/tests/**
+
+  - name: Java components should have proper component metrics
+    repo: https://github.com/RyanSusana/elepy.git
+    commit: b1eeb16ab45a670ab76a1db816c7adf68a88aa44
+    options: --view components --extension java -c name,distance_main_sequence,abstractness,instability,efferent_couplings,afferent_couplings
+    expectedOutputFile: e2e_output/elepy_components.table
+    ignore: |
+      *.*
+      !*.java
+      **/test/**
+      **/tests/**
       

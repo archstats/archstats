@@ -5,6 +5,14 @@ import (
 	"math"
 )
 
+const (
+	AfferentCouplings    = "afferent_couplings"
+	EfferentCouplings    = "efferent_couplings"
+	Instability          = "instability"
+	Abstractness         = "abstractness"
+	DistanceMainSequence = "distance_main_sequence"
+)
+
 func ComponentView(results *snippets.Results) *View {
 	view := GenericView(getDistinctColumnsFromResults(results), results.SnippetsByComponent)
 

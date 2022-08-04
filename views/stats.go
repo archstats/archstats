@@ -1,13 +1,5 @@
 package views
 
-const (
-	AfferentCouplings    = "afferent_couplings"
-	EfferentCouplings    = "efferent_couplings"
-	Instability          = "instability"
-	Abstractness         = "abstractness"
-	DistanceMainSequence = "distance_main_sequence"
-)
-
 type Stats map[string]int
 
 func (stats Stats) Merge(otherStats ...Stats) Stats {

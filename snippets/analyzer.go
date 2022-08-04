@@ -82,7 +82,9 @@ func setComponents(s []*Snippet) {
 
 	for fileName, componentDeclarationSnippets := range componentDeclarationsByFile {
 		if len(componentDeclarationSnippets) == 0 {
-			continue
+			for _, orphanSnippet := range snippetsByFile[fileName] {
+				orphanSnippet.Component = "unknown"
+			}
 		}
 		theComponent := componentDeclarationSnippets[0].Value
 		snippets := snippetsByFile[fileName]
