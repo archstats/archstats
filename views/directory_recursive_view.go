@@ -6,7 +6,7 @@ func DirectoryRecursiveView(results *snippets.Results) *View {
 	var toReturn []*Row
 	snippetsByDirectory := results.SnippetsByDirectory
 	allColumns := getDistinctColumnsFromResults(results)
-	statsByDirectory := statsByGroup(allColumns, snippetsByDirectory)
+	statsByDirectory := getStatsPerGroup(allColumns, snippetsByDirectory)
 	allDirs := make([]string, 0, len(snippetsByDirectory))
 
 	for dir, _ := range snippetsByDirectory {

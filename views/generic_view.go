@@ -60,7 +60,7 @@ func snippetsToStats(allStats []string, allSnippets []*snippets.Snippet) Stats {
 	return stats
 }
 
-func statsByGroup(allStats []string, group snippets.SnippetGroup) map[string]Stats {
+func getStatsPerGroup(allStats []string, group snippets.SnippetGroup) map[string]Stats {
 	toReturn := map[string]Stats{}
 	for groupItem, snippets := range group {
 		toReturn[groupItem] = snippetsToStats(allStats, snippets)

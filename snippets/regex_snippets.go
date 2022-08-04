@@ -1,7 +1,6 @@
 package snippets
 
 import (
-	"fmt"
 	"regexp"
 )
 
@@ -19,10 +18,7 @@ func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file File) []*Snippet {
 		for _, match := range matches {
 
 			if match.begin == -1 || match.end == -1 {
-
-				fmt.Println(match.name)
-				fmt.Println(file.Path())
-				fmt.Println(fmt.Sprintf("%d:%d", match.begin, match.end))
+				continue
 			}
 			theSnip := &Snippet{
 				Type:  match.name,
