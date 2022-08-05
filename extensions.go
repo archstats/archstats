@@ -1,35 +1,47 @@
 package main
 
 import (
-	"fmt"
+	_ "embed"
+	"errors"
 	"github.com/RyanSusana/archstats/snippets"
+	"github.com/gobwas/glob"
+	"gopkg.in/yaml.v3"
 	"regexp"
 )
 
-func getExtensions(lang string) []snippets.SnippetProvider {
-	if lang == "php" {
-		return []snippets.SnippetProvider{
-			&snippets.RegexBasedSnippetsProvider{
-				Patterns: []*regexp.Regexp{
-					regexp.MustCompile(fmt.Sprintf("namespace (?P<%s>.*);", snippets.ComponentDeclaration)),
-					regexp.MustCompile(fmt.Sprintf("(use|import) (?P<%s>.*)\\\\.*;", snippets.ComponentImport)),
-					regexp.MustCompile(fmt.Sprintf("(abstract class|interface|trait) (?P<%s>\\w+)", snippets.AbstractType)),
-					regexp.MustCompile(fmt.Sprintf("(class|interface|trait) (?P<%s>\\w+)", snippets.Type)),
-				},
-			},
+//go:embed extensions.yaml
+var regexExtensionsRaw []byte
+
+var regexExtensions map[string]snippets.SnippetProvider
+
+type embeddedExtensionDefinition struct {
+	FileGlob string   `yaml:"file_glob"`
+	Patterns []string `yaml:"patterns"`
+}
+type RegexExtensions struct {
+	Extensions map[string]*embeddedExtensionDefinition `yaml:"extensions"`
+}
+
+func init() {
+	regexExtensionsConfig := &RegexExtensions{}
+	yaml.Unmarshal(regexExtensionsRaw, regexExtensionsConfig)
+	regexExtensions = make(map[string]snippets.SnippetProvider)
+	for lang, extension := range regexExtensionsConfig.Extensions {
+		var patterns []*regexp.Regexp
+		for _, pattern := range extension.Patterns {
+			patterns = append(patterns, regexp.MustCompile(pattern))
+		}
+		regexExtensions[lang] = &snippets.RegexBasedSnippetsProvider{
+			Glob:     glob.MustCompile(extension.FileGlob),
+			Patterns: patterns,
 		}
 	}
-	if lang == "java" {
-		return []snippets.SnippetProvider{
-			&snippets.RegexBasedSnippetsProvider{
-				Patterns: []*regexp.Regexp{
-					regexp.MustCompile(fmt.Sprintf("package (?P<%s>.*);", snippets.ComponentDeclaration)),
-					regexp.MustCompile(fmt.Sprintf("import (?P<%s>.*)\\..*;", snippets.ComponentImport)),
-					regexp.MustCompile(fmt.Sprintf("((abstract.*class)|interface).*(?P<%s>\\w+)", snippets.AbstractType)),
-					regexp.MustCompile(fmt.Sprintf("(class|interface).*(?P<%s>\\w+)", snippets.Type)),
-				},
-			},
-		}
+}
+func getExtension(extension string) (snippets.SnippetProvider, error) {
+	ext, has := regexExtensions[extension]
+	if has {
+		return ext, nil
+	} else {
+		return nil, errors.New("extension not found: " + extension)
 	}
-	return []snippets.SnippetProvider{}
 }

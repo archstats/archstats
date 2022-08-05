@@ -103,7 +103,11 @@ func runArchStats(generalOptions *GeneralOptions) (string, error) {
 	generalOptions.Args.RootDir, _ = filepath.Abs(generalOptions.Args.RootDir)
 	var extensions []snippets.SnippetProvider
 	for _, extension := range generalOptions.Extensions {
-		extensions = append(extensions, getExtensions(extension)...)
+		provider, err := getExtension(extension)
+		if err != nil {
+			return "", err
+		}
+		extensions = append(extensions, provider)
 	}
 
 	extensions = append(extensions,

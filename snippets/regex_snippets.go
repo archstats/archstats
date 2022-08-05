@@ -1,14 +1,19 @@
 package snippets
 
 import (
+	"github.com/gobwas/glob"
 	"regexp"
 )
 
 type RegexBasedSnippetsProvider struct {
+	Glob     glob.Glob
 	Patterns []*regexp.Regexp
 }
 
 func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file File) []*Snippet {
+	if s.Glob != nil && !s.Glob.Match(file.Path()) {
+		return []*Snippet{}
+	}
 	var toReturn []*Snippet
 	stringContent := string(file.Content())
 

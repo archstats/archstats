@@ -1,0 +1,26 @@
+extensions:
+  java:
+    file_glob: "**/*.java"
+    patterns:
+    - package (?P<component_declaration>.*);
+    - import (?P<component_import>.*)\.\w+;
+    - ((abstract.*class)|interface).*(?P<abstract_type>\w+)
+    - (class|interface).*(?P<type>\w+)
+  kotlin:
+    file_glob: "**/*.kt"
+    patterns:
+    - package (?P<component_declaration>.*);
+    - import (?P<component_import>.*)\.\w+\n
+    - ((abstract.*class)|interface).*(?P<abstract_type>\w+)
+    - (class|interface).*(?P<type>\w+)
+  php:
+    file_glob: "**/*.php"
+    patterns:
+    - namespace (?P<component_declaration>.*);
+    - (use|import) (?P<component_import>.*)\\.*;;
+    - (abstract class|interface|trait) (?P<abstract_type>\\w+)
+    - (class|interface|trait) (?P<type>\\w+)
+
+
+
+

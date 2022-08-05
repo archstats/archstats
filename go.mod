@@ -16,6 +16,7 @@ require (
 	github.com/avito-tech/go-mutesting v0.0.0-20220110121502-34b1505ef43b // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gobeam/stringy v0.0.5 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/zimmski/osutil v0.0.0-20190128123334-0d0b3ca231ac // indirect
