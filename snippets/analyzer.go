@@ -26,6 +26,7 @@ type Results struct {
 type Extension interface{}
 
 type AnalysisSettings struct {
+	Extensions       []Extension
 	SnippetProviders []SnippetProvider
 }
 

@@ -1,19 +1,15 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/RyanSusana/archstats/snippets"
 	"github.com/RyanSusana/archstats/views"
-	"github.com/RyanSusana/archstats/walker"
 	"github.com/jessevdk/go-flags"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/pprof"
-	"sort"
-	"sync"
 )
 
 type GeneralOptions struct {
@@ -117,7 +113,7 @@ func runArchStats(generalOptions *GeneralOptions) (string, error) {
 	)
 	settings := snippets.AnalysisSettings{SnippetProviders: extensions}
 
-	allResults, err := Analyze(generalOptions.Args.RootDir, settings)
+	allResults, err := snippets.Analyze(generalOptions.Args.RootDir, settings)
 	if err != nil {
 		return "", err
 	}
@@ -133,36 +129,6 @@ func runArchStats(generalOptions *GeneralOptions) (string, error) {
 		sortRows(generalOptions.SortedBy, resultsFromCommand)
 		return printRows(resultsFromCommand, generalOptions), nil
 	}
-}
-
-func Analyze(rootPath string, settings snippets.AnalysisSettings) (*snippets.Results, error) {
-
-	var allSnippets []*snippets.Snippet
-	lock := sync.Mutex{}
-
-	walker.WalkDirectoryConcurrently(rootPath, func(file walker.OpenedFile) {
-		var foundSnippets []*snippets.Snippet
-		for _, provider := range settings.SnippetProviders {
-			foundSnippets = append(foundSnippets, provider.GetSnippetsFromFile(file)...)
-		}
-		lock.Lock()
-		allSnippets = append(allSnippets, foundSnippets...)
-		lock.Unlock()
-	})
-	// Pre-sort the snippets to make sure they are in the same order every time.
-	sort.Slice(allSnippets, func(i, j int) bool {
-		if allSnippets[i].File != allSnippets[j].File {
-			return allSnippets[i].File < allSnippets[j].File
-		}
-		if allSnippets[i].Begin != allSnippets[j].Begin {
-			return allSnippets[i].Begin < allSnippets[j].Begin
-		}
-		return allSnippets[i].End < allSnippets[j].End
-	})
-	if len(allSnippets) == 0 {
-		return nil, errors.New("could not find any snippets")
-	}
-	return snippets.CalculateResults(rootPath, allSnippets), nil
 }
 
 func parseRegexes(input []string) []*regexp.Regexp {

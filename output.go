@@ -72,20 +72,17 @@ func rowsToMaps(columnsToPrint []string, rows []*views.Row) []rowData {
 	}
 	return toPrint
 }
+
 func measurableToMap(measurable *views.Row, stats []string) map[string]interface{} {
 	toReturn := map[string]interface{}{}
-
 	for _, stat := range stats {
 		toReturn[stat] = measurable.Data[stat]
 	}
-
 	return toReturn
 }
 
 func getRows(columnsToPrint []string, resultsFromCommand []*views.Row, shouldPrintHeader bool, delimiter string) []string {
-
 	var rows []string
-
 	if shouldPrintHeader {
 		rows = append(rows, getHeader(delimiter, columnsToPrint))
 	}
@@ -98,6 +95,7 @@ func getRows(columnsToPrint []string, resultsFromCommand []*views.Row, shouldPri
 func getHeader(delimiter string, columnsToPrint []string) string {
 	return strings.ToUpper(strings.Join(columnsToPrint, delimiter))
 }
+
 func rowToString(columnsToPrint []string, delimiter string, row *views.Row) string {
 	toReturn := make([]string, 0, len(columnsToPrint))
 	columns := row.Data
