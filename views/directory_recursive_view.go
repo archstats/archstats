@@ -25,7 +25,7 @@ func DirectoryRecursiveView(results *snippets.Results) *View {
 			Data: statsToRowData(dir, stats),
 		})
 	}
-	columnsToReturn := []string{"name"}
+	columnsToReturn := []string{"name", FileCount}
 	for _, column := range allColumns {
 		columnsToReturn = append(columnsToReturn, column)
 	}

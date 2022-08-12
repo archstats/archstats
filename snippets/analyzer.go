@@ -1,7 +1,11 @@
 package snippets
 
 import (
+	"errors"
+	"github.com/RyanSusana/archstats/walker"
+	"sort"
 	"strings"
+	"sync"
 )
 
 const (
@@ -23,11 +27,64 @@ type Results struct {
 	ConnectionsTo       map[string][]*ComponentConnection
 }
 
-type Extension interface{}
+func Analyze(settings *AnalysisSettings) (*Results, error) {
+	allExtensions := defaultExtensions()
+	for _, extension := range settings.Extensions {
+		allExtensions = append(allExtensions, extension)
+	}
+	initializables := getExtensions[Initializable](allExtensions)
 
-type AnalysisSettings struct {
-	Extensions       []Extension
-	SnippetProviders []SnippetProvider
+	for _, initializable := range initializables {
+		initializable.Init(settings)
+	}
+
+	var allSnippets []*Snippet
+	lock := sync.Mutex{}
+
+	providers := getExtensions[SnippetProvider](allExtensions)
+	walker.WalkDirectoryConcurrently(settings.RootPath, func(file walker.OpenedFile) {
+		var foundSnippets []*Snippet
+		for _, provider := range providers {
+			foundSnippets = append(foundSnippets, provider.GetSnippetsFromFile(file)...)
+		}
+		lock.Lock()
+		allSnippets = append(allSnippets, foundSnippets...)
+		lock.Unlock()
+	})
+	// Pre-sort the snippets to make sure they are in the same order every time.
+	sort.Slice(allSnippets, func(i, j int) bool {
+		if allSnippets[i].File != allSnippets[j].File {
+			return allSnippets[i].File < allSnippets[j].File
+		}
+		if allSnippets[i].Begin != allSnippets[j].Begin {
+			return allSnippets[i].Begin < allSnippets[j].Begin
+		}
+		return allSnippets[i].End < allSnippets[j].End
+	})
+	if len(allSnippets) == 0 {
+		return nil, errors.New("could not find any snippets")
+	}
+
+	snippetEditors := getExtensions[SnippetEditor](allExtensions)
+	for _, editor := range snippetEditors {
+		for _, snippet := range allSnippets {
+			editor.EditSnippet(snippet)
+		}
+	}
+	results := CalculateResults(settings.RootPath, allSnippets)
+
+	resultEditors := getExtensions[ResultEditor](allExtensions)
+
+	for _, editor := range resultEditors {
+		editor.EditResults(results)
+	}
+	return results, nil
+}
+
+func defaultExtensions() []Extension {
+	return []Extension{
+		&rootPathStripper{},
+	}
 }
 
 func CalculateResults(rootPath string, allSnippets []*Snippet) *Results {
@@ -83,9 +140,7 @@ func setComponents(s []*Snippet) {
 
 	for fileName, componentDeclarationSnippets := range componentDeclarationsByFile {
 		if len(componentDeclarationSnippets) == 0 {
-			for _, orphanSnippet := range snippetsByFile[fileName] {
-				orphanSnippet.Component = "unknown"
-			}
+			continue
 		}
 		theComponent := componentDeclarationSnippets[0].Value
 		snippets := snippetsByFile[fileName]

@@ -1,0 +1,6 @@
+NAME                          DISTANCE_MAIN_SEQUENCE  INSTABILITY  EFFERENT_COUPLINGS  AFFERENT_COUPLINGS  FILE_COUNT
+RazorPagesMovie.Data          0.875                   0.125        1                   7                   1
+Unknown                       0                       0            0                   0                   4
+RazorPagesMovie.Models        1                       0            0                   6                   1
+RazorPagesMovie.Pages         0                       0            0                   0                   3
+RazorPagesMovie.Pages.Movies  0                       1            9                   0                   5

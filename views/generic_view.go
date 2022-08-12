@@ -10,15 +10,19 @@ import (
 func GenericView(allColumns []string, group snippets.SnippetGroup) *View {
 	var toReturn []*Row
 	for groupItem, groupedSnippets := range group {
+		if groupItem == "" {
+			groupItem = "Unknown"
+		}
 		stats := snippetsToStats(allColumns, groupedSnippets)
 		data := statsToRowData(groupItem, stats)
+		addFileCount(data, groupedSnippets)
 		addAbstractness(data, stats)
 		toReturn = append(toReturn, &Row{
 			Data: data,
 		})
 	}
 
-	columnsToReturn := []string{"name"}
+	columnsToReturn := []string{"name", FileCount}
 	if slices.Contains(allColumns, snippets.AbstractType) {
 		columnsToReturn = append(columnsToReturn, "abstractness")
 	}
@@ -29,6 +33,10 @@ func GenericView(allColumns []string, group snippets.SnippetGroup) *View {
 		OrderedColumns: columnsToReturn,
 		Rows:           toReturn,
 	}
+}
+
+func addFileCount(data map[string]interface{}, groupedSnippets []*snippets.Snippet) {
+	data[FileCount] = getDistinctCount(groupedSnippets, fileCount)
 }
 func addAbstractness(data map[string]interface{}, stats Stats) {
 	if _, hasAbstractTypes := data[snippets.AbstractType]; hasAbstractTypes {
@@ -75,4 +83,15 @@ func getDistinctColumnsFromResults(results *snippets.Results) []string {
 	}
 	sort.Strings(toReturn)
 	return toReturn
+}
+
+func fileCount(snippet *snippets.Snippet) interface{} {
+	return snippet.File
+}
+func getDistinctCount(results []*snippets.Snippet, distinctFunc func(snippet *snippets.Snippet) interface{}) int {
+	files := make(map[interface{}]bool)
+	for _, snippet := range results {
+		files[distinctFunc(snippet)] = true
+	}
+	return len(files)
 }

@@ -31,4 +31,13 @@ cases:
       !*.java
       **/test/**
       **/tests/**
+
+  - name: C# components should have proper component metrics
+    repo: https://github.com/dotnet-presentations/aspnetcore-for-beginners.git
+    commit: 21080fe5ac644fef753ee32addadf55885596861
+    options: --view components --extension csharp -c name,distance_main_sequence,abstractness,instability,efferent_couplings,afferent_couplings,file_count
+    expectedOutputFile: e2e_output/csharp_example_components.table
+    ignore: |
+      *.*
+      !**/Final_Project/**/*.cs
       

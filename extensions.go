@@ -9,7 +9,7 @@ import (
 	"regexp"
 )
 
-//go:embed extensions.yaml
+//go:embed regex_extensions.yaml
 var regexExtensionsRaw []byte
 
 var regexExtensions map[string]snippets.SnippetProvider

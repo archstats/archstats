@@ -1,9 +1,9 @@
 package snippets
 
-type DirectoryBasedComponents struct {
-	Directory string
-}
+import "strings"
 
-func (d *DirectoryBasedComponents) GetSnippetsFromFile(file File) []*Snippet {
-	return nil
+type DirectoryBasedComponents struct{}
+
+func (d DirectoryBasedComponents) EditSnippet(snippet *Snippet) {
+	snippet.Component = snippet.File[:strings.Index(snippet.File, "/")]
 }

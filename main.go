@@ -97,7 +97,7 @@ func getOptions(args []string) (*GeneralOptions, error) {
 }
 func runArchStats(generalOptions *GeneralOptions) (string, error) {
 	generalOptions.Args.RootDir, _ = filepath.Abs(generalOptions.Args.RootDir)
-	var extensions []snippets.SnippetProvider
+	var extensions []snippets.Extension
 	for _, extension := range generalOptions.Extensions {
 		provider, err := getExtension(extension)
 		if err != nil {
@@ -111,9 +111,10 @@ func runArchStats(generalOptions *GeneralOptions) (string, error) {
 			Patterns: parseRegexes(generalOptions.Snippets),
 		},
 	)
-	settings := snippets.AnalysisSettings{SnippetProviders: extensions}
+	settings := &snippets.AnalysisSettings{RootPath: generalOptions.Args.RootDir,
+		Extensions: extensions}
 
-	allResults, err := snippets.Analyze(generalOptions.Args.RootDir, settings)
+	allResults, err := snippets.Analyze(settings)
 	if err != nil {
 		return "", err
 	}

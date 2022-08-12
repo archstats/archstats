@@ -19,7 +19,7 @@ func ComponentView(results *snippets.Results) *View {
 	for _, row := range view.Rows {
 		component := row.Data["name"].(string)
 		afferentCouplings, efferentCouplings := len(results.ConnectionsTo[component]), len(results.ConnectionsFrom[component])
-		abstractness := row.Data["abstractness"].(float64)
+		abstractness := convertToFloat(row.Data["abstractness"])
 		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
 		distanceMainSequence := math.Abs(abstractness + instability - 1)
 
@@ -28,7 +28,14 @@ func ComponentView(results *snippets.Results) *View {
 		row.Data[Instability] = nanToZero(instability)
 		row.Data[DistanceMainSequence] = nanToZero(distanceMainSequence)
 	}
-	view.OrderedColumns = append(view.OrderedColumns, AfferentCouplings, EfferentCouplings, Instability, DistanceMainSequence)
+	view.OrderedColumns = append(view.OrderedColumns, AfferentCouplings, EfferentCouplings, Instability, DistanceMainSequence, FileCount)
 
 	return view
+}
+
+func convertToFloat(input interface{}) float64 {
+	if input == nil {
+		return 0
+	}
+	return input.(float64)
 }

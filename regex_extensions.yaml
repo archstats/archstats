@@ -21,6 +21,14 @@ extensions:
     - (abstract class|interface|trait) (?P<abstract_type>\w+)
     - (class|interface|trait) (?P<type>\\w+)
 
+  csharp:
+    file_glob: "**/*.cs"
+    patterns:
+    - namespace (?P<component_declaration>.*);
+    - (using|using static) (?P<component_import>.*);
+    - (abstract class|interface|trait) (?P<abstract_type>\w+)
+    - (class|interface|trait) (?P<type>\w+)
+
 
 
 
