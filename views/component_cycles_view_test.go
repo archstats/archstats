@@ -26,7 +26,7 @@ func TestOneSimpleCycle(t *testing.T) {
 		"B -> A",
 	})
 
-	results := ComponentConnectionsView(input).Rows
+	results := ComponentCyclesView(input).Rows
 	assert.Len(t, results, 2)
 }
 
@@ -38,7 +38,7 @@ func TestOneComplexCycle(t *testing.T) {
 		"D -> A",
 	})
 
-	results := ComponentConnectionsView(input).Rows
+	results := ComponentCyclesView(input).Rows
 
 	assert.Len(t, results, 4)
 }
