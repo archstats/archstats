@@ -13,7 +13,7 @@ cases:
   - name: Java components should have proper coupling relationships
     repo: https://github.com/RyanSusana/elepy.git
     commit: b1eeb16ab45a670ab76a1db816c7adf68a88aa44
-    options: --view component-connections --extension java -c from,to,count
+    options: --view component_connections --extension java -c from,to,count
     expectedOutputFile: e2e_output/elepy_coupling_relationships.table
     ignore: |
       *.*

@@ -1,16 +1,15 @@
 package views
 
 import (
-	"github.com/RyanSusana/archstats/snippets"
+	_ "embed"
 	"github.com/stretchr/testify/assert"
 	"sort"
 	"strconv"
-	"strings"
 	"testing"
 )
 
 func TestNoCycles(t *testing.T) {
-	input := constructInput([]string{
+	input := connectionStringsToResults([]string{
 		"A -> B",
 		"A -> C",
 		"B -> D",
@@ -22,7 +21,7 @@ func TestNoCycles(t *testing.T) {
 }
 
 func TestOneSimpleCycle(t *testing.T) {
-	input := constructInput([]string{
+	input := connectionStringsToResults([]string{
 		"A -> B",
 		"B -> A",
 	})
@@ -32,7 +31,7 @@ func TestOneSimpleCycle(t *testing.T) {
 }
 
 func TestOneComplexCycle(t *testing.T) {
-	input := constructInput([]string{
+	input := connectionStringsToResults([]string{
 		"A -> B",
 		"B -> C",
 		"C -> D",
@@ -58,7 +57,7 @@ func TestOneComplexCycle(t *testing.T) {
 }
 
 func TestTwoSeparateCycles(t *testing.T) {
-	input := constructInput([]string{
+	input := connectionStringsToResults([]string{
 		"A -> B",
 		"B -> C",
 		"C -> A",
@@ -79,7 +78,7 @@ func TestTwoSeparateCycles(t *testing.T) {
 }
 
 func TestTwoJoinedCycles(t *testing.T) {
-	input := constructInput([]string{
+	input := connectionStringsToResults([]string{
 		"JOIN -> B",
 		"B -> C",
 		"C -> JOIN",
@@ -119,7 +118,14 @@ func assertHasCycle(t *testing.T, results []*Row, expectedCycle []string) {
 			return
 		}
 	}
-	assert.Fail(t, "expected theCycle not found", expectedCycle)
+
+	var formattedGroups [][]string
+	for _, theCycle := range grouped {
+		formattedGroups = append(formattedGroups, mapTo(theCycle, func(row *Row) string {
+			return row.Data["component"].(string)
+		}))
+	}
+	assert.Failf(t, "missing cycle", "expected cycle %v not found. All cycles: %v", expectedCycle, formattedGroups)
 }
 
 func cycleMatches(i []string, expectedCycle []string) bool {
@@ -134,32 +140,4 @@ func cycleMatches(i []string, expectedCycle []string) bool {
 		}
 	}
 	return true
-}
-
-func constructInput(inputs []string) *snippets.Results {
-	connections := make([]*snippets.ComponentConnection, 0, len(inputs))
-
-	for _, input := range inputs {
-		connection := splitInput(input)
-		connections = append(connections, connection)
-	}
-
-	return &snippets.Results{
-		Connections: connections,
-		ConnectionsFrom: groupBy(connections, func(connection *snippets.ComponentConnection) string {
-			return connection.From
-		}),
-		ConnectionsTo: groupBy(connections, func(connection *snippets.ComponentConnection) string {
-			return connection.To
-		}),
-	}
-}
-
-func splitInput(input string) *snippets.ComponentConnection {
-	split := strings.Split(input, "->")
-	connection := &snippets.ComponentConnection{
-		From: strings.TrimSpace(split[0]),
-		To:   strings.TrimSpace(split[1]),
-	}
-	return connection
 }
