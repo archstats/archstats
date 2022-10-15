@@ -8,19 +8,22 @@ import (
 
 func ComponentCyclesView(results *snippets.Results) *View {
 	connections := getConnectionsWithCount(results)
-	connectionsToIndex := results.ConnectionsTo
+	connectionsIndex := results.ConnectionsFrom
 
-	cycles := allCycles(connections, connectionsToIndex)
+	cycles := allCycles(connections, connectionsIndex)
+
+	sort.Slice(cycles, func(c1, c2 int) bool {
+		return len(cycles[c1]) < len(cycles[c2])
+	})
 
 	var rows []*Row
-	for i, theCycle := range cycles {
-
-		for _, component := range theCycle {
-			successor := theCycle[i+1%len(theCycle)]
-			predecessor := theCycle[i-1%len(theCycle)]
+	for cycleNr, theCycle := range cycles {
+		for componentIndex, component := range theCycle {
+			successor := theCycle[wrapIndex(componentIndex+1, len(theCycle))]
+			predecessor := theCycle[wrapIndex(componentIndex-1, len(theCycle))]
 			rows = append(rows, &Row{
 				Data: map[string]interface{}{
-					"cycle_nr":    i,
+					"cycle_nr":    cycleNr,
 					"cycle_size":  len(theCycle),
 					"component":   component,
 					"successor":   successor,
@@ -36,11 +39,11 @@ func ComponentCyclesView(results *snippets.Results) *View {
 	}
 }
 
-func allCycles(connections []*connectionWithCount, connectionsToIndex map[string][]*snippets.ComponentConnection) []cycle {
+func allCycles(connections []*connectionWithCount, connectionsIndex map[string][]*snippets.ComponentConnection) []cycle {
 	visited := make(map[string]cycle)
 
 	for _, connection := range connections {
-		theCycles := allCyclesForComponent(connection.from, connectionsToIndex)
+		theCycles := allCyclesForComponent(connection.from, connectionsIndex)
 		for _, theCycle := range theCycles {
 			visited[theCycle.getKey()] = theCycle
 		}
@@ -52,21 +55,21 @@ func allCycles(connections []*connectionWithCount, connectionsToIndex map[string
 	return cycles
 }
 
-func allCyclesForComponent(component string, connectionsToIndex map[string][]*snippets.ComponentConnection) []cycle {
+func allCyclesForComponent(component string, connectionsIndex map[string][]*snippets.ComponentConnection) []cycle {
 	cycles := make([]cycle, 0)
 	visited := make(map[string]bool)
 
 	stack := make([]string, 0)
-	directSuccessors := connectionsToIndex[component]
+	directSuccessors := connectionsIndex[component]
 
 	for _, successor := range directSuccessors {
-		findCycles(successor.To, component, connectionsToIndex, visited, stack, cycles)
+		findCycles(successor.To, component, connectionsIndex, visited, stack, &cycles)
 	}
 
 	return cycles
 }
 
-func findCycles(currentSuccessor string, currentlyTrackedComponent string, index map[string][]*snippets.ComponentConnection, alreadyVisited map[string]bool, stack []string, cycles []cycle) {
+func findCycles(currentSuccessor string, currentlyTrackedComponent string, index map[string][]*snippets.ComponentConnection, alreadyVisited map[string]bool, stack []string, cycles *[]cycle) {
 	if alreadyVisited[currentSuccessor] {
 		return
 	}
@@ -77,7 +80,7 @@ func findCycles(currentSuccessor string, currentlyTrackedComponent string, index
 	//if the current currentSuccessor is the same as the tracked currentlyTrackedComponent, we can return the stack as the cycle.
 	//otherwise, we need to find the cycles of the currentSuccessor
 	if currentSuccessor == currentlyTrackedComponent {
-		cycles = append(cycles, stack)
+		*cycles = append(*cycles, stack)
 	} else {
 		directSuccessors := index[currentSuccessor]
 		for _, nextSuccessor := range directSuccessors {
@@ -98,4 +101,12 @@ func (c cycle) getKey() string {
 	copy(sorted, c)
 	sort.Strings(sorted)
 	return strings.Join(sorted, " -> ")
+}
+
+func wrapIndex(i, max int) int {
+	i = i % max
+	if i < 0 {
+		i += max
+	}
+	return i
 }

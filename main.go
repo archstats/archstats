@@ -17,12 +17,13 @@ type GeneralOptions struct {
 		RootDir string `description:"Root directory of the project" required:"true" positional-arg-name:"<project-directory>"`
 	} `positional-args:"true" required:"true"`
 
-	View     string `short:"v" long:"view" default:"directories-recursive" description:"Type of view to show" required:"true"`
-	AllViews bool   `long:"all-views" description:"Show all views in JSON format."`
+	View string `short:"v" long:"view" default:"directories-recursive" description:"Type of view to show" required:"true"`
+
+	AllViews bool `long:"all-views" description:"Show all views in JSON format."`
 
 	Snippets []string `short:"s" long:"snippet" description:"Regular Expression to match snippet types. Snippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'"`
 
-	Extensions []string `short:"e" long:"extension"  description:"This option adds support for additional extensions. The value of this option is a comma separated list of extensions. The supported extensions are: php"`
+	Extensions []string `short:"e" long:"extension"  description:"This option adds support for additional extensions."`
 
 	Columns []string `short:"c" long:"column" description:"When this option is present, it will only show columns in the comma-separated list of columns."`
 

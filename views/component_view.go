@@ -18,7 +18,7 @@ func ComponentView(results *snippets.Results) *View {
 
 	for _, row := range view.Rows {
 		component := row.Data["name"].(string)
-		afferentCouplings, efferentCouplings := len(results.ConnectionsTo[component]), len(results.ConnectionsFrom[component])
+		afferentCouplings, efferentCouplings := len(results.ConnectionsFrom[component]), len(results.ConnectionsFrom[component])
 		abstractness := convertToFloat(row.Data["abstractness"])
 		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
 		distanceMainSequence := math.Abs(abstractness + instability - 1)

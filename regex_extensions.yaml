@@ -1,4 +1,5 @@
 extensions:
+
   java:
     file_glob: "**/*.java"
     patterns:
@@ -6,6 +7,7 @@ extensions:
     - import (?P<component_import>.*)\.\w+;
     - ((abstract.*class)|interface).*(?P<abstract_type>\w+)
     - (class|interface).*(?P<type>\w+)
+
   kotlin:
     file_glob: "**/*.kt"
     patterns:
@@ -13,6 +15,7 @@ extensions:
     - import (?P<component_import>.*)\.\w+\n
     - ((abstract.*class)|interface).*(?P<abstract_type>\w+)
     - (class|interface).*(?P<type>\w+)
+
   php:
     file_glob: "**/*.php"
     patterns:
@@ -29,6 +32,7 @@ extensions:
     - (abstract class|interface|trait) (?P<abstract_type>\w+)
     - (class|interface|trait) (?P<type>\w+)
 
-
-
-
+  indentation:
+    file_glob: "**/*"
+    patterns:
+    - ^[ \t](?P<indentation>.*)

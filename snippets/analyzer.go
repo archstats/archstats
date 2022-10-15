@@ -61,6 +61,7 @@ func Analyze(settings *AnalysisSettings) (*Results, error) {
 		}
 		return allSnippets[i].End < allSnippets[j].End
 	})
+
 	if len(allSnippets) == 0 {
 		return nil, errors.New("could not find any snippets")
 	}

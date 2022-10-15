@@ -30,6 +30,7 @@ func getViewFunctionMap() map[string]ViewFunction {
 		"summary":               SummaryView,
 		"components":            ComponentView,
 		"component-connections": ComponentConnectionsView,
+		"component-cycles":      ComponentCyclesView,
 		"files":                 FileView,
 		"directories":           DirectoryView,
 		"directories-recursive": DirectoryRecursiveView,
