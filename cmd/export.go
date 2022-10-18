@@ -7,6 +7,7 @@ import (
 	"github.com/RyanSusana/archstats/views"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+	"time"
 )
 
 const (
@@ -59,6 +60,7 @@ var exportCmd = &cobra.Command{
 			err := export.SaveToDB(&export.SqlOptions{
 				DatabaseName: dbPath,
 				ReportId:     reportId,
+				ScanTime:     time.Now(),
 			}, viewSlice)
 			if err != nil {
 				return err
