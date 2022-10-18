@@ -159,6 +159,7 @@ func getConnections(snippetsByType map[string][]*Snippet, snippetsByComponent ma
 			toReturn = append(toReturn, &ComponentConnection{
 				From: snippet.Component,
 				To:   snippet.Value,
+				File: snippet.File,
 			})
 		}
 	}

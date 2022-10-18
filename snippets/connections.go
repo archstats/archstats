@@ -3,6 +3,7 @@ package snippets
 type ComponentConnection struct {
 	From string
 	To   string
+	File string
 }
 
 func GroupConnectionsBy(connections []*ComponentConnection, groupBy func(connection *ComponentConnection) string) map[string][]*ComponentConnection {

@@ -46,6 +46,30 @@ func createGraph(results *snippets.Results) *componentGraph {
 	}
 }
 
+func getConnectionsWithCount(results *snippets.Results) []*connectionWithCount {
+	connections := make([]*connectionWithCount, 0, len(results.Connections))
+	grouped := snippets.GroupConnectionsBy(results.Connections, func(connection *snippets.ComponentConnection) string {
+		return connection.From + " -> " + connection.To
+	})
+
+	for connectionName, groupedConnections := range grouped {
+		connections = append(connections, &connectionWithCount{
+			name:  connectionName,
+			count: len(groupedConnections),
+			from:  groupedConnections[0].From,
+			to:    groupedConnections[0].To,
+		})
+	}
+	return connections
+}
+
+type connectionWithCount struct {
+	name  string
+	from  string
+	to    string
+	count int
+}
+
 type componentNode struct {
 	id   int64
 	name string
