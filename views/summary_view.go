@@ -32,7 +32,7 @@ func SummaryView(results *snippets.Results) *View {
 
 	}
 	return &View{
-		OrderedColumns: []string{SnippetType, TotalCount, FileCount, DirectoryCount, ComponentCount},
-		Rows:           toReturn,
+		Columns: []*Column{StringColumn(SnippetType), IntColumn(TotalCount), IntColumn(FileCount), IntColumn(DirectoryCount), IntColumn(ComponentCount)},
+		Rows:    toReturn,
 	}
 }

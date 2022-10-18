@@ -22,7 +22,11 @@ func StronglyConnectedComponentGroupsView(results *snippets.Results) *View {
 		}
 	}
 	return &View{
-		OrderedColumns: []string{"group_nr", "group_size", "component"},
-		Rows:           rows,
+		Columns: []*Column{
+			IntColumn("group_nr"),
+			IntColumn("group_size"),
+			StringColumn("component"),
+		},
+		Rows: rows,
 	}
 }

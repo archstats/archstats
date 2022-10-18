@@ -19,7 +19,15 @@ func SnippetsView(results *snippets.Results) *View {
 		})
 	}
 	return &View{
-		OrderedColumns: []string{"value", "file", "directory", "component", "type", "begin", "end"},
-		Rows:           toReturn,
+		Columns: []*Column{
+			StringColumn("value"),
+			StringColumn("file"),
+			StringColumn("directory"),
+			StringColumn("component"),
+			StringColumn("type"),
+			IntColumn("begin"),
+			IntColumn("end"),
+		},
+		Rows: toReturn,
 	}
 }

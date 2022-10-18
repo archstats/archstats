@@ -25,12 +25,12 @@ func DirectoryRecursiveView(results *snippets.Results) *View {
 			Data: statsToRowData(dir, stats),
 		})
 	}
-	columnsToReturn := []string{"name", FileCount}
+	columnsToReturn := []*Column{StringColumn("name"), IntColumn(FileCount)}
 	for _, column := range allColumns {
-		columnsToReturn = append(columnsToReturn, column)
+		columnsToReturn = append(columnsToReturn, IntColumn(column))
 	}
 	return &View{
-		OrderedColumns: columnsToReturn,
-		Rows:           toReturn,
+		Columns: columnsToReturn,
+		Rows:    toReturn,
 	}
 }

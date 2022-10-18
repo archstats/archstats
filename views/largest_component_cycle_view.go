@@ -31,7 +31,11 @@ func LargestComponentCycleView(results *snippets.Results) *View {
 	}
 
 	return &View{
-		OrderedColumns: []string{"component", "successor", "predecessor"},
-		Rows:           rows,
+		Columns: []*Column{
+			StringColumn("component"),
+			StringColumn("successor"),
+			StringColumn("predecessor"),
+		},
+		Rows: rows,
 	}
 }

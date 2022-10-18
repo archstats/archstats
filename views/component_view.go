@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	Name                 = "name"
 	AfferentCouplings    = "afferent_couplings"
 	EfferentCouplings    = "efferent_couplings"
 	Instability          = "instability"
@@ -28,7 +29,12 @@ func ComponentView(results *snippets.Results) *View {
 		row.Data[Instability] = nanToZero(instability)
 		row.Data[DistanceMainSequence] = nanToZero(distanceMainSequence)
 	}
-	view.OrderedColumns = append(view.OrderedColumns, AfferentCouplings, EfferentCouplings, Instability, DistanceMainSequence, FileCount)
+	view.Columns = append(view.Columns,
+		IntColumn(AfferentCouplings),
+		IntColumn(EfferentCouplings),
+		FloatColumn(Instability),
+		FloatColumn(DistanceMainSequence),
+	)
 
 	return view
 }

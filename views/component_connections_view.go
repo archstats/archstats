@@ -15,9 +15,15 @@ func ComponentConnectionsView(results *snippets.Results) *View {
 			},
 		})
 	}
+
 	return &View{
-		OrderedColumns: []string{"from", "to", "count"},
-		Rows:           rows,
+		Name: "component_connections",
+		Columns: []*Column{
+			StringColumn("from"),
+			StringColumn("to"),
+			IntColumn("count"),
+		},
+		Rows: rows,
 	}
 }
 

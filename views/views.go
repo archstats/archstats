@@ -5,28 +5,28 @@ import (
 	"github.com/RyanSusana/archstats/snippets"
 )
 
-func GetAllViews(results *snippets.Results) map[string]*View {
-	views := getViewFunctionMap()
-	allViews := make(map[string]*View, len(views))
-
-	for viewName, view := range views {
-		allViews[viewName] = view(results)
-	}
-	return allViews
-}
-
-// GetView returns the list of Rows based on the input command from the CLI
-func GetView(command string, results *snippets.Results) (*View, error) {
-	views := getViewFunctionMap()
+// RenderView returns the list of Rows based on the input command from the CLI
+func RenderView(command string, results *snippets.Results) (*View, error) {
+	views := getViewFactories()
 	if view, isAnAvailableView := views[command]; isAnAvailableView {
-		return view(results), nil
+		v := view(results)
+		v.Name = command
+		return v, nil
 	} else {
 		return nil, fmt.Errorf("%s is not a recognized view", command)
 	}
 }
 
-func getViewFunctionMap() map[string]ViewFunction {
-	return map[string]ViewFunction{
+func GetAvailableViews() []string {
+	views := getViewFactories()
+	availableViews := make([]string, 0, len(views))
+	for viewName := range views {
+		availableViews = append(availableViews, viewName)
+	}
+	return availableViews
+}
+func getViewFactories() map[string]ViewFactory {
+	return map[string]ViewFactory{
 		"summary":                             SummaryView,
 		"components":                          ComponentView,
 		"component_connections":               ComponentConnectionsView,
@@ -36,16 +36,55 @@ func getViewFunctionMap() map[string]ViewFunction {
 		"files":                               FileView,
 		"directories":                         DirectoryView,
 		"directories_recursive":               DirectoryRecursiveView,
-		"snippets":                            SnippetsView, //TODO: this is a noisy, not insightful, view. But it's handy for something like `--raw-snippets`
+		"snippets":                            SnippetsView,
 	}
 }
 
-type ViewFunction func(results *snippets.Results) *View
+type ViewFactory func(results *snippets.Results) *View
 
 type View struct {
-	OrderedColumns []string
-	Rows           []*Row
+	Name    string
+	Columns []*Column
+	Rows    []*Row
 }
 type Row struct {
 	Data map[string]interface{}
+}
+
+const (
+	Integer = iota
+	Float
+	String
+	Date
+)
+
+type Column struct {
+	Name string
+	Type int
+}
+
+func StringColumn(name string) *Column {
+	return &Column{
+		Name: name,
+		Type: String,
+	}
+}
+func IntColumn(name string) *Column {
+	return &Column{
+		Name: name,
+		Type: Integer,
+	}
+}
+
+func FloatColumn(name string) *Column {
+	return &Column{
+		Name: name,
+		Type: Float,
+	}
+}
+func DateColumn(name string) *Column {
+	return &Column{
+		Name: name,
+		Type: Date,
+	}
 }

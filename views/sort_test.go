@@ -1,19 +1,18 @@
-package main
+package views
 
 import (
-	"github.com/RyanSusana/archstats/views"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestSortRows(t *testing.T) {
 
-	createNewLineRow := func(newLine int) *views.Row {
-		return &views.Row{
+	createNewLineRow := func(newLine int) *Row {
+		return &Row{
 			Data: map[string]interface{}{"newLine": newLine},
 		}
 	}
-	rowsUnsorted := []*views.Row{
+	rowsUnsorted := []*Row{
 		createNewLineRow(10),
 		createNewLineRow(30),
 		createNewLineRow(40),
@@ -22,7 +21,7 @@ func TestSortRows(t *testing.T) {
 		createNewLineRow(70),
 		createNewLineRow(60),
 	}
-	rowsSorted := []*views.Row{
+	rowsSorted := []*Row{
 		createNewLineRow(70),
 		createNewLineRow(60),
 		createNewLineRow(50),
@@ -32,9 +31,9 @@ func TestSortRows(t *testing.T) {
 		createNewLineRow(10),
 	}
 
-	sortRows("newLine", &views.View{
-		OrderedColumns: []string{"name", "newLine"},
-		Rows:           rowsUnsorted,
+	SortRows("newLine", &View{
+		Columns: []*Column{StringColumn("name"), IntColumn("newLine")},
+		Rows:    rowsUnsorted,
 	})
 	for i, row := range rowsUnsorted {
 		assert.Equal(t, row.Data["newLine"], rowsSorted[i].Data["newLine"])

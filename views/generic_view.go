@@ -22,16 +22,16 @@ func GenericView(allColumns []string, group snippets.SnippetGroup) *View {
 		})
 	}
 
-	columnsToReturn := []string{"name", FileCount}
+	columnsToReturn := []*Column{StringColumn(Name), IntColumn(FileCount)}
 	if slices.Contains(allColumns, snippets.AbstractType) {
-		columnsToReturn = append(columnsToReturn, "abstractness")
+		columnsToReturn = append(columnsToReturn, FloatColumn(Abstractness))
 	}
 	for _, column := range allColumns {
-		columnsToReturn = append(columnsToReturn, column)
+		columnsToReturn = append(columnsToReturn, IntColumn(column))
 	}
 	return &View{
-		OrderedColumns: columnsToReturn,
-		Rows:           toReturn,
+		Columns: columnsToReturn,
+		Rows:    toReturn,
 	}
 }
 

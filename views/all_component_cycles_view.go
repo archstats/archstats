@@ -33,8 +33,14 @@ func ComponentCyclesView(results *snippets.Results) *View {
 
 	}
 	return &View{
-		OrderedColumns: []string{"cycle_nr", "cycle_size", "component", "successor", "predecessor"},
-		Rows:           rows,
+		Columns: []*Column{
+			IntColumn("cycle_nr"),
+			IntColumn("cycle_size"),
+			StringColumn("component"),
+			StringColumn("successor"),
+			StringColumn("predecessor"),
+		},
+		Rows: rows,
 	}
 }
 
