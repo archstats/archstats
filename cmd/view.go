@@ -15,15 +15,30 @@ var viewCmd = &cobra.Command{
 	Use:   "view",
 	Short: "View data",
 	Long:  `View data`,
-	Run: func(cmd *cobra.Command, args []string) {
-		results, _ := getResults(cmd)
-		view, _ := cmd.Flags().GetString("view")
-		sortedBy, _ := cmd.Flags().GetString("sorted-by")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		results, err := getResults(cmd)
+		if err != nil {
+			return err
+		}
 
-		resultsFromCommand, _ := views.RenderView(view, results)
+		view, err := cmd.Flags().GetString("view")
+		if err != nil {
+			return err
+		}
+
+		sortedBy, err := cmd.Flags().GetString("sorted-by")
+		if err != nil {
+			return err
+		}
+
+		resultsFromCommand, err := views.RenderView(view, results)
+		if err != nil {
+			return err
+		}
 
 		views.SortRows(sortedBy, resultsFromCommand)
 		printRows(resultsFromCommand, cmd)
+		return nil
 	},
 }
 

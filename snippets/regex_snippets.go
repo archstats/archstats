@@ -5,6 +5,13 @@ import (
 	"regexp"
 )
 
+// RegexBasedSnippetsProvider is a SnippetProvider that uses regular expressions to find snippets.
+// It can be configured to only match certain files using a glob.
+// For a snippet to be recorded, it must be in a group with a name.
+// For example, the following regex will match a function named "foo" and a function named "bar":
+// (?P<function>func foo\(\) {.*?})|(?P<function>func bar\(\) {.*?})
+//
+// See https://www.regular-expressions.info/named.html for more information on named groups.
 type RegexBasedSnippetsProvider struct {
 	Glob     glob.Glob
 	Patterns []*regexp.Regexp
@@ -18,7 +25,7 @@ func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file File) []*Snippet {
 	stringContent := string(file.Content())
 
 	for _, pattern := range s.Patterns {
-		matches := getMatches(pattern, stringContent)
+		matches := getMatches(pattern, &stringContent)
 
 		for _, match := range matches {
 
@@ -38,10 +45,10 @@ func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file File) []*Snippet {
 	return toReturn
 }
 
-func getMatches(regex *regexp.Regexp, content string) []*subexpMatch {
+func getMatches(regex *regexp.Regexp, content *string) []*subexpMatch {
 	var toReturn []*subexpMatch
 
-	allMatches := regex.FindAllStringSubmatchIndex(content, 1000)
+	allMatches := regex.FindAllStringSubmatchIndex(*content, 1000)
 	names := regex.SubexpNames()
 	for _, match := range allMatches {
 

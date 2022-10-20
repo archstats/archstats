@@ -1,5 +1,6 @@
 package snippets
 
+// A SnippetEditor is a function that edits a snippet to remove the unwanted parts of the absolute path
 type rootPathStripper struct {
 	root string
 }

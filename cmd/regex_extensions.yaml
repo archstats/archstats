@@ -36,3 +36,8 @@ extensions:
     file_glob: "**/*"
     patterns:
     - ^[ \t](?P<indentation>.*)
+
+  newlines:
+    file_glob: "**/*"
+    patterns:
+    - .*(?P<newline>\n)

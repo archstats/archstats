@@ -2,6 +2,7 @@ package views
 
 import (
 	"github.com/RyanSusana/archstats/snippets"
+	"github.com/samber/lo"
 )
 
 const (
@@ -16,9 +17,9 @@ func SummaryView(results *snippets.Results) *View {
 	var toReturn []*Row
 
 	for snippetType, allSnippets := range results.SnippetsByType {
-		files := snippets.GroupSnippetsBy(allSnippets, snippets.ByFile)
-		directories := snippets.GroupSnippetsBy(allSnippets, snippets.ByDirectory)
-		components := snippets.GroupSnippetsBy(allSnippets, snippets.ByComponent)
+		files := lo.GroupBy(allSnippets, snippets.ByFile)
+		directories := lo.GroupBy(allSnippets, snippets.ByDirectory)
+		components := lo.GroupBy(allSnippets, snippets.ByComponent)
 
 		toReturn = append(toReturn, &Row{
 			Data: map[string]interface{}{

@@ -7,15 +7,14 @@ import (
 	"sort"
 )
 
-func GenericView(allColumns []string, group snippets.SnippetGroup) *View {
+func GenericView(allColumns []string, group snippets.StatsGroup) *View {
 	var toReturn []*Row
-	for groupItem, groupedSnippets := range group {
+	for groupItem, stats := range group {
 		if groupItem == "" {
 			groupItem = "Unknown"
 		}
-		stats := snippetsToStats(allColumns, groupedSnippets)
 		data := statsToRowData(groupItem, stats)
-		addFileCount(data, groupedSnippets)
+		//addFileCount(data, groupedSnippets)
 		addAbstractness(data, stats)
 		toReturn = append(toReturn, &Row{
 			Data: data,
@@ -35,10 +34,12 @@ func GenericView(allColumns []string, group snippets.SnippetGroup) *View {
 	}
 }
 
-func addFileCount(data map[string]interface{}, groupedSnippets []*snippets.Snippet) {
-	data[FileCount] = getDistinctCount(groupedSnippets, fileCount)
-}
-func addAbstractness(data map[string]interface{}, stats Stats) {
+//TODO
+//func addFileCount(data map[string]interface{}, groupedSnippets []*snippets.Snippet) {
+//	data[FileCount] = getDistinctCount(groupedSnippets, fileCount)
+//}
+func addAbstractness(data map[string]interface{}, theStats *snippets.Stats) {
+	stats := *theStats
 	if _, hasAbstractTypes := data[snippets.AbstractType]; hasAbstractTypes {
 		abstractTypes, types := stats[snippets.AbstractType], stats[snippets.Type]
 		abstractness := math.Max(0, math.Min(1, float64(abstractTypes)/float64(types)))
@@ -46,32 +47,12 @@ func addAbstractness(data map[string]interface{}, stats Stats) {
 	}
 }
 
-func statsToRowData(name string, stats Stats) map[string]interface{} {
+func statsToRowData(name string, statsRef *snippets.Stats) map[string]interface{} {
+	stats := *statsRef
 	toReturn := make(map[string]interface{}, len(stats)+1)
 	toReturn["name"] = name
 	for k, v := range stats {
 		toReturn[k] = v
-	}
-	return toReturn
-}
-
-func snippetsToStats(allStats []string, allSnippets []*snippets.Snippet) Stats {
-	stats := Stats{}
-	all := snippets.GroupSnippetsBy(allSnippets, snippets.ByType)
-
-	for _, stat := range allStats {
-		snippetsForType := all[stat]
-		statToAdd := Stats{stat: len(snippetsForType)}
-
-		stats = stats.Merge(statToAdd)
-	}
-	return stats
-}
-
-func getStatsPerGroup(allStats []string, group snippets.SnippetGroup) map[string]Stats {
-	toReturn := map[string]Stats{}
-	for groupItem, snippets := range group {
-		toReturn[groupItem] = snippetsToStats(allStats, snippets)
 	}
 	return toReturn
 }

@@ -6,7 +6,7 @@ func DirectoryRecursiveView(results *snippets.Results) *View {
 	var toReturn []*Row
 	snippetsByDirectory := results.SnippetsByDirectory
 	allColumns := getDistinctColumnsFromResults(results)
-	statsByDirectory := getStatsPerGroup(allColumns, snippetsByDirectory)
+	statsByDirectory := results.StatsByDirectory
 	allDirs := make([]string, 0, len(snippetsByDirectory))
 
 	for dir, _ := range snippetsByDirectory {
@@ -17,9 +17,9 @@ func DirectoryRecursiveView(results *snippets.Results) *View {
 
 	for dir, node := range dirLookup {
 		subtree := toPaths(node.subtree())
-		var stats Stats
+		var stats *snippets.Stats
 		for _, subDir := range subtree {
-			stats = stats.Merge(statsByDirectory[subDir])
+			stats = snippets.MergeMultipleStats([]*snippets.Stats{stats, statsByDirectory[subDir]})
 		}
 		toReturn = append(toReturn, &Row{
 			Data: statsToRowData(dir, stats),

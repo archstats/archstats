@@ -3,54 +3,49 @@ package snippets
 import (
 	"errors"
 	"github.com/RyanSusana/archstats/walker"
+	"github.com/samber/lo"
 	"sort"
 	"strings"
 	"sync"
 )
 
-const (
-	ComponentDeclaration = "component_declaration"
-	ComponentImport      = "component_import"
-	AbstractType         = "abstract_type"
-	Type                 = "type"
-)
-
+// Results represents the results of an analysis in pre-aggregated form.
 type Results struct {
-	RootDirectory       string
+	RootDirectory string
+
 	Snippets            []*Snippet
+	SnippetsByFile      SnippetGroup
 	SnippetsByDirectory SnippetGroup
 	SnippetsByComponent SnippetGroup
-	SnippetsByFile      SnippetGroup
 	SnippetsByType      SnippetGroup
-	Connections         []*ComponentConnection
-	ConnectionsFrom     map[string][]*ComponentConnection
-	ConnectionsTo       map[string][]*ComponentConnection
+
+	Stats            *Stats
+	StatsByFile      StatsGroup
+	StatsByDirectory StatsGroup
+	StatsByComponent StatsGroup
+
+	Connections     []*ComponentConnection
+	ConnectionsFrom map[string][]*ComponentConnection
+	ConnectionsTo   map[string][]*ComponentConnection
+
+	FileToComponent map[string]string
+
+	ComponentToFiles map[string][]string
+	DirectoryToFiles map[string][]string
 }
 
+// Analyze analyzes the given root directory and returns the results.
 func Analyze(settings *AnalysisSettings) (*Results, error) {
-	allExtensions := defaultExtensions()
-	for _, extension := range settings.Extensions {
-		allExtensions = append(allExtensions, extension)
-	}
-	initializables := getExtensions[Initializable](allExtensions)
+	allExtensions := getExtensionsFromSettings(settings)
 
-	for _, initializable := range initializables {
-		initializable.Init(settings)
-	}
+	// Initialize extensions that depend on settings
+	initializeExtensions(settings, allExtensions)
 
-	var allSnippets []*Snippet
-	lock := sync.Mutex{}
+	// Get Snippets and Stats from the files
+	snippetProviders := getGenericExtensions[SnippetProvider](allExtensions)
+	statProviders := getGenericExtensions[StatProvider](allExtensions)
+	allSnippets, allStatsByFile := getStatsAndSnippets(settings.RootPath, snippetProviders, statProviders)
 
-	providers := getExtensions[SnippetProvider](allExtensions)
-	walker.WalkDirectoryConcurrently(settings.RootPath, func(file walker.OpenedFile) {
-		var foundSnippets []*Snippet
-		for _, provider := range providers {
-			foundSnippets = append(foundSnippets, provider.GetSnippetsFromFile(file)...)
-		}
-		lock.Lock()
-		allSnippets = append(allSnippets, foundSnippets...)
-		lock.Unlock()
-	})
 	// Pre-sort the snippets to make sure they are in the same order every time.
 	sort.Slice(allSnippets, func(i, j int) bool {
 		if allSnippets[i].File != allSnippets[j].File {
@@ -66,15 +61,20 @@ func Analyze(settings *AnalysisSettings) (*Results, error) {
 		return nil, errors.New("could not find any snippets")
 	}
 
-	snippetEditors := getExtensions[SnippetEditor](allExtensions)
+	// Edit snippets after they've been identified
+	// Used to set the component and directory of a snippet
+	snippetEditors := getGenericExtensions[SnippetEditor](allExtensions)
 	for _, editor := range snippetEditors {
 		for _, snippet := range allSnippets {
 			editor.EditSnippet(snippet)
 		}
 	}
-	results := CalculateResults(settings.RootPath, allSnippets)
 
-	resultEditors := getExtensions[ResultEditor](allExtensions)
+	// Aggregate Snippets and Stats into Results
+	results := aggregateResults(settings.RootPath, allSnippets, allStatsByFile)
+
+	// Edit results after they've been aggregated
+	resultEditors := getGenericExtensions[ResultEditor](allExtensions)
 
 	for _, editor := range resultEditors {
 		editor.EditResults(results)
@@ -82,46 +82,120 @@ func Analyze(settings *AnalysisSettings) (*Results, error) {
 	return results, nil
 }
 
-func defaultExtensions() []Extension {
-	return []Extension{
-		&rootPathStripper{},
+func initializeExtensions(settings *AnalysisSettings, allExtensions []Extension) {
+	initializables := getGenericExtensions[Initializable](allExtensions)
+
+	for _, initializable := range initializables {
+		initializable.Init(settings)
 	}
 }
 
-func CalculateResults(rootPath string, allSnippets []*Snippet) *Results {
+func getExtensionsFromSettings(settings *AnalysisSettings) []Extension {
+	allExtensions := []Extension{
+		&fileMarker{},
+		&rootPathStripper{},
+	}
+
+	for _, extension := range settings.Extensions {
+		allExtensions = append(allExtensions, extension)
+	}
+	return allExtensions
+}
+
+func getStatsAndSnippets(rootPath string, snippetProviders []SnippetProvider, statProviders []StatProvider) ([]*Snippet, StatsGroup) {
+	var allSnippets []*Snippet
+	var allStatsByFile StatsGroup
+
+	lock := sync.Mutex{}
+	walker.WalkDirectoryConcurrently(rootPath, func(file walker.OpenedFile) {
+		var foundSnippets []*Snippet
+		var foundStats []*Stats
+		for _, provider := range snippetProviders {
+			foundSnippets = append(foundSnippets, provider.GetSnippetsFromFile(file)...)
+		}
+		foundStats = append(foundStats, snippetsToStats(foundSnippets))
+		for _, provider := range statProviders {
+			statsToAdd := provider.GetStatsFromFile(file)
+			foundStats = append(foundStats, statsToAdd)
+		}
+		lock.Lock()
+		allSnippets = append(allSnippets, foundSnippets...)
+		allStatsByFile[file.Path()] = MergeMultipleStats(foundStats)
+		lock.Unlock()
+	})
+	return allSnippets, allStatsByFile
+}
+
+func aggregateResults(rootPath string, allSnippets []*Snippet, statsByFile StatsGroup) *Results {
 	//set Directory name for each Snippet
 	setDirectories(allSnippets)
 	setComponents(allSnippets)
 
-	//group Snippets by Directory
-	allGroups := MultiGroupSnippetsBy(allSnippets, map[string]GroupSnippetByFunc{
+	allSnippetGroups := MultiGroupSnippetsBy(allSnippets, map[string]GroupSnippetByFunc{
 		"ByDirectory": ByDirectory,
 		"ByComponent": ByComponent,
 		"ByFile":      ByFile,
 		"ByType":      ByType,
 	})
 
-	byComponent := allGroups["ByComponent"]
-	byType := allGroups["ByType"]
+	snippetsByComponent, snippetsByType, snippetsByFile, snippetsByDirectory :=
+		allSnippetGroups["ByComponent"], allSnippetGroups["ByType"], allSnippetGroups["ByFile"], allSnippetGroups["ByDirectory"]
 
-	connections := getConnections(byType, byComponent)
-
-	componentConnectionsByFrom := GroupConnectionsBy(connections, func(connection *ComponentConnection) string {
+	componentConnections := getConnections(snippetsByType, snippetsByComponent)
+	componentConnectionsByFrom := lo.GroupBy(componentConnections, func(connection *ComponentConnection) string {
 		return connection.From
 	})
-	componentConnectionsByTo := GroupConnectionsBy(connections, func(connection *ComponentConnection) string {
+	componentConnectionsByTo := lo.GroupBy(componentConnections, func(connection *ComponentConnection) string {
 		return connection.To
 	})
+
+	statsByComponent := lo.MapValues(snippetsByComponent, func(snippets []*Snippet, _ string) *Stats {
+		return snippetsToStats(snippets)
+	})
+	statsByDirectory := lo.MapValues(snippetsByDirectory, func(snippets []*Snippet, _ string) *Stats {
+		return snippetsToStats(snippets)
+	})
+	statsTotal := MergeMultipleStats(lo.MapToSlice(statsByFile, func(_ string, stats *Stats) *Stats {
+		return stats
+	}))
+
+	fileToComponent := lo.MapValues(snippetsByFile, func(snippets []*Snippet, _ string) string {
+		return snippets[0].Component
+	})
+
+	componentToFiles := lo.MapValues(snippetsByComponent, func(snippets []*Snippet, _ string) []string {
+		return lo.Map(snippets, func(snippet *Snippet, idx int) string {
+			return snippet.File
+		})
+	})
+
+	directoryToFiles := lo.MapValues(snippetsByDirectory, func(snippets []*Snippet, _ string) []string {
+		return lo.Map(snippets, func(snippet *Snippet, idx int) string {
+			return snippet.File
+		})
+	})
+
 	return &Results{
-		RootDirectory:       rootPath,
+		RootDirectory: rootPath,
+
+		Stats:            statsTotal,
+		StatsByFile:      statsByFile,
+		StatsByDirectory: statsByDirectory,
+		StatsByComponent: statsByComponent,
+
 		Snippets:            allSnippets,
-		SnippetsByDirectory: allGroups["ByDirectory"],
-		SnippetsByComponent: allGroups["ByComponent"],
-		SnippetsByFile:      allGroups["ByFile"],
-		SnippetsByType:      allGroups["ByType"],
-		Connections:         connections,
-		ConnectionsFrom:     componentConnectionsByFrom,
-		ConnectionsTo:       componentConnectionsByTo,
+		SnippetsByDirectory: snippetsByDirectory,
+		SnippetsByComponent: snippetsByComponent,
+		SnippetsByFile:      snippetsByFile,
+		SnippetsByType:      snippetsByType,
+
+		Connections:     componentConnections,
+		ConnectionsFrom: componentConnectionsByFrom,
+		ConnectionsTo:   componentConnectionsByTo,
+
+		FileToComponent:  fileToComponent,
+		ComponentToFiles: componentToFiles,
+		DirectoryToFiles: directoryToFiles,
 	}
 }
 
@@ -133,11 +207,11 @@ func setDirectories(s []*Snippet) {
 }
 
 func setComponents(s []*Snippet) {
-	componentDeclarations := FilterSnippets(s, func(snippet *Snippet) bool {
+	componentDeclarations := lo.Filter(s, func(snippet *Snippet, idx int) bool {
 		return snippet.Type == ComponentDeclaration
 	})
-	snippetsByFile := GroupSnippetsBy(s, ByFile)
-	componentDeclarationsByFile := GroupSnippetsBy(componentDeclarations, ByFile)
+	snippetsByFile := lo.GroupBy(s, ByFile)
+	componentDeclarationsByFile := lo.GroupBy(componentDeclarations, ByFile)
 
 	for fileName, componentDeclarationSnippets := range componentDeclarationsByFile {
 		if len(componentDeclarationSnippets) == 0 {
@@ -151,7 +225,7 @@ func setComponents(s []*Snippet) {
 	}
 }
 
-func getConnections(snippetsByType map[string][]*Snippet, snippetsByComponent map[string][]*Snippet) []*ComponentConnection {
+func getConnections(snippetsByType SnippetGroup, snippetsByComponent SnippetGroup) []*ComponentConnection {
 	var toReturn []*ComponentConnection
 	from := snippetsByType[ComponentImport]
 	for _, snippet := range from {

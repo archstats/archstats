@@ -11,7 +11,7 @@ func TestCalculateResults_Smoke_RealExample(t *testing.T) {
 
 	snippets := parseSnippets("real_example_snippets.json")
 
-	results := CalculateResults("/", snippets)
+	results := aggregateResults("/", snippets, StatsGroup{})
 
 	assert.Len(t, results.SnippetsByComponent, 1)
 	assert.Len(t, results.SnippetsByDirectory, 1)
@@ -61,11 +61,16 @@ func TestCalculateResults_ComponentConnections(t *testing.T) {
 		},
 	}
 
-	results := CalculateResults("/", snippets)
+	results := aggregateResults("/", snippets, StatsGroup{})
 
 	connections, from, to := results.Connections, results.ConnectionsFrom, results.ConnectionsTo
 	assertHasAConnection := func(from, to string) {
-		assert.Contains(t, connections, &ComponentConnection{From: from, To: to})
+		for _, connection := range connections {
+			if connection.From == from && connection.To == to {
+				return
+			}
+		}
+		assert.Fail(t, "No connection found from %s to %s", from, to)
 	}
 
 	assert.Len(t, connections, 3)

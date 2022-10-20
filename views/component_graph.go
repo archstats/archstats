@@ -2,6 +2,7 @@ package views
 
 import (
 	"github.com/RyanSusana/archstats/snippets"
+	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
 )
 
@@ -48,7 +49,7 @@ func createGraph(results *snippets.Results) *componentGraph {
 
 func getConnectionsWithCount(results *snippets.Results) []*connectionWithCount {
 	connections := make([]*connectionWithCount, 0, len(results.Connections))
-	grouped := snippets.GroupConnectionsBy(results.Connections, func(connection *snippets.ComponentConnection) string {
+	grouped := lo.GroupBy(results.Connections, func(connection *snippets.ComponentConnection) string {
 		return connection.From + " -> " + connection.To
 	})
 

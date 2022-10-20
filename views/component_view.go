@@ -15,7 +15,7 @@ const (
 )
 
 func ComponentView(results *snippets.Results) *View {
-	view := GenericView(getDistinctColumnsFromResults(results), results.SnippetsByComponent)
+	view := GenericView(getDistinctColumnsFromResults(results), results.StatsByComponent)
 
 	for _, row := range view.Rows {
 		component := row.Data["name"].(string)

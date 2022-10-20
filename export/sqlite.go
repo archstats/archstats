@@ -48,6 +48,7 @@ func SaveToDB(options *SqlOptions, views []*views.View) error {
 	if err != nil {
 		return err
 	}
+
 	err = addMissingColumnsForViews(db, views)
 	if err != nil {
 		return err
@@ -60,9 +61,12 @@ func SaveToDB(options *SqlOptions, views []*views.View) error {
 
 func insertRowsForAllViews(options *SqlOptions, views []*views.View, db *sql.DB) error {
 	for _, view := range views {
-		err := insertRowsForView(db, view, options)
-		if err != nil {
-			return err
+		chunks := lo.Chunk(view.Rows, 500)
+		for _, chunk := range chunks {
+			err := insertRowsForView(db, view.Name, view.Columns, chunk, options)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -96,9 +100,15 @@ func addMissingColumnsForView(db *sql.DB, view *views.View) error {
 
 	existingColumns := make(map[string]bool)
 	for rows.Next() {
+		if err := rows.Err(); err != nil {
+
+		}
 		var theName string
-		rows.Scan(&theName)
+		hasResult := rows.Scan(&theName)
 		existingColumns[theName] = true
+		if hasResult != nil {
+
+		}
 	}
 
 	// column difference
@@ -122,16 +132,16 @@ func createDb(options *SqlOptions) (*sql.DB, error) {
 	}
 	return db, nil
 }
-func insertRowsForView(db *sql.DB, view *views.View, options *SqlOptions) error {
+func insertRowsForView(db *sql.DB, name string, columns []*views.Column, rows []*views.Row, options *SqlOptions) error {
 	extraColumns := []*views.Column{views.StringColumn("report_id"), views.DateColumn("timestamp")}
-	allColumns := append(view.Columns, extraColumns...)
+	allColumns := append(columns, extraColumns...)
 
-	valueStrings := make([]string, 0, len(view.Rows))
+	valueStrings := make([]string, 0, len(rows))
 	amountOfArgumentsPerRow := len(allColumns)
-	valueArgs := make([]interface{}, 0, len(view.Rows)*amountOfArgumentsPerRow)
+	valueArgs := make([]interface{}, 0, len(rows)*amountOfArgumentsPerRow)
 
 	valueStringTemplate := "(" + strings.Repeat("?, ", amountOfArgumentsPerRow-1) + "?)"
-	for _, row := range view.Rows {
+	for _, row := range rows {
 		valueStrings = append(valueStrings, valueStringTemplate)
 
 		for _, column := range allColumns {
@@ -149,7 +159,7 @@ func insertRowsForView(db *sql.DB, view *views.View, options *SqlOptions) error 
 	columnNames := lo.Map(allColumns, func(item *views.Column, index int) string {
 		return "`" + item.Name + "`"
 	})
-	theSql := "INSERT INTO " + view.Name + " (" + strings.Join(columnNames, ",") + ") VALUES " + strings.Join(valueStrings, ",")
+	theSql := "INSERT INTO " + name + " (" + strings.Join(columnNames, ",") + ") VALUES " + strings.Join(valueStrings, ",")
 
 	_, err := db.Exec(theSql, valueArgs...)
 	if err != nil {

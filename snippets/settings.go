@@ -16,14 +16,14 @@ type SnippetProvider interface {
 }
 
 type SnippetEditor interface {
-	EditSnippet(*Snippet)
+	EditSnippet(current *Snippet)
 }
 
 type ResultEditor interface {
 	EditResults(results *Results)
 }
 
-func getExtensions[K Extension](extensions []Extension) []K {
+func getGenericExtensions[K Extension](extensions []Extension) []K {
 	var toReturn []K
 	for _, extension := range extensions {
 
