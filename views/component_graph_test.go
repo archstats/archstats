@@ -3,6 +3,7 @@ package views
 import (
 	_ "embed"
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"gonum.org/v1/gonum/graph/topo"
 	"sort"
@@ -71,10 +72,10 @@ func connectionStringsToResults(inputs []string) *analysis.Results {
 	return &analysis.Results{
 		SnippetsByComponent: components,
 		Connections:         connections,
-		ConnectionsFrom: groupBy(connections, func(connection *analysis.ComponentConnection) string {
+		ConnectionsFrom: lo.GroupBy(connections, func(connection *analysis.ComponentConnection) string {
 			return connection.From
 		}),
-		ConnectionsTo: groupBy(connections, func(connection *analysis.ComponentConnection) string {
+		ConnectionsTo: lo.GroupBy(connections, func(connection *analysis.ComponentConnection) string {
 			return connection.To
 		}),
 	}

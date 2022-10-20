@@ -2,6 +2,7 @@ package views
 
 import (
 	_ "embed"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"sort"
 	"strconv"
@@ -40,7 +41,7 @@ func TestOneComplexCycle(t *testing.T) {
 
 	results := ComponentCyclesView(input).Rows
 
-	index := groupBy(results, func(row *Row) string {
+	index := lo.GroupBy(results, func(row *Row) string {
 		return row.Data["component"].(string)
 	})
 
@@ -94,7 +95,7 @@ func TestTwoJoinedCycles(t *testing.T) {
 	assertHasCycle(t, results, []string{"X", "Y", "Z", "JOIN"})
 }
 func assertNotPartOfCycle(t *testing.T, results []*Row, component ...string) {
-	index := groupBy(results, func(row *Row) string {
+	index := lo.GroupBy(results, func(row *Row) string {
 		return row.Data["component"].(string)
 	})
 
@@ -106,7 +107,7 @@ func assertNotPartOfCycle(t *testing.T, results []*Row, component ...string) {
 }
 
 func assertHasCycle(t *testing.T, results []*Row, expectedCycle []string) {
-	grouped := groupBy(results, func(row *Row) string {
+	grouped := lo.GroupBy(results, func(row *Row) string {
 		return strconv.Itoa(row.Data["cycle_nr"].(int))
 	})
 
