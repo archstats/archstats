@@ -127,7 +127,7 @@ func getExtensionsFromSettings(settings *Settings) []Extension {
 
 func getStatsAndSnippets(rootPath string, snippetProviders []SnippetProvider, statProviders []StatProvider) ([]*Snippet, StatsGroup) {
 	var allSnippets []*Snippet
-	var allStatsByFile StatsGroup
+	var allStatsByFile = make(StatsGroup)
 
 	lock := sync.Mutex{}
 	walker.WalkDirectoryConcurrently(rootPath, func(file walker.OpenedFile) {
@@ -172,30 +172,41 @@ func aggregateResults(rootPath string, allSnippets []*Snippet, statsByFile Stats
 		return connection.To
 	})
 
-	statsByComponent := lo.MapValues(snippetsByComponent, func(snippets []*Snippet, _ string) *Stats {
-		return snippetsToStats(snippets)
+	componentToFiles := lo.MapValues(snippetsByComponent, func(snippets []*Snippet, _ string) []string {
+		return lo.Uniq(lo.Map(snippets, func(snippet *Snippet, idx int) string {
+			return snippet.File
+		}))
 	})
-	statsByDirectory := lo.MapValues(snippetsByDirectory, func(snippets []*Snippet, _ string) *Stats {
-		return snippetsToStats(snippets)
+
+	directoryToFiles := lo.MapValues(snippetsByDirectory, func(snippets []*Snippet, _ string) []string {
+		return lo.Uniq(lo.Map(snippets, func(snippet *Snippet, idx int) string {
+			return snippet.File
+		}))
+	})
+
+	statsByComponent := lo.MapValues(snippetsByComponent, func(snippets []*Snippet, component string) *Stats {
+		stats := snippetsToStats(snippets)
+		return MergeMultipleStats([]*Stats{
+			{FileCount: len(componentToFiles[component])},
+			stats,
+		})
+	})
+	statsByDirectory := lo.MapValues(snippetsByDirectory, func(snippets []*Snippet, directory string) *Stats {
+		stats := snippetsToStats(snippets)
+		return MergeMultipleStats([]*Stats{
+			{FileCount: len(componentToFiles[directory])},
+			stats,
+		})
 	})
 	statsTotal := MergeMultipleStats(lo.MapToSlice(statsByFile, func(_ string, stats *Stats) *Stats {
-		return stats
+		return MergeMultipleStats([]*Stats{
+			{FileCount: 1},
+			stats,
+		})
 	}))
 
 	fileToComponent := lo.MapValues(snippetsByFile, func(snippets []*Snippet, _ string) string {
 		return snippets[0].Component
-	})
-
-	componentToFiles := lo.MapValues(snippetsByComponent, func(snippets []*Snippet, _ string) []string {
-		return lo.Map(snippets, func(snippet *Snippet, idx int) string {
-			return snippet.File
-		})
-	})
-
-	directoryToFiles := lo.MapValues(snippetsByDirectory, func(snippets []*Snippet, _ string) []string {
-		return lo.Map(snippets, func(snippet *Snippet, idx int) string {
-			return snippet.File
-		})
 	})
 
 	return &Results{

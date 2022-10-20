@@ -19,7 +19,8 @@ func DirectoryRecursiveView(results *analysis.Results) *View {
 
 	for dir, node := range dirLookup {
 		subtree := toPaths(node.subtree())
-		var stats *analysis.Stats
+		newStats := make(analysis.Stats)
+		var stats = &newStats
 		for _, subDir := range subtree {
 			stats = analysis.MergeMultipleStats([]*analysis.Stats{stats, statsByDirectory[subDir]})
 		}
@@ -27,7 +28,7 @@ func DirectoryRecursiveView(results *analysis.Results) *View {
 			Data: statsToRowData(dir, stats),
 		})
 	}
-	columnsToReturn := []*Column{StringColumn("name"), IntColumn(FileCount)}
+	columnsToReturn := []*Column{StringColumn("name")}
 	for _, column := range allColumns {
 		columnsToReturn = append(columnsToReturn, IntColumn(column))
 	}

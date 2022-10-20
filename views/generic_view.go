@@ -5,6 +5,7 @@ import (
 	"golang.org/x/exp/slices"
 	"math"
 	"sort"
+	"strings"
 )
 
 func GenericView(allColumns []string, group analysis.StatsGroup) *View {
@@ -14,14 +15,14 @@ func GenericView(allColumns []string, group analysis.StatsGroup) *View {
 			groupItem = "Unknown"
 		}
 		data := statsToRowData(groupItem, stats)
-		//addFileCount(data, groupedSnippets)
+		ensureRowHasAllColumns(data, allColumns)
 		addAbstractness(data, stats)
 		toReturn = append(toReturn, &Row{
 			Data: data,
 		})
 	}
 
-	columnsToReturn := []*Column{StringColumn(Name), IntColumn(FileCount)}
+	columnsToReturn := []*Column{StringColumn(Name)}
 	if slices.Contains(allColumns, analysis.AbstractType) {
 		columnsToReturn = append(columnsToReturn, FloatColumn(Abstractness))
 	}
@@ -31,6 +32,14 @@ func GenericView(allColumns []string, group analysis.StatsGroup) *View {
 	return &View{
 		Columns: columnsToReturn,
 		Rows:    toReturn,
+	}
+}
+
+func ensureRowHasAllColumns(data map[string]interface{}, columns []string) {
+	for _, column := range columns {
+		if _, hasColumn := data[column]; !hasColumn {
+			data[column] = 0
+		}
 	}
 }
 
@@ -59,8 +68,10 @@ func statsToRowData(name string, statsRef *analysis.Stats) map[string]interface{
 
 func getDistinctColumnsFromResults(results *analysis.Results) []string {
 	var toReturn []string
-	for theType, _ := range results.SnippetsByType {
-		toReturn = append(toReturn, theType)
+	for theType, _ := range *results.Stats {
+		if !strings.HasPrefix(theType, "_") {
+			toReturn = append(toReturn, theType)
+		}
 	}
 	sort.Strings(toReturn)
 	return toReturn

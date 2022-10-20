@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/RyanSusana/archstats/export"
 	"github.com/RyanSusana/archstats/views"
@@ -75,15 +74,4 @@ func init() {
 	exportCmd.Flags().StringP(FlagExportOutputFormat, "o", "sqlite", "The output format")
 	exportCmd.Flags().String(FlagReportId, "", "The report id")
 	exportCmd.Flags().String(FlagSqliteDb, "", "Database to export to")
-}
-
-func printAllViews(allViews map[string]*views.View) string {
-
-	theViews := make(map[string][]rowData)
-	for viewName, view := range allViews {
-		theViews[viewName] = rowsToMaps(view.Columns, view.Rows)
-	}
-	theJson, _ := json.Marshal(theViews)
-
-	return string(theJson)
 }

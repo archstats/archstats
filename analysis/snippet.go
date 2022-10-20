@@ -9,6 +9,7 @@ const (
 	ComponentImport      = "component_import"
 	AbstractType         = "abstract_type"
 	Type                 = "type"
+	FileCount            = "file_count"
 )
 
 // A Snippet is a piece of text that is extracted from a file.
