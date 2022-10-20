@@ -1,7 +1,7 @@
 package views
 
 import (
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 	"math"
 )
 
@@ -14,7 +14,7 @@ const (
 	DistanceMainSequence = "distance_main_sequence"
 )
 
-func ComponentView(results *snippets.Results) *View {
+func ComponentView(results *analysis.Results) *View {
 	view := GenericView(getDistinctColumnsFromResults(results), results.StatsByComponent)
 
 	for _, row := range view.Rows {

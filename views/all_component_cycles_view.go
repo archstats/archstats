@@ -1,11 +1,11 @@
 package views
 
 import (
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 	"gonum.org/v1/gonum/graph/topo"
 )
 
-func ComponentCyclesView(results *snippets.Results) *View {
+func ComponentCyclesView(results *analysis.Results) *View {
 	theGraph := createGraph(results)
 
 	cycles := topo.DirectedCyclesIn(theGraph)

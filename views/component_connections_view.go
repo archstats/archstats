@@ -1,7 +1,7 @@
 package views
 
 import (
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 	"github.com/samber/lo"
 )
 
@@ -12,8 +12,8 @@ type connectionFileCount struct {
 	count int
 }
 
-func ComponentConnectionsView(results *snippets.Results) *View {
-	groupedConnections := lo.GroupBy(results.Connections, func(connection *snippets.ComponentConnection) string {
+func ComponentConnectionsView(results *analysis.Results) *View {
+	groupedConnections := lo.GroupBy(results.Connections, func(connection *analysis.ComponentConnection) string {
 		return connection.From + ":" + connection.File + " -> " + connection.To
 	})
 

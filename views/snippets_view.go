@@ -1,9 +1,9 @@
 package views
 
-import "github.com/RyanSusana/archstats/snippets"
+import "github.com/RyanSusana/archstats/analysis"
 
 //TODO: this is a noisy, not insightful, view. But it's handy for something like `--raw-snippets
-func SnippetsView(results *snippets.Results) *View {
+func SnippetsView(results *analysis.Results) *View {
 	toReturn := make([]*Row, 0, len(results.Snippets))
 	for _, snippet := range results.Snippets {
 		toReturn = append(toReturn, &Row{

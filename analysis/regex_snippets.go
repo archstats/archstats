@@ -1,4 +1,4 @@
-package snippets
+package analysis
 
 import (
 	"github.com/gobwas/glob"

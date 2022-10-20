@@ -2,7 +2,7 @@ package views
 
 import (
 	_ "embed"
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 	"github.com/stretchr/testify/assert"
 	"gonum.org/v1/gonum/graph/topo"
 	"sort"
@@ -57,32 +57,32 @@ func TestGraphCreation(t *testing.T) {
 	assert.Len(t, cycles, 1)
 }
 
-func connectionStringsToResults(inputs []string) *snippets.Results {
-	connections := make([]*snippets.ComponentConnection, 0, len(inputs))
-	components := make(map[string][]*snippets.Snippet, 0)
+func connectionStringsToResults(inputs []string) *analysis.Results {
+	connections := make([]*analysis.ComponentConnection, 0, len(inputs))
+	components := make(map[string][]*analysis.Snippet, 0)
 
 	for _, input := range inputs {
 		connection := splitInput(input)
-		components[connection.From] = []*snippets.Snippet{}
-		components[connection.To] = []*snippets.Snippet{}
+		components[connection.From] = []*analysis.Snippet{}
+		components[connection.To] = []*analysis.Snippet{}
 		connections = append(connections, connection)
 	}
 
-	return &snippets.Results{
+	return &analysis.Results{
 		SnippetsByComponent: components,
 		Connections:         connections,
-		ConnectionsFrom: groupBy(connections, func(connection *snippets.ComponentConnection) string {
+		ConnectionsFrom: groupBy(connections, func(connection *analysis.ComponentConnection) string {
 			return connection.From
 		}),
-		ConnectionsTo: groupBy(connections, func(connection *snippets.ComponentConnection) string {
+		ConnectionsTo: groupBy(connections, func(connection *analysis.ComponentConnection) string {
 			return connection.To
 		}),
 	}
 }
 
-func splitInput(input string) *snippets.ComponentConnection {
+func splitInput(input string) *analysis.ComponentConnection {
 	split := strings.Split(input, "->")
-	connection := &snippets.ComponentConnection{
+	connection := &analysis.ComponentConnection{
 		From: strings.TrimSpace(split[0]),
 		To:   strings.TrimSpace(split[1]),
 	}

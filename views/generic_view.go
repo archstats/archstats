@@ -1,13 +1,13 @@
 package views
 
 import (
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 	"golang.org/x/exp/slices"
 	"math"
 	"sort"
 )
 
-func GenericView(allColumns []string, group snippets.StatsGroup) *View {
+func GenericView(allColumns []string, group analysis.StatsGroup) *View {
 	var toReturn []*Row
 	for groupItem, stats := range group {
 		if groupItem == "" {
@@ -22,7 +22,7 @@ func GenericView(allColumns []string, group snippets.StatsGroup) *View {
 	}
 
 	columnsToReturn := []*Column{StringColumn(Name), IntColumn(FileCount)}
-	if slices.Contains(allColumns, snippets.AbstractType) {
+	if slices.Contains(allColumns, analysis.AbstractType) {
 		columnsToReturn = append(columnsToReturn, FloatColumn(Abstractness))
 	}
 	for _, column := range allColumns {
@@ -38,16 +38,16 @@ func GenericView(allColumns []string, group snippets.StatsGroup) *View {
 //func addFileCount(data map[string]interface{}, groupedSnippets []*snippets.Snippet) {
 //	data[FileCount] = getDistinctCount(groupedSnippets, fileCount)
 //}
-func addAbstractness(data map[string]interface{}, theStats *snippets.Stats) {
+func addAbstractness(data map[string]interface{}, theStats *analysis.Stats) {
 	stats := *theStats
-	if _, hasAbstractTypes := data[snippets.AbstractType]; hasAbstractTypes {
-		abstractTypes, types := stats[snippets.AbstractType], stats[snippets.Type]
+	if _, hasAbstractTypes := data[analysis.AbstractType]; hasAbstractTypes {
+		abstractTypes, types := stats[analysis.AbstractType], stats[analysis.Type]
 		abstractness := math.Max(0, math.Min(1, float64(abstractTypes)/float64(types)))
 		data[Abstractness] = nanToZero(abstractness)
 	}
 }
 
-func statsToRowData(name string, statsRef *snippets.Stats) map[string]interface{} {
+func statsToRowData(name string, statsRef *analysis.Stats) map[string]interface{} {
 	stats := *statsRef
 	toReturn := make(map[string]interface{}, len(stats)+1)
 	toReturn["name"] = name
@@ -57,7 +57,7 @@ func statsToRowData(name string, statsRef *snippets.Stats) map[string]interface{
 	return toReturn
 }
 
-func getDistinctColumnsFromResults(results *snippets.Results) []string {
+func getDistinctColumnsFromResults(results *analysis.Results) []string {
 	var toReturn []string
 	for theType, _ := range results.SnippetsByType {
 		toReturn = append(toReturn, theType)
@@ -66,10 +66,10 @@ func getDistinctColumnsFromResults(results *snippets.Results) []string {
 	return toReturn
 }
 
-func fileCount(snippet *snippets.Snippet) interface{} {
+func fileCount(snippet *analysis.Snippet) interface{} {
 	return snippet.File
 }
-func getDistinctCount(results []*snippets.Snippet, distinctFunc func(snippet *snippets.Snippet) interface{}) int {
+func getDistinctCount(results []*analysis.Snippet, distinctFunc func(snippet *analysis.Snippet) interface{}) int {
 	files := make(map[interface{}]bool)
 	for _, snippet := range results {
 		files[distinctFunc(snippet)] = true

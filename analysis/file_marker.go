@@ -1,4 +1,4 @@
-package snippets
+package analysis
 
 //This SnippetProvider makes sure that all files have at least one snippet
 type fileMarker struct {

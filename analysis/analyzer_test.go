@@ -1,4 +1,4 @@
-package snippets
+package analysis
 
 import (
 	"encoding/json"

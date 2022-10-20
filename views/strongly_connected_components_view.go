@@ -1,11 +1,11 @@
 package views
 
 import (
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 	"gonum.org/v1/gonum/graph/topo"
 )
 
-func StronglyConnectedComponentGroupsView(results *snippets.Results) *View {
+func StronglyConnectedComponentGroupsView(results *analysis.Results) *View {
 	theGraph := createGraph(results)
 
 	groups := topo.TarjanSCC(theGraph)

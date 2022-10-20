@@ -1,4 +1,4 @@
-package snippets
+package analysis
 
 // Stats are a map of type to count
 // For example: {"function": 10, "class": 5}

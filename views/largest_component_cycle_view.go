@@ -1,12 +1,12 @@
 package views
 
 import (
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 	"gonum.org/v1/gonum/graph/topo"
 	"sort"
 )
 
-func LargestComponentCycleView(results *snippets.Results) *View {
+func LargestComponentCycleView(results *analysis.Results) *View {
 	theGraph := createGraph(results)
 
 	cycles := topo.DirectedCyclesIn(theGraph)

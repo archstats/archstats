@@ -1,7 +1,9 @@
 package views
 
-import "github.com/RyanSusana/archstats/snippets"
+import (
+	"github.com/RyanSusana/archstats/analysis"
+)
 
-func FileView(results *snippets.Results) *View {
+func FileView(results *analysis.Results) *View {
 	return GenericView(getDistinctColumnsFromResults(results), results.StatsByFile)
 }

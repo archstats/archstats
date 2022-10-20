@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"os"
@@ -70,7 +70,7 @@ const (
 	FlagSnippet          = "snippet"
 )
 
-func getResults(command *cobra.Command) (*snippets.Results, error) {
+func getResults(command *cobra.Command) (*analysis.Results, error) {
 
 	rootDir, _ := command.Flags().GetString(FlagWorkingDirectory)
 	rootDir, _ = filepath.Abs(rootDir)
@@ -78,7 +78,7 @@ func getResults(command *cobra.Command) (*snippets.Results, error) {
 	extensionStrings, _ := command.Flags().GetStringSlice(FlagExtension)
 	snippetStrings, _ := command.Flags().GetStringSlice(FlagSnippet)
 
-	var extensions []snippets.Extension
+	var extensions []analysis.Extension
 	for _, extension := range extensionStrings {
 		provider, err := getExtension(extension)
 		if err != nil {
@@ -88,18 +88,18 @@ func getResults(command *cobra.Command) (*snippets.Results, error) {
 	}
 
 	extensions = append(extensions,
-		&snippets.RegexBasedSnippetsProvider{
+		&analysis.RegexBasedSnippetsProvider{
 			Patterns: lo.Map(snippetStrings, func(s string, idx int) *regexp.Regexp {
 				return regexp.MustCompile(s)
 			}),
 		},
 	)
 
-	settings := &snippets.AnalysisSettings{
+	settings := &analysis.Settings{
 		RootPath:   rootDir,
 		Extensions: extensions,
 	}
 
-	allResults, err := snippets.Analyze(settings)
+	allResults, err := analysis.Analyze(settings)
 	return allResults, err
 }

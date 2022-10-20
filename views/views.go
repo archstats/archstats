@@ -2,11 +2,11 @@ package views
 
 import (
 	"fmt"
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 )
 
 // RenderView returns the list of Rows based on the input command from the CLI
-func RenderView(command string, results *snippets.Results) (*View, error) {
+func RenderView(command string, results *analysis.Results) (*View, error) {
 	views := getViewFactories()
 	if view, isAnAvailableView := views[command]; isAnAvailableView {
 		v := view(results)
@@ -40,7 +40,7 @@ func getViewFactories() map[string]ViewFactory {
 	}
 }
 
-type ViewFactory func(results *snippets.Results) *View
+type ViewFactory func(results *analysis.Results) *View
 
 type View struct {
 	Name    string

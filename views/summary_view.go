@@ -1,7 +1,7 @@
 package views
 
 import (
-	"github.com/RyanSusana/archstats/snippets"
+	"github.com/RyanSusana/archstats/analysis"
 	"github.com/samber/lo"
 )
 
@@ -13,13 +13,13 @@ const (
 	ComponentCount = "component_count"
 )
 
-func SummaryView(results *snippets.Results) *View {
+func SummaryView(results *analysis.Results) *View {
 	var toReturn []*Row
 
 	for snippetType, allSnippets := range results.SnippetsByType {
-		files := lo.GroupBy(allSnippets, snippets.ByFile)
-		directories := lo.GroupBy(allSnippets, snippets.ByDirectory)
-		components := lo.GroupBy(allSnippets, snippets.ByComponent)
+		files := lo.GroupBy(allSnippets, analysis.ByFile)
+		directories := lo.GroupBy(allSnippets, analysis.ByDirectory)
+		components := lo.GroupBy(allSnippets, analysis.ByComponent)
 
 		toReturn = append(toReturn, &Row{
 			Data: map[string]interface{}{

@@ -1,8 +1,10 @@
 package views
 
-import "github.com/RyanSusana/archstats/snippets"
+import (
+	"github.com/RyanSusana/archstats/analysis"
+)
 
-func DirectoryRecursiveView(results *snippets.Results) *View {
+func DirectoryRecursiveView(results *analysis.Results) *View {
 	var toReturn []*Row
 	snippetsByDirectory := results.SnippetsByDirectory
 	allColumns := getDistinctColumnsFromResults(results)
@@ -17,9 +19,9 @@ func DirectoryRecursiveView(results *snippets.Results) *View {
 
 	for dir, node := range dirLookup {
 		subtree := toPaths(node.subtree())
-		var stats *snippets.Stats
+		var stats *analysis.Stats
 		for _, subDir := range subtree {
-			stats = snippets.MergeMultipleStats([]*snippets.Stats{stats, statsByDirectory[subDir]})
+			stats = analysis.MergeMultipleStats([]*analysis.Stats{stats, statsByDirectory[subDir]})
 		}
 		toReturn = append(toReturn, &Row{
 			Data: statsToRowData(dir, stats),

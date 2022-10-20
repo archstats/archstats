@@ -1,4 +1,4 @@
-package snippets
+package analysis
 
 // ComponentConnection is a connection between two components.
 type ComponentConnection struct {

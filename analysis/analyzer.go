@@ -1,4 +1,4 @@
-package snippets
+package analysis
 
 import (
 	"errors"
@@ -8,6 +8,29 @@ import (
 	"strings"
 	"sync"
 )
+
+type Settings struct {
+	RootPath   string
+	Extensions []Extension
+}
+
+type Extension interface{}
+
+type Initializable interface {
+	Init(settings *Settings)
+}
+
+type SnippetProvider interface {
+	GetSnippetsFromFile(File) []*Snippet
+}
+
+type SnippetEditor interface {
+	EditSnippet(current *Snippet)
+}
+
+type ResultEditor interface {
+	EditResults(results *Results)
+}
 
 // Results represents the results of an analysis in pre-aggregated form.
 type Results struct {
@@ -35,7 +58,7 @@ type Results struct {
 }
 
 // Analyze analyzes the given root directory and returns the results.
-func Analyze(settings *AnalysisSettings) (*Results, error) {
+func Analyze(settings *Settings) (*Results, error) {
 	allExtensions := getExtensionsFromSettings(settings)
 
 	// Initialize extensions that depend on settings
@@ -82,7 +105,7 @@ func Analyze(settings *AnalysisSettings) (*Results, error) {
 	return results, nil
 }
 
-func initializeExtensions(settings *AnalysisSettings, allExtensions []Extension) {
+func initializeExtensions(settings *Settings, allExtensions []Extension) {
 	initializables := getGenericExtensions[Initializable](allExtensions)
 
 	for _, initializable := range initializables {
@@ -90,7 +113,7 @@ func initializeExtensions(settings *AnalysisSettings, allExtensions []Extension)
 	}
 }
 
-func getExtensionsFromSettings(settings *AnalysisSettings) []Extension {
+func getExtensionsFromSettings(settings *Settings) []Extension {
 	allExtensions := []Extension{
 		&fileMarker{},
 		&rootPathStripper{},
@@ -235,6 +258,17 @@ func getConnections(snippetsByType SnippetGroup, snippetsByComponent SnippetGrou
 				To:   snippet.Value,
 				File: snippet.File,
 			})
+		}
+	}
+	return toReturn
+}
+func getGenericExtensions[K Extension](extensions []Extension) []K {
+	var toReturn []K
+	for _, extension := range extensions {
+
+		editor, isEditor := extension.(K)
+		if isEditor {
+			toReturn = append(toReturn, editor)
 		}
 	}
 	return toReturn
