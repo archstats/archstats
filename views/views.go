@@ -3,6 +3,20 @@ package views
 import (
 	"fmt"
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/samber/lo"
+)
+
+const (
+	SummaryViewName                          = "summary"
+	ComponentViewName                        = "components"
+	ComponentConnectionsViewName             = "component_connections"
+	ComponentCyclesViewName                  = "all_component_cycles"
+	LargestComponentCycleViewName            = "largest_component_cycle"
+	StronglyConnectedComponentGroupsViewName = "strongly_connected_component_groups"
+	FileViewName                             = "files"
+	DirectoryViewName                        = "directories"
+	DirectoryRecursiveViewName               = "directories_recursive"
+	SnippetsViewName                         = "snippets"
 )
 
 // RenderView returns the list of Rows based on the input command from the CLI
@@ -16,7 +30,9 @@ func RenderView(command string, results *analysis.Results) (*View, error) {
 		return nil, fmt.Errorf("%s is not a recognized view", command)
 	}
 }
-
+func GetQuickViews() []string {
+	return lo.Without(GetAvailableViews(), []string{ComponentCyclesViewName, LargestComponentCycleViewName}...)
+}
 func GetAvailableViews() []string {
 	views := getViewFactories()
 	availableViews := make([]string, 0, len(views))
@@ -27,16 +43,16 @@ func GetAvailableViews() []string {
 }
 func getViewFactories() map[string]ViewFactory {
 	return map[string]ViewFactory{
-		"summary":                             SummaryView,
-		"components":                          ComponentView,
-		"component_connections":               ComponentConnectionsView,
-		"all_component_cycles":                ComponentCyclesView,
-		"largest_component_cycle":             LargestComponentCycleView,
-		"strongly_connected_component_groups": StronglyConnectedComponentGroupsView,
-		"files":                               FileView,
-		"directories":                         DirectoryView,
-		"directories_recursive":               DirectoryRecursiveView,
-		"snippets":                            SnippetsView,
+		SummaryViewName:                          SummaryView,
+		ComponentViewName:                        ComponentView,
+		ComponentConnectionsViewName:             ComponentConnectionsView,
+		ComponentCyclesViewName:                  ComponentCyclesView,
+		LargestComponentCycleViewName:            LargestComponentCycleView,
+		StronglyConnectedComponentGroupsViewName: StronglyConnectedComponentGroupsView,
+		FileViewName:                             FileView,
+		DirectoryViewName:                        DirectoryView,
+		DirectoryRecursiveViewName:               DirectoryRecursiveView,
+		SnippetsViewName:                         SnippetsView,
 	}
 }
 

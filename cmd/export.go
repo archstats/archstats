@@ -11,6 +11,7 @@ import (
 
 const (
 	FlagView               = "view"
+	FlagAllViews           = "all-views"
 	FlagSqliteDb           = "sqlite-db"
 	FlagReportId           = "report-id"
 	FlagExportOutputFormat = "output-format"
@@ -26,14 +27,13 @@ var exportCmd = &cobra.Command{
 		viewsToShow, err := cmd.Flags().GetStringSlice(FlagView)
 		reportId, _ := cmd.Flags().GetString(FlagReportId)
 		allResults, _ := getResults(cmd)
+		showAllViews, _ := cmd.Flags().GetBool(FlagAllViews)
 		if err != nil {
 			return err
 		}
 
-		availableViews := views.GetAvailableViews()
-
-		if len(viewsToShow) == 0 {
-			viewsToShow = availableViews
+		if showAllViews {
+			viewsToShow = views.GetAvailableViews()
 		}
 
 		allViews := make(map[string]*views.View)
@@ -70,7 +70,9 @@ var exportCmd = &cobra.Command{
 }
 
 func init() {
-	exportCmd.Flags().StringSliceP(FlagView, "v", []string{}, "The view(s) to export")
+	exportCmd.Flags().StringSliceP(FlagView, "v", views.GetQuickViews(), "The view(s) to export")
+	exportCmd.Flags().Bool(FlagAllViews, false, "The view(s) to export")
+
 	exportCmd.Flags().StringP(FlagExportOutputFormat, "o", "sqlite", "The output format")
 	exportCmd.Flags().String(FlagReportId, "", "The report id")
 	exportCmd.Flags().String(FlagSqliteDb, "", "Database to export to")
