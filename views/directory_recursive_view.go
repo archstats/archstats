@@ -24,8 +24,11 @@ func DirectoryRecursiveView(results *analysis.Results) *View {
 		for _, subDir := range subtree {
 			stats = analysis.MergeMultipleStats([]*analysis.Stats{stats, statsByDirectory[subDir]})
 		}
+
+		data := statsToRowData(dir, stats)
+		ensureRowHasAllColumns(data, allColumns)
 		toReturn = append(toReturn, &Row{
-			Data: statsToRowData(dir, stats),
+			Data: data,
 		})
 	}
 	columnsToReturn := []*Column{StringColumn("name")}

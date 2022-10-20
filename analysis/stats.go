@@ -1,5 +1,7 @@
 package analysis
 
+import "github.com/samber/lo"
+
 // Stats are a map of type to count
 // For example: {"function": 10, "class": 5}
 // These counts are usually the number of Snippet of a certain type
@@ -9,16 +11,15 @@ type Stats map[string]int
 // StatsGroup is a mapping of a name to a Stats
 type StatsGroup map[string]*Stats
 
-// A StatProvider is an interface that can generate Stats for a particular File
-type StatProvider interface {
-	GetStatsFromFile(file File) *Stats
-}
-
 // MergeMultipleStats into one.
 func MergeMultipleStats(statsToMerge []*Stats) *Stats {
 	statsToReturn := make(Stats)
 
-	for _, stats := range statsToMerge {
+	nonNilStats := lo.Filter(statsToMerge, func(stats *Stats, _ int) bool {
+		return stats != nil
+	})
+	for _, stats := range nonNilStats {
+
 		for key, value := range *stats {
 			statsToReturn[key] += value
 		}
@@ -26,7 +27,7 @@ func MergeMultipleStats(statsToMerge []*Stats) *Stats {
 	return &statsToReturn
 }
 
-func snippetsToStats(snippets []*Snippet) *Stats {
+func SnippetsToStats(snippets []*Snippet) *Stats {
 	stats := make(Stats)
 	for _, snippet := range snippets {
 		stats[snippet.Type]++

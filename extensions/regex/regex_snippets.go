@@ -1,27 +1,29 @@
-package analysis
+package regex
 
 import (
+	"github.com/RyanSusana/archstats/analysis"
 	"github.com/gobwas/glob"
 	"regexp"
 )
 
-// RegexBasedSnippetsProvider is a SnippetProvider that uses regular expressions to find snippets.
+// Analyzer is a FileAnalyzer that uses regular expressions to find snippets.
 // It can be configured to only match certain files using a glob.
 // For a snippet to be recorded, it must be in a group with a name.
 // For example, the following regex will match a function named "foo" and a function named "bar":
 // (?P<function>func foo\(\) {.*?})|(?P<function>func bar\(\) {.*?})
 //
 // See https://www.regular-expressions.info/named.html for more information on named groups.
-type RegexBasedSnippetsProvider struct {
-	Glob     glob.Glob
-	Patterns []*regexp.Regexp
+type Analyzer struct {
+	OnlyStats bool
+	Glob      glob.Glob
+	Patterns  []*regexp.Regexp
 }
 
-func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file File) []*Snippet {
+func (s *Analyzer) AnalyzeFile(file analysis.File) *analysis.FileResults {
 	if s.Glob != nil && !s.Glob.Match(file.Path()) {
-		return []*Snippet{}
+		return &analysis.FileResults{}
 	}
-	var toReturn []*Snippet
+	var toReturn []*analysis.Snippet
 	stringContent := string(file.Content())
 
 	for _, pattern := range s.Patterns {
@@ -32,7 +34,7 @@ func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file File) []*Snippet {
 			if match.begin == -1 || match.end == -1 {
 				continue
 			}
-			theSnip := &Snippet{
+			theSnip := &analysis.Snippet{
 				Type:  match.name,
 				File:  file.Path(),
 				Begin: match.begin,
@@ -42,7 +44,16 @@ func (s *RegexBasedSnippetsProvider) GetSnippetsFromFile(file File) []*Snippet {
 			toReturn = append(toReturn, theSnip)
 		}
 	}
-	return toReturn
+	if s.OnlyStats {
+		return &analysis.FileResults{
+			Stats: analysis.SnippetsToStats(toReturn),
+		}
+	} else {
+		return &analysis.FileResults{
+			Snippets: toReturn,
+			Stats:    analysis.SnippetsToStats(toReturn),
+		}
+	}
 }
 
 func getMatches(regex *regexp.Regexp, content *string) []*subexpMatch {

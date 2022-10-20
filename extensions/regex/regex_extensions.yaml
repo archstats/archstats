@@ -33,11 +33,13 @@ extensions:
     - (class|interface|trait) (?P<type>\w+)
 
   indentation:
+    dont_record_snippets: true
     file_glob: "**/*"
     patterns:
     - ^[ \t](?P<indentation>.*)
 
   newlines:
+    dont_record_snippets: true
     file_glob: "**/*"
     patterns:
     - .*(?P<newline>\n)

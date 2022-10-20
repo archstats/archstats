@@ -2,16 +2,16 @@ package analysis
 
 import (
 	"encoding/json"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 )
 
 func TestCalculateResults_Smoke_RealExample(t *testing.T) {
-
 	snippets := parseSnippets("real_example_snippets.json")
 
-	results := aggregateResults("/", snippets, StatsGroup{})
+	results := aggregateResults("/", toFileResults(snippets))
 
 	assert.Len(t, results.SnippetsByComponent, 1)
 	assert.Len(t, results.SnippetsByDirectory, 1)
@@ -61,7 +61,7 @@ func TestCalculateResults_ComponentConnections(t *testing.T) {
 		},
 	}
 
-	results := aggregateResults("/", snippets, StatsGroup{})
+	results := aggregateResults("/", toFileResults(snippets))
 
 	connections, from, to := results.Connections, results.ConnectionsFrom, results.ConnectionsTo
 	assertHasAConnection := func(from, to string) {
@@ -80,6 +80,20 @@ func TestCalculateResults_ComponentConnections(t *testing.T) {
 	assertHasAConnection("mainPackage", "mainPackage.subpackage1")
 	assertHasAConnection("mainPackage", "mainPackage.subpackage2")
 	assertHasAConnection("mainPackage.subpackage1", "mainPackage.subpackage2")
+}
+
+func toFileResults(snippets []*Snippet) []*FileResults {
+	groupedByFile := lo.GroupBy(snippets, func(snippet *Snippet) string {
+		return snippet.File
+	})
+	allFileResults := lo.MapToSlice(groupedByFile, func(key string, snippets []*Snippet) *FileResults {
+		return &FileResults{
+			Name:     key,
+			Stats:    SnippetsToStats(snippets),
+			Snippets: snippets,
+		}
+	})
+	return allFileResults
 }
 
 func parseSnippets(fileName string) []*Snippet {

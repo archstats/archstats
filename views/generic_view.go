@@ -43,10 +43,6 @@ func ensureRowHasAllColumns(data map[string]interface{}, columns []string) {
 	}
 }
 
-//TODO
-//func addFileCount(data map[string]interface{}, groupedSnippets []*snippets.Snippet) {
-//	data[FileCount] = getDistinctCount(groupedSnippets, fileCount)
-//}
 func addAbstractness(data map[string]interface{}, theStats *analysis.Stats) {
 	stats := *theStats
 	if _, hasAbstractTypes := data[analysis.AbstractType]; hasAbstractTypes {

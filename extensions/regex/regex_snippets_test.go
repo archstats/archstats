@@ -1,4 +1,4 @@
-package analysis
+package regex
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -24,7 +24,7 @@ function function1(){
 }
 `,
 	}
-	provider := &RegexBasedSnippetsProvider{Patterns: []*regexp.Regexp{
+	provider := &Analyzer{Patterns: []*regexp.Regexp{
 		regexp.MustCompile(`package (?P<packageDeclaration>.*);`),
 		regexp.MustCompile(`import (?P<importStatement>.*);`),
 		regexp.MustCompile(`field (?P<fieldDeclaration>.*): [a-zA-Z]+;`),
@@ -32,7 +32,8 @@ function function1(){
 	}}
 
 	//Act
-	snippets := provider.GetSnippetsFromFile(file)
+	results := provider.AnalyzeFile(file)
+	snippets := results.Snippets
 
 	//Assert
 	sort.Slice(snippets, func(i, j int) bool {

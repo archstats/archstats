@@ -1,10 +1,11 @@
-package cmd
+package regex
 
 import (
 	_ "embed"
 	"errors"
 	"github.com/RyanSusana/archstats/analysis"
 	"github.com/gobwas/glob"
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 	"regexp"
 )
@@ -12,11 +13,12 @@ import (
 //go:embed regex_extensions.yaml
 var regexExtensionsRaw []byte
 
-var regexExtensions map[string]analysis.SnippetProvider
+var regexExtensions map[string]analysis.Extension
 
 type embeddedExtensionDefinition struct {
-	FileGlob string   `yaml:"file_glob"`
-	Patterns []string `yaml:"patterns"`
+	FileGlob  string   `yaml:"file_glob"`
+	StatBased bool     `yaml:"dont_record_snippet"`
+	Patterns  []string `yaml:"patterns"`
 }
 type RegexExtensions struct {
 	Extensions map[string]*embeddedExtensionDefinition `yaml:"extensions"`
@@ -25,23 +27,31 @@ type RegexExtensions struct {
 func init() {
 	regexExtensionsConfig := &RegexExtensions{}
 	yaml.Unmarshal(regexExtensionsRaw, regexExtensionsConfig)
-	regexExtensions = make(map[string]analysis.SnippetProvider)
+	regexExtensions = make(map[string]analysis.Extension)
 	for lang, extension := range regexExtensionsConfig.Extensions {
 		var patterns []*regexp.Regexp
 		for _, pattern := range extension.Patterns {
 			patterns = append(patterns, regexp.MustCompile(pattern))
 		}
-		regexExtensions[lang] = &analysis.RegexBasedSnippetsProvider{
+
+		regexExtensions[lang] = &Analyzer{
 			Glob:     glob.MustCompile(extension.FileGlob),
 			Patterns: patterns,
 		}
+
 	}
 }
-func getExtension(extension string) (analysis.SnippetProvider, error) {
+func BuiltInRegexExtension(extension string) (analysis.Extension, error) {
 	ext, has := regexExtensions[extension]
 	if has {
 		return ext, nil
 	} else {
 		return nil, errors.New("extension not found: " + extension)
 	}
+}
+
+func AvailableExtensions() []string {
+	return lo.MapToSlice(regexExtensions, func(key string, _ analysis.Extension) string {
+		return key
+	})
 }
