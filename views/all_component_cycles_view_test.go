@@ -112,7 +112,7 @@ func assertHasCycle(t *testing.T, results []*Row, expectedCycle []string) {
 	})
 
 	for _, theCycle := range grouped {
-		components := mapTo(theCycle, func(row *Row) string {
+		components := lo.Map(theCycle, func(row *Row, _ int) string {
 			return row.Data["component"].(string)
 		})
 		if cycleMatches(components, expectedCycle) {
@@ -122,7 +122,7 @@ func assertHasCycle(t *testing.T, results []*Row, expectedCycle []string) {
 
 	var formattedGroups [][]string
 	for _, theCycle := range grouped {
-		formattedGroups = append(formattedGroups, mapTo(theCycle, func(row *Row) string {
+		formattedGroups = append(formattedGroups, lo.Map(theCycle, func(row *Row, _ int) string {
 			return row.Data["component"].(string)
 		}))
 	}

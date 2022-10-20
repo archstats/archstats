@@ -51,5 +51,4 @@ func getLessFunc(resultsFromCommand []*Row, column *Column) func(i int, j int) b
 			return iValue > jValue
 		}
 	}
-
 }

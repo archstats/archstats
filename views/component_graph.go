@@ -134,14 +134,14 @@ func (c *componentGraph) Nodes() graph.Nodes {
 }
 
 func (c *componentGraph) From(id int64) graph.Nodes {
-	nodes := mapTo(c.edgesFrom[id], func(before *componentEdge) graph.Node {
+	nodes := lo.Map(c.edgesFrom[id], func(before *componentEdge, _ int) graph.Node {
 		return before.To()
 	})
 	return nodeListOf(nodes)
 }
 
 func (c *componentGraph) To(id int64) graph.Nodes {
-	nodes := mapTo(c.edgesTo[id], func(before *componentEdge) graph.Node {
+	nodes := lo.Map(c.edgesTo[id], func(before *componentEdge, _ int) graph.Node {
 		return before.From()
 	})
 	return nodeListOf(nodes)
