@@ -4,7 +4,11 @@ import "github.com/samber/lo"
 
 type componentLinker struct{}
 
-func (p *componentLinker) EditFileResults(allFileResults []*FileResults) {
+func (c *componentLinker) interfaceAssertions() FileResultsEditor {
+	return c
+}
+
+func (c *componentLinker) EditFileResults(allFileResults []*FileResults) {
 	allSnippets := lo.FlatMap(allFileResults, func(fileResult *FileResults, idx int) []*Snippet {
 		return fileResult.Snippets
 	})

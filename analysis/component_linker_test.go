@@ -11,6 +11,7 @@ import (
 func TestCalculateResults_Smoke_RealExample(t *testing.T) {
 	snippets := parseSnippets("real_example_snippets.json")
 
+	setComponents(snippets)
 	results := aggregateResults("/", toFileResults(snippets))
 
 	assert.Len(t, results.SnippetsByComponent, 1)
@@ -60,6 +61,7 @@ func TestCalculateResults_ComponentConnections(t *testing.T) {
 			Value: "mainPackage.subpackage2",
 		},
 	}
+	setComponents(snippets)
 
 	results := aggregateResults("/", toFileResults(snippets))
 
