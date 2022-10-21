@@ -23,16 +23,23 @@ func setComponents(s []*Snippet) {
 	snippetsByFile := lo.GroupBy(s, ByFile)
 	componentDeclarationsByFile := lo.GroupBy(componentDeclarations, ByFile)
 
+	filesWithUnknownComponent := lo.Without(lo.Keys(snippetsByFile), lo.Keys(componentDeclarationsByFile)...)
+	snippetsWithUnknownComponent := lo.FlatMap(filesWithUnknownComponent, func(file string, idx int) []*Snippet {
+		return snippetsByFile[file]
+	})
+
+	for _, snippet := range snippetsWithUnknownComponent {
+		snippet.Component = "Unknown"
+	}
 	for fileName, componentDeclarationSnippets := range componentDeclarationsByFile {
-		if len(componentDeclarationSnippets) == 0 {
-			continue
-		}
 		theComponent := componentDeclarationSnippets[0].Value
+
 		snippets := snippetsByFile[fileName]
 		for _, theSnippet := range snippets {
 			theSnippet.Component = theComponent
 		}
 	}
+
 }
 
 func getConnections(snippetsByType SnippetGroup, snippetsByComponent SnippetGroup) []*ComponentConnection {

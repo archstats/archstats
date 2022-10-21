@@ -20,7 +20,7 @@ extensions:
     file_glob: "**/*.php"
     patterns:
     - namespace (?P<component_declaration>.*);
-    - (use|import) (?P<component_import>.*)\.*;
+    - (use|import) (?P<component_import>.*)\\.*;
     - (abstract class|interface|trait) (?P<abstract_type>\w+)
     - (class|interface|trait) (?P<type>\\w+)
 
