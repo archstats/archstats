@@ -46,7 +46,8 @@ func ensureRowHasAllColumns(data map[string]interface{}, columns []string) {
 func addAbstractness(data map[string]interface{}, theStats *analysis.Stats) {
 	stats := *theStats
 	if _, hasAbstractTypes := data[analysis.AbstractType]; hasAbstractTypes {
-		abstractTypes, types := stats[analysis.AbstractType], stats[analysis.Type]
+		abstractTypes := toInt(stats[analysis.AbstractType])
+		types := toInt(stats[analysis.Type])
 		abstractness := math.Max(0, math.Min(1, float64(abstractTypes)/float64(types)))
 		data[Abstractness] = nanToZero(abstractness)
 	}
@@ -82,4 +83,11 @@ func getDistinctCount(results []*analysis.Snippet, distinctFunc func(snippet *an
 		files[distinctFunc(snippet)] = true
 	}
 	return len(files)
+}
+
+func toInt(value interface{}) int {
+	if value == nil {
+		return 0
+	}
+	return value.(int)
 }

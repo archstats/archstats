@@ -7,8 +7,8 @@ type rootPathStripper struct {
 	root string
 }
 
-func (p *rootPathStripper) Init(settings *Settings) {
-	p.root = settings.RootPath
+func (p *rootPathStripper) Init(settings Settings) {
+	p.root = settings.RootPath()
 }
 
 func (p *rootPathStripper) EditFileResults(results []*FileResults) {

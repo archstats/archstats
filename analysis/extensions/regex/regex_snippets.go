@@ -59,7 +59,7 @@ func (s *Analyzer) AnalyzeFile(file analysis.File) *analysis.FileResults {
 func getMatches(regex *regexp.Regexp, content *string) []*subexpMatch {
 	var toReturn []*subexpMatch
 
-	allMatches := regex.FindAllStringSubmatchIndex(*content, 1000)
+	allMatches := regex.FindAllStringSubmatchIndex(*content, 1_000_000)
 	names := regex.SubexpNames()
 	for _, match := range allMatches {
 

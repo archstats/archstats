@@ -2,38 +2,47 @@ package views
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
-	"github.com/samber/lo"
 )
 
 const (
-	SnippetType    = "snippet_type"
-	TotalCount     = "total_count"
-	FileCount      = "file_count"
-	DirectoryCount = "directory_count"
-	ComponentCount = "component_count"
+	NameColumn  = "name"
+	CountColumn = "count"
 )
 
 func SummaryView(results *analysis.Results) *View {
 	var toReturn []*Row
 
-	for snippetType, allSnippets := range results.SnippetsByType {
-		files := lo.GroupBy(allSnippets, analysis.ByFile)
-		directories := lo.GroupBy(allSnippets, analysis.ByDirectory)
-		components := lo.GroupBy(allSnippets, analysis.ByComponent)
-
+	for stat, value := range *results.Stats {
 		toReturn = append(toReturn, &Row{
 			Data: map[string]interface{}{
-				SnippetType:    snippetType,
-				TotalCount:     len(allSnippets),
-				FileCount:      len(files),
-				DirectoryCount: len(directories),
-				ComponentCount: len(components),
+				NameColumn:  stat,
+				CountColumn: value,
 			},
 		})
+	}
 
+	extraRows := []RowData{
+		{
+			NameColumn:  "component_count",
+			CountColumn: len(results.StatsByComponent),
+		},
+		{
+			NameColumn:  "connection_count",
+			CountColumn: len(results.Connections),
+		},
+		{
+			NameColumn:  "directory_count",
+			CountColumn: len(results.StatsByDirectory),
+		},
+	}
+
+	for _, row := range extraRows {
+		toReturn = append(toReturn, &Row{
+			Data: row,
+		})
 	}
 	return &View{
-		Columns: []*Column{StringColumn(SnippetType), IntColumn(TotalCount), IntColumn(FileCount), IntColumn(DirectoryCount), IntColumn(ComponentCount)},
+		Columns: []*Column{StringColumn(NameColumn), IntColumn(CountColumn)},
 		Rows:    toReturn,
 	}
 }

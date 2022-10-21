@@ -96,10 +96,7 @@ func getResults(command *cobra.Command) (*analysis.Results, error) {
 		},
 	)
 
-	settings := &analysis.Settings{
-		RootPath:   rootDir,
-		Extensions: extensions,
-	}
+	settings := analysis.NewSettings(rootDir, extensions)
 
 	allResults, err := analysis.Analyze(settings)
 	return allResults, err

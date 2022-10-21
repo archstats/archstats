@@ -6,23 +6,34 @@ import (
 	"sync"
 )
 
-type Settings struct {
-	RootPath   string
-	Extensions []Extension
-}
+// Analyze analyzes the given root directory and returns the results.
+func Analyze(settings *settings) (*Results, error) {
+	allExtensions := getExtensionsFromSettings(settings)
 
-type Extension interface{}
+	// Initialize extensions that depend on settings
+	initializeExtensions(settings, allExtensions)
 
-type Initializable interface {
-	Init(settings *Settings)
-}
+	// Get Snippets and OnlyStats from the files
+	fileScanners := getGenericExtensions[FileAnalyzer](allExtensions)
+	fileResults := getAllFileResults(settings.rootPath, fileScanners)
 
-type FileResultsEditor interface {
-	EditFileResults(all []*FileResults)
-}
+	// Edit file results
+	// Used to set the component and directory of a snippet
+	fileResultsEditors := getGenericExtensions[FileResultsEditor](allExtensions)
+	for _, editor := range fileResultsEditors {
+		editor.EditFileResults(fileResults)
+	}
 
-type ResultEditor interface {
-	EditResults(results *Results)
+	// Aggregate Snippets and OnlyStats into Results
+	results := aggregateResults(settings.rootPath, fileResults)
+
+	// Edit results after they've been aggregated
+	resultEditors := getGenericExtensions[ResultsEditor](allExtensions)
+	for _, editor := range resultEditors {
+		editor.EditResults(results)
+	}
+
+	return results, nil
 }
 
 // Results represents the results of an analysis in pre-aggregated form.
@@ -45,42 +56,13 @@ type Results struct {
 	ConnectionsTo   map[string][]*ComponentConnection
 
 	FileToComponent map[string]string
+	FileToDirectory map[string]string
 
 	ComponentToFiles map[string][]string
 	DirectoryToFiles map[string][]string
 }
 
-// Analyze analyzes the given root directory and returns the results.
-func Analyze(settings *Settings) (*Results, error) {
-	allExtensions := getExtensionsFromSettings(settings)
-
-	// Initialize extensions that depend on settings
-	initializeExtensions(settings, allExtensions)
-
-	// Get Snippets and OnlyStats from the files
-	fileScanners := getGenericExtensions[FileAnalyzer](allExtensions)
-	fileResults := getAllFileResults(settings.RootPath, fileScanners)
-
-	// Edit file results
-	// Used to set the component and directory of a snippet
-	fileResultsEditors := getGenericExtensions[FileResultsEditor](allExtensions)
-	for _, editor := range fileResultsEditors {
-		editor.EditFileResults(fileResults)
-	}
-
-	// Aggregate Snippets and OnlyStats into Results
-	results := aggregateResults(settings.RootPath, fileResults)
-
-	// Edit results after they've been aggregated
-	resultEditors := getGenericExtensions[ResultEditor](allExtensions)
-	for _, editor := range resultEditors {
-		editor.EditResults(results)
-	}
-
-	return results, nil
-}
-
-func initializeExtensions(settings *Settings, allExtensions []Extension) {
+func initializeExtensions(settings *settings, allExtensions []Extension) {
 	initializables := getGenericExtensions[Initializable](allExtensions)
 
 	for _, initializable := range initializables {
@@ -110,11 +92,13 @@ func getAllFileResults(rootPath string, snippetProviders []FileAnalyzer) []*File
 }
 
 func aggregateResults(rootPath string, fileResults []*FileResults) *Results {
+	m := &merger{}
+
 	allSnippets := lo.FlatMap(fileResults, func(fileResult *FileResults, idx int) []*Snippet {
 		return fileResult.Snippets
 	})
 
-	statsByFile := lo.SliceToMap(fileResults, func(fileResult *FileResults) (string, *Stats) {
+	statRecordsByFile := lo.SliceToMap(fileResults, func(fileResult *FileResults) (string, []*StatRecord) {
 		return fileResult.Name, fileResult.Stats
 	})
 
@@ -148,30 +132,49 @@ func aggregateResults(rootPath string, fileResults []*FileResults) *Results {
 		}))
 	})
 
-	statsByComponent := lo.MapValues(snippetsByComponent, func(snippets []*Snippet, component string) *Stats {
-		stats := SnippetsToStats(snippets)
-		return MergeMultipleStats([]*Stats{
-			{FileCount: len(componentToFiles[component])},
-			stats,
-		})
-	})
-	statsByDirectory := lo.MapValues(snippetsByDirectory, func(snippets []*Snippet, directory string) *Stats {
-		stats := SnippetsToStats(snippets)
-		return MergeMultipleStats([]*Stats{
-			{FileCount: len(directoryToFiles[directory])},
-			stats,
-		})
-	})
-	statsTotal := MergeMultipleStats(lo.MapToSlice(statsByFile, func(_ string, stats *Stats) *Stats {
-		return MergeMultipleStats([]*Stats{
-			{FileCount: 1},
-			stats,
-		})
-	}))
-
 	fileToComponent := lo.MapValues(snippetsByFile, func(snippets []*Snippet, _ string) string {
 		return snippets[0].Component
 	})
+	fileToDirectory := lo.MapValues(snippetsByFile, func(snippets []*Snippet, _ string) string {
+		return snippets[0].Directory
+	})
+
+	statsByFile := lo.MapValues(statRecordsByFile, func(statRecords []*StatRecord, _ string) *Stats {
+		return m.merge(statRecords)
+	})
+
+	statsByComponent := lo.MapValues(componentToFiles, func(files []string, component string) *Stats {
+		var stats []*StatRecord
+		for _, file := range files {
+			stats = append(stats, statRecordsByFile[file]...)
+		}
+		stats = append(stats, &StatRecord{
+			StatType: FileCount,
+			Value:    len(files),
+		})
+		return m.merge(stats)
+	})
+
+	statsByDirectory := lo.MapValues(directoryToFiles, func(files []string, directory string) *Stats {
+		var stats []*StatRecord
+		for _, file := range files {
+			stats = append(stats, statRecordsByFile[file]...)
+		}
+		stats = append(stats, &StatRecord{
+			StatType: FileCount,
+			Value:    len(files),
+		})
+		return m.merge(stats)
+	})
+
+	allStatRecords := lo.Flatten(lo.MapToSlice(statRecordsByFile, func(file string, statRecords []*StatRecord) []*StatRecord {
+		return statRecords
+	}))
+	allStatRecords = append(allStatRecords, &StatRecord{
+		StatType: FileCount,
+		Value:    len(statRecordsByFile),
+	})
+	statsTotal := m.merge(allStatRecords)
 
 	return &Results{
 		RootDirectory: rootPath,
@@ -192,18 +195,19 @@ func aggregateResults(rootPath string, fileResults []*FileResults) *Results {
 		ConnectionsTo:   componentConnectionsByTo,
 
 		FileToComponent:  fileToComponent,
+		FileToDirectory:  fileToDirectory,
 		ComponentToFiles: componentToFiles,
 		DirectoryToFiles: directoryToFiles,
 	}
 }
 
-func getExtensionsFromSettings(settings *Settings) []Extension {
+func getExtensionsFromSettings(settings *settings) []Extension {
 	allExtensions := []Extension{
 		&componentLinker{},
 		&rootPathStripper{},
 	}
 
-	for _, extension := range settings.Extensions {
+	for _, extension := range settings.extensions {
 		allExtensions = append(allExtensions, extension)
 	}
 	return allExtensions

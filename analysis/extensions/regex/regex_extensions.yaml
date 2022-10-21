@@ -36,10 +36,10 @@ extensions:
     only_stats: true
     file_glob: "**/*"
     patterns:
-    - ^[ \t](?P<indentation>.*)
+    - ^([ \t]|)(?P<indentation>.*)
 
-  newlines:
+  lines:
     only_stats: true
     file_glob: "**/*"
     patterns:
-    - .*(?P<newline>\n)
+    - .*(?P<line_count>\n)

@@ -22,7 +22,7 @@ type Snippet struct {
 	Type      string `json:"type"`
 	Begin     int    `json:"begin"`
 	End       int    `json:"end"`
-	Value     string `json:"value"`
+	Value     string `json:"Value"`
 }
 
 type FileDescription interface {

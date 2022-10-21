@@ -15,7 +15,6 @@ const (
 	StronglyConnectedComponentGroupsViewName = "strongly_connected_component_groups"
 	FileViewName                             = "files"
 	DirectoryViewName                        = "directories"
-	DirectoryRecursiveViewName               = "directories_recursive"
 	SnippetsViewName                         = "snippets"
 )
 
@@ -51,7 +50,6 @@ func getViewFactories() map[string]ViewFactory {
 		StronglyConnectedComponentGroupsViewName: StronglyConnectedComponentGroupsView,
 		FileViewName:                             FileView,
 		DirectoryViewName:                        DirectoryView,
-		DirectoryRecursiveViewName:               DirectoryRecursiveView,
 		SnippetsViewName:                         SnippetsView,
 	}
 }
@@ -63,8 +61,10 @@ type View struct {
 	Columns []*Column
 	Rows    []*Row
 }
+type RowData map[string]interface{}
+
 type Row struct {
-	Data map[string]interface{}
+	Data RowData
 }
 
 const (
