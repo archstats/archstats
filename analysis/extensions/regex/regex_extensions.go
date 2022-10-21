@@ -17,7 +17,7 @@ var regexExtensions map[string]analysis.Extension
 
 type embeddedExtensionDefinition struct {
 	FileGlob  string   `yaml:"file_glob"`
-	StatBased bool     `yaml:"dont_record_snippet"`
+	OnlyStats bool     `yaml:"only_stats"`
 	Patterns  []string `yaml:"patterns"`
 }
 type RegexExtensions struct {
@@ -35,8 +35,9 @@ func init() {
 		}
 
 		regexExtensions[lang] = &Analyzer{
-			Glob:     glob.MustCompile(extension.FileGlob),
-			Patterns: patterns,
+			OnlyStats: extension.OnlyStats,
+			Glob:      glob.MustCompile(extension.FileGlob),
+			Patterns:  patterns,
 		}
 
 	}
