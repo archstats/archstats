@@ -2,21 +2,21 @@ package analysis
 
 import "github.com/samber/lo"
 
-type StatMergeFunction func(statsToMerge []interface{}) interface{}
+type StatAccumulateFunction func(statsToMerge []interface{}) interface{}
 
-type merger struct {
-	MergeFunctions map[string]StatMergeFunction
+type accumulator struct {
+	AccumulateFunctions map[string]StatAccumulateFunction
 }
 
-func (merger *merger) getMergerFunction(statType string) StatMergeFunction {
-	function, exists := merger.MergeFunctions[statType]
+func (merger *accumulator) getAccumulatorFunction(statType string) StatAccumulateFunction {
+	function, exists := merger.AccumulateFunctions[statType]
 	if exists {
 		return function
 	}
 	return SumStatMerger
 }
 
-func (merger *merger) merge(statsToMerge []*StatRecord) *Stats {
+func (merger *accumulator) merge(statsToMerge []*StatRecord) *Stats {
 	statsToReturn := make(Stats)
 
 	nonNilStats := lo.Filter(statsToMerge, func(stats *StatRecord, _ int) bool {
@@ -28,7 +28,7 @@ func (merger *merger) merge(statsToMerge []*StatRecord) *Stats {
 	})
 
 	for statType, records := range groupedStats {
-		function := merger.getMergerFunction(statType)
+		function := merger.getAccumulatorFunction(statType)
 		recordValues := lo.Map(records, func(record *StatRecord, _ int) interface{} {
 			return record.Value
 		})

@@ -12,7 +12,7 @@ func TestCalculateResults_Smoke_RealExample(t *testing.T) {
 	snippets := parseSnippets("real_example_snippets.json")
 
 	setComponents(snippets)
-	results := aggregateResults("/", toFileResults(snippets))
+	results := aggregateResults("/", &accumulator{}, toFileResults(snippets))
 
 	assert.Len(t, results.SnippetsByComponent, 1)
 	assert.Len(t, results.SnippetsByDirectory, 1)
@@ -63,7 +63,7 @@ func TestCalculateResults_ComponentConnections(t *testing.T) {
 	}
 	setComponents(snippets)
 
-	results := aggregateResults("/", toFileResults(snippets))
+	results := aggregateResults("/", &accumulator{}, toFileResults(snippets))
 
 	connections, from, to := results.Connections, results.ConnectionsFrom, results.ConnectionsTo
 	assertHasAConnection := func(from, to string) {

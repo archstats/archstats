@@ -1,8 +1,9 @@
-In this file '[tb]' will be replaced by a literal '\t' character. Number of indentations is represented after the '='
+Number of indentations is represented after the '='
     =1
-[tb]=1
+    =1
         =2
-[tb][tb]=2
-        [tb]=3
-[tb]    [tb]    =4
-    [tb]    [tb]=4
+        =2
+            =3
+                =4
+                =4
+Total=17

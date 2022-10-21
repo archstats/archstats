@@ -25,7 +25,7 @@ func Analyze(settings *settings) (*Results, error) {
 	}
 
 	// Aggregate Snippets and OnlyStats into Results
-	results := aggregateResults(settings.rootPath, fileResults)
+	results := aggregateResults(settings.rootPath, settings.accumulator, fileResults)
 
 	// Edit results after they've been aggregated
 	resultEditors := getGenericExtensions[ResultsEditor](allExtensions)
@@ -91,8 +91,7 @@ func getAllFileResults(rootPath string, snippetProviders []FileAnalyzer) []*File
 	return allFileResults
 }
 
-func aggregateResults(rootPath string, fileResults []*FileResults) *Results {
-	m := &merger{}
+func aggregateResults(rootPath string, m *accumulator, fileResults []*FileResults) *Results {
 
 	allSnippets := lo.FlatMap(fileResults, func(fileResult *FileResults, idx int) []*Snippet {
 		return fileResult.Snippets

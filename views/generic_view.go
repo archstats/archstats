@@ -74,17 +74,6 @@ func getDistinctColumnsFromResults(results *analysis.Results) []string {
 	return toReturn
 }
 
-func fileCount(snippet *analysis.Snippet) interface{} {
-	return snippet.File
-}
-func getDistinctCount(results []*analysis.Snippet, distinctFunc func(snippet *analysis.Snippet) interface{}) int {
-	files := make(map[interface{}]bool)
-	for _, snippet := range results {
-		files[distinctFunc(snippet)] = true
-	}
-	return len(files)
-}
-
 func toInt(value interface{}) int {
 	if value == nil {
 		return 0
