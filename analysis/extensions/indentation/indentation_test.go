@@ -58,10 +58,6 @@ func TestMax(t *testing.T) {
 	assert.Equal(t, accumulator, 10)
 
 }
-func TestAvg(t *testing.T) {
-	accumulator := avgAccumulator([]interface{}{1, 2, 10, 4, 5})
-	assert.Equal(t, accumulator, 4.4)
-}
 
 type fakeFile struct {
 	content []byte
