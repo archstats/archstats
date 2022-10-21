@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/RyanSusana/archstats/analysis"
-	extensions2 "github.com/RyanSusana/archstats/extensions/regex"
+	"github.com/RyanSusana/archstats/analysis/extensions/regex"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"os"
@@ -81,7 +81,7 @@ func getResults(command *cobra.Command) (*analysis.Results, error) {
 
 	var extensions []analysis.Extension
 	for _, extension := range extensionStrings {
-		provider, err := extensions2.BuiltInRegexExtension(extension)
+		provider, err := regex.BuiltInRegexExtension(extension)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func getResults(command *cobra.Command) (*analysis.Results, error) {
 	}
 
 	extensions = append(extensions,
-		&extensions2.Analyzer{
+		&regex.Analyzer{
 			Patterns: lo.Map(snippetStrings, func(s string, idx int) *regexp.Regexp {
 				return regexp.MustCompile(s)
 			}),

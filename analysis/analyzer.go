@@ -57,7 +57,7 @@ func Analyze(settings *Settings) (*Results, error) {
 	// Initialize extensions that depend on settings
 	initializeExtensions(settings, allExtensions)
 
-	// Get Snippets and StatBased from the files
+	// Get Snippets and OnlyStats from the files
 	fileScanners := getGenericExtensions[FileAnalyzer](allExtensions)
 	fileResults := getAllFileResults(settings.RootPath, fileScanners)
 
@@ -68,7 +68,7 @@ func Analyze(settings *Settings) (*Results, error) {
 		editor.EditFileResults(fileResults)
 	}
 
-	// Aggregate Snippets and StatBased into Results
+	// Aggregate Snippets and OnlyStats into Results
 	results := aggregateResults(settings.RootPath, fileResults)
 
 	// Edit results after they've been aggregated
@@ -95,7 +95,10 @@ func getAllFileResults(rootPath string, snippetProviders []FileAnalyzer) []*File
 	walker.WalkDirectoryConcurrently(rootPath, func(file walker.OpenedFile) {
 		var currentFileResultsToMerge []*FileResults
 		for _, provider := range snippetProviders {
-			currentFileResultsToMerge = append(currentFileResultsToMerge, provider.AnalyzeFile(file))
+			analyzeFile := provider.AnalyzeFile(file)
+			if analyzeFile != nil {
+				currentFileResultsToMerge = append(currentFileResultsToMerge, analyzeFile)
+			}
 		}
 		currentFileResults := MergeFileResults(currentFileResultsToMerge)
 		currentFileResults.Name = file.Path()
@@ -196,8 +199,8 @@ func aggregateResults(rootPath string, fileResults []*FileResults) *Results {
 
 func getExtensionsFromSettings(settings *Settings) []Extension {
 	allExtensions := []Extension{
-		&rootPathStripper{},
 		&componentLinker{},
+		&rootPathStripper{},
 	}
 
 	for _, extension := range settings.Extensions {
