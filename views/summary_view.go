@@ -6,7 +6,7 @@ import (
 
 const (
 	NameColumn  = "name"
-	CountColumn = "count"
+	ValueColumn = "value"
 )
 
 func SummaryView(results *analysis.Results) *View {
@@ -16,7 +16,7 @@ func SummaryView(results *analysis.Results) *View {
 		toReturn = append(toReturn, &Row{
 			Data: map[string]interface{}{
 				NameColumn:  stat,
-				CountColumn: value,
+				ValueColumn: value,
 			},
 		})
 	}
@@ -24,15 +24,15 @@ func SummaryView(results *analysis.Results) *View {
 	extraRows := []RowData{
 		{
 			NameColumn:  "component_count",
-			CountColumn: len(results.StatsByComponent),
+			ValueColumn: len(results.StatsByComponent),
 		},
 		{
 			NameColumn:  "connection_count",
-			CountColumn: len(results.Connections),
+			ValueColumn: len(results.Connections),
 		},
 		{
 			NameColumn:  "directory_count",
-			CountColumn: len(results.StatsByDirectory),
+			ValueColumn: len(results.StatsByDirectory),
 		},
 	}
 
@@ -42,7 +42,7 @@ func SummaryView(results *analysis.Results) *View {
 		})
 	}
 	return &View{
-		Columns: []*Column{StringColumn(NameColumn), IntColumn(CountColumn)},
+		Columns: []*Column{StringColumn(NameColumn), IntColumn(ValueColumn)},
 		Rows:    toReturn,
 	}
 }

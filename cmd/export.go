@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/RyanSusana/archstats/export"
 	"github.com/RyanSusana/archstats/views"
+	"github.com/araddon/dateparse"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"time"
@@ -14,6 +15,7 @@ const (
 	FlagAllViews           = "all-views"
 	FlagSqliteDb           = "sqlite-db"
 	FlagReportId           = "report-id"
+	FlagReportDate         = "report-timestamp"
 	FlagExportOutputFormat = "output-format"
 )
 
@@ -26,14 +28,24 @@ var exportCmd = &cobra.Command{
 		outputFormat, _ := cmd.Flags().GetString(FlagExportOutputFormat)
 		viewsToShow, err := cmd.Flags().GetStringSlice(FlagView)
 		reportId, _ := cmd.Flags().GetString(FlagReportId)
+		reportDateString, _ := cmd.Flags().GetString(FlagReportDate)
 		allResults, _ := getResults(cmd)
 		showAllViews, _ := cmd.Flags().GetBool(FlagAllViews)
+		var reportDate time.Time
 		if err != nil {
 			return err
 		}
 
 		if showAllViews {
 			viewsToShow = views.GetAvailableViews()
+		}
+		if reportDateString == "" {
+			reportDate = time.Now()
+		} else {
+			reportDate, err = dateparse.ParseAny(reportDateString)
+			if err != nil {
+				return err
+			}
 		}
 
 		allViews := make(map[string]*views.View)
@@ -59,7 +71,7 @@ var exportCmd = &cobra.Command{
 			err := export.SaveToDB(&export.SqlOptions{
 				DatabaseName: dbPath,
 				ReportId:     reportId,
-				ScanTime:     time.Now(),
+				ScanTime:     reportDate,
 			}, viewSlice)
 			if err != nil {
 				return err
@@ -72,8 +84,7 @@ var exportCmd = &cobra.Command{
 func init() {
 	exportCmd.Flags().StringSliceP(FlagView, "v", views.GetQuickViews(), "The view(s) to export")
 	exportCmd.Flags().Bool(FlagAllViews, false, "The view(s) to export")
-
-	exportCmd.Flags().StringP(FlagExportOutputFormat, "o", "sqlite", "The output format")
 	exportCmd.Flags().String(FlagReportId, "", "The report id")
+	exportCmd.Flags().String(FlagReportDate, "", "The report date")
 	exportCmd.Flags().String(FlagSqliteDb, "", "Database to export to")
 }
