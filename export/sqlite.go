@@ -3,7 +3,7 @@ package export
 import (
 	"database/sql"
 	"errors"
-	"github.com/RyanSusana/archstats/views"
+	"github.com/RyanSusana/archstats/analysis"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/samber/lo"
 	"os"
@@ -18,7 +18,7 @@ type SqlOptions struct {
 	ScanTime time.Time
 }
 
-func SaveToDB(options *SqlOptions, views []*views.View) error {
+func SaveToDB(options *SqlOptions, views []*analysis.View) error {
 	// check DB exists. If not, create it. If so, check tables exist.
 
 	var db *sql.DB
@@ -59,7 +59,7 @@ func SaveToDB(options *SqlOptions, views []*views.View) error {
 	return err
 }
 
-func insertRowsForAllViews(options *SqlOptions, views []*views.View, db *sql.DB) error {
+func insertRowsForAllViews(options *SqlOptions, views []*analysis.View, db *sql.DB) error {
 	for _, view := range views {
 		chunks := lo.Chunk(view.Rows, 500)
 		for _, chunk := range chunks {
@@ -72,7 +72,7 @@ func insertRowsForAllViews(options *SqlOptions, views []*views.View, db *sql.DB)
 	return nil
 }
 
-func deleteExistingReportFromAllTables(reportId string, views []*views.View, db *sql.DB) error {
+func deleteExistingReportFromAllTables(reportId string, views []*analysis.View, db *sql.DB) error {
 	for _, view := range views {
 		_, err := db.Exec("DELETE FROM `"+view.Name+"` WHERE report_id = ?", reportId)
 		if err != nil {
@@ -81,7 +81,7 @@ func deleteExistingReportFromAllTables(reportId string, views []*views.View, db 
 	}
 	return nil
 }
-func addMissingColumnsForViews(db *sql.DB, views []*views.View) error {
+func addMissingColumnsForViews(db *sql.DB, views []*analysis.View) error {
 	for _, view := range views {
 		err := addMissingColumnsForView(db, view)
 		if err != nil {
@@ -90,7 +90,7 @@ func addMissingColumnsForViews(db *sql.DB, views []*views.View) error {
 	}
 	return nil
 }
-func addMissingColumnsForView(db *sql.DB, view *views.View) error {
+func addMissingColumnsForView(db *sql.DB, view *analysis.View) error {
 	// get existing columns
 	rows, err := db.Query("select name from pragma_table_info(?)", view.Name)
 	if err != nil {
@@ -132,8 +132,8 @@ func createDb(options *SqlOptions) (*sql.DB, error) {
 	}
 	return db, nil
 }
-func insertRowsForView(db *sql.DB, name string, columns []*views.Column, rows []*views.Row, options *SqlOptions) error {
-	extraColumns := []*views.Column{views.StringColumn("report_id"), views.DateColumn("timestamp")}
+func insertRowsForView(db *sql.DB, name string, columns []*analysis.Column, rows []*analysis.Row, options *SqlOptions) error {
+	extraColumns := []*analysis.Column{analysis.StringColumn("report_id"), analysis.DateColumn("timestamp")}
 	allColumns := append(columns, extraColumns...)
 
 	valueStrings := make([]string, 0, len(rows))
@@ -156,7 +156,7 @@ func insertRowsForView(db *sql.DB, name string, columns []*views.Column, rows []
 		}
 	}
 
-	columnNames := lo.Map(allColumns, func(item *views.Column, index int) string {
+	columnNames := lo.Map(allColumns, func(item *analysis.Column, index int) string {
 		return "`" + item.Name + "`"
 	})
 	theSql := "INSERT INTO " + name + " (" + strings.Join(columnNames, ",") + ") VALUES " + strings.Join(valueStrings, ",")
@@ -168,7 +168,7 @@ func insertRowsForView(db *sql.DB, name string, columns []*views.Column, rows []
 	return nil
 }
 
-func ensureAllTablesExist(views []*views.View, db *sql.DB) error {
+func ensureAllTablesExist(views []*analysis.View, db *sql.DB) error {
 	for _, view := range views {
 		err := ensureTableExists(db, view)
 
@@ -178,7 +178,7 @@ func ensureAllTablesExist(views []*views.View, db *sql.DB) error {
 	}
 	return nil
 }
-func ensureTableExists(db *sql.DB, view *views.View) error {
+func ensureTableExists(db *sql.DB, view *analysis.View) error {
 
 	ddl := tableDDL(view)
 	_, err := db.Exec(ddl)
@@ -188,29 +188,29 @@ func ensureTableExists(db *sql.DB, view *views.View) error {
 	return nil
 }
 
-func tableDDL(view *views.View) string {
+func tableDDL(view *analysis.View) string {
 	return "CREATE TABLE IF NOT EXISTS `" + view.Name + "` (" + columnsDDL(view) + ", report_id TEXT, timestamp DATE)"
 }
 
-func columnsDDL(view *views.View) string {
-	columnDDLStrings := lo.Map(view.Columns, func(column *views.Column, index int) string {
+func columnsDDL(view *analysis.View) string {
+	columnDDLStrings := lo.Map(view.Columns, func(column *analysis.Column, index int) string {
 		return columnDDL(column)
 	})
 
 	return strings.Join(columnDDLStrings, ",")
 }
 
-func columnDDL(column *views.Column) string {
+func columnDDL(column *analysis.Column) string {
 	return "`" + column.Name + "` " + columnTypeDDL(column)
 }
 
-func columnTypeDDL(column *views.Column) string {
+func columnTypeDDL(column *analysis.Column) string {
 	switch column.Type {
-	case views.String:
+	case analysis.String:
 		return "TEXT"
-	case views.Float:
+	case analysis.Float:
 		return "REAL"
-	case views.Date:
+	case analysis.Date:
 		return "DATE"
 	default:
 		return "INTEGER"

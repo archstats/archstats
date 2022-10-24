@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/extensions"
-	"github.com/RyanSusana/archstats/analysis/extensions/regex"
+	"github.com/RyanSusana/archstats/extensions/analyzers/indentation"
+	"github.com/RyanSusana/archstats/extensions/analyzers/regex"
+	"github.com/RyanSusana/archstats/extensions/analyzers/required"
+	"github.com/RyanSusana/archstats/extensions/views/basic"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"os"
@@ -78,11 +80,12 @@ func getResults(command *cobra.Command) (*analysis.Results, error) {
 	rootDir, _ = filepath.Abs(rootDir)
 
 	extensionStrings, _ := command.Flags().GetStringSlice(FlagExtension)
+
 	snippetStrings, _ := command.Flags().GetStringSlice(FlagSnippet)
 
-	var allExtensions []analysis.Extension
+	var allExtensions = DefaultExtensions()
 	for _, extension := range extensionStrings {
-		provider, err := extensions.BuiltInExtension(extension)
+		provider, err := OptionalExtension(extension)
 		if err != nil {
 			return nil, err
 		}
@@ -90,15 +93,28 @@ func getResults(command *cobra.Command) (*analysis.Results, error) {
 	}
 
 	allExtensions = append(allExtensions,
-		&regex.Analyzer{
+		&regex.Extension{
 			Patterns: lo.Map(snippetStrings, func(s string, idx int) *regexp.Regexp {
 				return regexp.MustCompile(s)
 			}),
 		},
 	)
 
-	settings := analysis.NewSettings(rootDir, allExtensions)
+	settings := analysis.New(rootDir, allExtensions)
 
 	allResults, err := analysis.Analyze(settings)
 	return allResults, err
+}
+
+func DefaultExtensions() []analysis.Extension {
+	return []analysis.Extension{required.Extension(), basic.Extension()}
+}
+
+func OptionalExtension(in string) (analysis.Extension, error) {
+	switch in {
+	case "indentation":
+		return &indentation.Analyzer{}, nil
+	default:
+		return regex.BuiltInRegexExtension(in)
+	}
 }

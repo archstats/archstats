@@ -14,7 +14,7 @@ type FileResults struct {
 	Snippets []*Snippet
 }
 
-func MergeFileResults(results []*FileResults) *FileResults {
+func mergeFileResults(results []*FileResults) *FileResults {
 	newResults := &FileResults{}
 	for _, otherResult := range results {
 		newResults.Stats = append(newResults.Stats, otherResult.Stats...)

@@ -3,7 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/RyanSusana/archstats/views"
+	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/extensions/views/basic"
 	"github.com/ryanuber/columnize"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -31,12 +32,12 @@ var viewCmd = &cobra.Command{
 			return err
 		}
 
-		resultsFromCommand, err := views.RenderView(view, results)
+		resultsFromCommand, err := results.RenderView(view)
 		if err != nil {
 			return err
 		}
 
-		views.SortRows(sortedBy, resultsFromCommand)
+		basic.SortRows(sortedBy, resultsFromCommand)
 		printRows(resultsFromCommand, cmd)
 		return nil
 	},
@@ -53,7 +54,7 @@ func init() {
 
 type rowData map[string]interface{}
 
-func printRows(resultsFromCommand *views.View, cmd *cobra.Command) string {
+func printRows(resultsFromCommand *analysis.View, cmd *cobra.Command) string {
 
 	columnsInput, err := cmd.Flags().GetStringSlice("column")
 	output, err := cmd.Flags().GetString("output-format")
@@ -69,7 +70,7 @@ func printRows(resultsFromCommand *views.View, cmd *cobra.Command) string {
 	columnsToPrint := resultsFromCommand.Columns
 
 	if len(columnsInput) > 0 {
-		columnsToPrint = lo.Filter(columnsToPrint, func(column *views.Column, idx int) bool {
+		columnsToPrint = lo.Filter(columnsToPrint, func(column *analysis.Column, idx int) bool {
 			return slices.Contains(columnsInput, column.Name)
 		})
 	}
@@ -95,13 +96,13 @@ func printRows(resultsFromCommand *views.View, cmd *cobra.Command) string {
 	}
 }
 
-func getJson(columnsToPrint []*views.Column, rows []*views.Row) []byte {
+func getJson(columnsToPrint []*analysis.Column, rows []*analysis.Row) []byte {
 	toPrint := rowsToMaps(columnsToPrint, rows)
 	theJson, _ := json.Marshal(toPrint)
 	return theJson
 }
 
-func rowsToMaps(columnsToPrint []*views.Column, rows []*views.Row) []rowData {
+func rowsToMaps(columnsToPrint []*analysis.Column, rows []*analysis.Row) []rowData {
 	var toPrint []rowData
 	for _, row := range rows {
 		toPrint = append(toPrint, measurableToMap(row, columnsToPrint))
@@ -109,7 +110,7 @@ func rowsToMaps(columnsToPrint []*views.Column, rows []*views.Row) []rowData {
 	return toPrint
 }
 
-func measurableToMap(measurable *views.Row, columns []*views.Column) map[string]interface{} {
+func measurableToMap(measurable *analysis.Row, columns []*analysis.Column) map[string]interface{} {
 	toReturn := map[string]interface{}{}
 	for _, column := range columns {
 		toReturn[column.Name] = measurable.Data[column.Name]
@@ -117,7 +118,7 @@ func measurableToMap(measurable *views.Row, columns []*views.Column) map[string]
 	return toReturn
 }
 
-func getRows(columnsToPrint []*views.Column, resultsFromCommand []*views.Row, shouldPrintHeader bool, delimiter string) []string {
+func getRows(columnsToPrint []*analysis.Column, resultsFromCommand []*analysis.Row, shouldPrintHeader bool, delimiter string) []string {
 	var rows []string
 	if shouldPrintHeader {
 		rows = append(rows, getHeader(delimiter, columnsToPrint))
@@ -128,14 +129,14 @@ func getRows(columnsToPrint []*views.Column, resultsFromCommand []*views.Row, sh
 	return rows
 }
 
-func getHeader(delimiter string, columnsToPrint []*views.Column) string {
-	columnNames := lo.Map(columnsToPrint, func(column *views.Column, idx int) string {
+func getHeader(delimiter string, columnsToPrint []*analysis.Column) string {
+	columnNames := lo.Map(columnsToPrint, func(column *analysis.Column, idx int) string {
 		return column.Name
 	})
 	return strings.ToUpper(strings.Join(columnNames, delimiter))
 }
 
-func rowToString(columnsToPrint []*views.Column, delimiter string, row *views.Row) string {
+func rowToString(columnsToPrint []*analysis.Column, delimiter string, row *analysis.Row) string {
 	toReturn := make([]string, 0, len(columnsToPrint))
 	columns := row.Data
 

@@ -1,35 +1,38 @@
 package analysis
 
 import (
+	"fmt"
 	"github.com/RyanSusana/archstats/walker"
 	"github.com/samber/lo"
 	"sync"
 )
 
 // Analyze analyzes the given root directory and returns the results.
-func Analyze(settings *settings) (*Results, error) {
-	allExtensions := getExtensionsFromSettings(settings)
+func Analyze(settings *analyzer) (*Results, error) {
 
-	// Initialize extensions that depend on settings
-	initializeExtensions(settings, allExtensions)
+	// Initialize extensions
+	for _, extension := range settings.extensions {
+		err := extension.Init(settings)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Get Snippets and OnlyStats from the files
-	fileScanners := getGenericExtensions[FileAnalyzer](allExtensions)
-	fileResults := getAllFileResults(settings.rootPath, fileScanners)
+	fileResults := getAllFileResults(settings.rootPath, settings.fileAnalyzers)
 
 	// Edit file results
 	// Used to set the component and directory of a snippet
-	fileResultsEditors := getGenericExtensions[FileResultsEditor](allExtensions)
-	for _, editor := range fileResultsEditors {
+	for _, editor := range settings.fileResultsEditors {
 		editor.EditFileResults(fileResults)
 	}
 
 	// Aggregate Snippets and OnlyStats into Results
-	results := aggregateResults(settings.rootPath, settings.accumulator, fileResults)
+	results := aggregateResults(settings, fileResults)
 
 	// Edit results after they've been aggregated
-	resultEditors := getGenericExtensions[ResultsEditor](allExtensions)
-	for _, editor := range resultEditors {
+
+	for _, editor := range settings.resultsEditors {
 		editor.EditResults(results)
 	}
 
@@ -60,39 +63,13 @@ type Results struct {
 
 	ComponentToFiles map[string][]string
 	DirectoryToFiles map[string][]string
+
+	views map[string]ViewFactoryFunction
 }
 
-func initializeExtensions(settings *settings, allExtensions []Extension) {
-	initializables := getGenericExtensions[Initializable](allExtensions)
+func aggregateResults(settings *analyzer, fileResults []*FileResults) *Results {
 
-	for _, initializable := range initializables {
-		initializable.Init(settings)
-	}
-}
-
-func getAllFileResults(rootPath string, snippetProviders []FileAnalyzer) []*FileResults {
-	var allFileResults []*FileResults
-
-	lock := sync.Mutex{}
-	walker.WalkDirectoryConcurrently(rootPath, func(file walker.OpenedFile) {
-		var currentFileResultsToMerge []*FileResults
-		for _, provider := range snippetProviders {
-			analyzeFile := provider.AnalyzeFile(file)
-			if analyzeFile != nil {
-				currentFileResultsToMerge = append(currentFileResultsToMerge, analyzeFile)
-			}
-		}
-		currentFileResults := MergeFileResults(currentFileResultsToMerge)
-		currentFileResults.Name = file.Path()
-		lock.Lock()
-		allFileResults = append(allFileResults, currentFileResults)
-		lock.Unlock()
-	})
-	return allFileResults
-}
-
-func aggregateResults(rootPath string, m *accumulator, fileResults []*FileResults) *Results {
-
+	rootPath, theAccumulator := settings.rootPath, settings.accumulator
 	allSnippets := lo.FlatMap(fileResults, func(fileResult *FileResults, idx int) []*Snippet {
 		return fileResult.Snippets
 	})
@@ -139,7 +116,7 @@ func aggregateResults(rootPath string, m *accumulator, fileResults []*FileResult
 	})
 
 	statsByFile := lo.MapValues(statRecordsByFile, func(statRecords []*StatRecord, _ string) *Stats {
-		return m.merge(statRecords)
+		return theAccumulator.merge(statRecords)
 	})
 
 	statsByComponent := lo.MapValues(componentToFiles, func(files []string, component string) *Stats {
@@ -151,7 +128,7 @@ func aggregateResults(rootPath string, m *accumulator, fileResults []*FileResult
 			StatType: FileCount,
 			Value:    len(files),
 		})
-		return m.merge(stats)
+		return theAccumulator.merge(stats)
 	})
 
 	statsByDirectory := lo.MapValues(directoryToFiles, func(files []string, directory string) *Stats {
@@ -163,7 +140,7 @@ func aggregateResults(rootPath string, m *accumulator, fileResults []*FileResult
 			StatType: FileCount,
 			Value:    len(files),
 		})
-		return m.merge(stats)
+		return theAccumulator.merge(stats)
 	})
 
 	allStatRecords := lo.Flatten(lo.MapToSlice(statRecordsByFile, func(file string, statRecords []*StatRecord) []*StatRecord {
@@ -173,7 +150,7 @@ func aggregateResults(rootPath string, m *accumulator, fileResults []*FileResult
 		StatType: FileCount,
 		Value:    len(statRecordsByFile),
 	})
-	statsTotal := m.merge(allStatRecords)
+	statsTotal := theAccumulator.merge(allStatRecords)
 
 	return &Results{
 		RootDirectory: rootPath,
@@ -197,28 +174,45 @@ func aggregateResults(rootPath string, m *accumulator, fileResults []*FileResult
 		FileToDirectory:  fileToDirectory,
 		ComponentToFiles: componentToFiles,
 		DirectoryToFiles: directoryToFiles,
+
+		views: settings.views,
+	}
+}
+func (r *Results) RenderView(viewName string) (*View, error) {
+	if viewFactory, ok := r.views[viewName]; ok {
+		view := viewFactory(r)
+		view.Name = viewName
+		return view, nil
+	} else {
+		return nil, fmt.Errorf("no view named %s", viewName)
 	}
 }
 
-func getExtensionsFromSettings(settings *settings) []Extension {
-	allExtensions := []Extension{
-		&componentLinker{},
-		&rootPathStripper{},
+func (r *Results) GetAllViews() []string {
+	var views []string
+	for viewName := range r.views {
+		views = append(views, viewName)
 	}
-
-	for _, extension := range settings.extensions {
-		allExtensions = append(allExtensions, extension)
-	}
-	return allExtensions
+	return views
 }
-func getGenericExtensions[K Extension](extensions []Extension) []K {
-	var toReturn []K
-	for _, extension := range extensions {
 
-		editor, isEditor := extension.(K)
-		if isEditor {
-			toReturn = append(toReturn, editor)
+func getAllFileResults(rootPath string, snippetProviders []FileAnalyzer) []*FileResults {
+	var allFileResults []*FileResults
+
+	lock := sync.Mutex{}
+	walker.WalkDirectoryConcurrently(rootPath, func(file walker.OpenedFile) {
+		var currentFileResultsToMerge []*FileResults
+		for _, provider := range snippetProviders {
+			analyzeFile := provider.AnalyzeFile(file)
+			if analyzeFile != nil {
+				currentFileResultsToMerge = append(currentFileResultsToMerge, analyzeFile)
+			}
 		}
-	}
-	return toReturn
+		currentFileResults := mergeFileResults(currentFileResultsToMerge)
+		currentFileResults.Name = file.Path()
+		lock.Lock()
+		allFileResults = append(allFileResults, currentFileResults)
+		lock.Unlock()
+	})
+	return allFileResults
 }

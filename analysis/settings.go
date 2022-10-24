@@ -1,33 +1,61 @@
 package analysis
 
-func NewSettings(rootPath string, extensions []Extension) *settings {
-	return &settings{rootPath: rootPath, extensions: extensions, accumulator: &accumulator{
-		AccumulateFunctions: make(map[string]StatAccumulateFunction),
-	}}
+func New(rootPath string, extensions []Extension) *analyzer {
+	return &analyzer{rootPath: rootPath, extensions: extensions,
+		views: map[string]ViewFactoryFunction{},
+		accumulator: &accumulator{
+			AccumulateFunctions: make(map[string]StatAccumulateFunction),
+		}}
 }
 
-type Settings interface {
+type Analyzer interface {
 	RootPath() string
-	SetStatAccumulator(statType string, merger StatAccumulateFunction)
+	RegisterStatAccumulator(statType string, merger StatAccumulateFunction)
+	RegisterView(viewName string, viewFactory ViewFactoryFunction)
+	RegisterFileAnalyzer(analyzer FileAnalyzer)
+	RegisterFileResultsEditor(editor FileResultsEditor)
+	RegisterResultsEditor(editor ResultsEditor)
 }
-type settings struct {
-	rootPath    string
-	extensions  []Extension
-	accumulator *accumulator
+type analyzer struct {
+	rootPath           string
+	extensions         []Extension
+	views              map[string]ViewFactoryFunction
+	accumulator        *accumulator
+	fileAnalyzers      []FileAnalyzer
+	fileResultsEditors []FileResultsEditor
+	resultsEditors     []ResultsEditor
 }
 
-func (s *settings) RootPath() string {
-	return s.rootPath
+func (a *analyzer) typeAssertion() Analyzer {
+	return a
 }
 
-func (s *settings) SetStatAccumulator(statType string, merger StatAccumulateFunction) {
-	s.accumulator.AccumulateFunctions[statType] = merger
+func (a *analyzer) RegisterView(viewName string, viewFactory ViewFactoryFunction) {
+	a.views[viewName] = viewFactory
 }
 
-type Extension interface{}
+func (a *analyzer) RegisterFileAnalyzer(analyzer FileAnalyzer) {
+	a.fileAnalyzers = append(a.fileAnalyzers, analyzer)
+}
 
-type Initializable interface {
-	Init(settings Settings)
+func (a *analyzer) RegisterFileResultsEditor(editor FileResultsEditor) {
+	a.fileResultsEditors = append(a.fileResultsEditors, editor)
+}
+
+func (a *analyzer) RegisterResultsEditor(editor ResultsEditor) {
+	a.resultsEditors = append(a.resultsEditors, editor)
+}
+
+func (a *analyzer) RootPath() string {
+	return a.rootPath
+}
+
+func (a *analyzer) RegisterStatAccumulator(statType string, merger StatAccumulateFunction) {
+	a.accumulator.AccumulateFunctions[statType] = merger
+}
+
+type Extension interface {
+	Init(settings Analyzer) error
 }
 
 type FileResultsEditor interface {

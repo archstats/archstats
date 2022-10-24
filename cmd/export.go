@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"errors"
+	"github.com/RyanSusana/archstats/analysis"
 	"github.com/RyanSusana/archstats/export"
-	"github.com/RyanSusana/archstats/views"
 	"github.com/araddon/dateparse"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -29,16 +29,14 @@ var exportCmd = &cobra.Command{
 		viewsToShow, err := cmd.Flags().GetStringSlice(FlagView)
 		reportId, _ := cmd.Flags().GetString(FlagReportId)
 		reportDateString, _ := cmd.Flags().GetString(FlagReportDate)
-		allResults, _ := getResults(cmd)
-		showAllViews, _ := cmd.Flags().GetBool(FlagAllViews)
+		results, _ := getResults(cmd)
+		//showAllViews, _ := cmd.Flags().GetBool(FlagAllViews)
 		var reportDate time.Time
 		if err != nil {
 			return err
 		}
 
-		if showAllViews {
-			viewsToShow = views.GetAvailableViews()
-		}
+		viewsToShow = results.GetAllViews()
 		if reportDateString == "" {
 			reportDate = time.Now()
 		} else {
@@ -48,10 +46,10 @@ var exportCmd = &cobra.Command{
 			}
 		}
 
-		allViews := make(map[string]*views.View)
+		allViews := make(map[string]*analysis.View)
 
 		for _, viewName := range viewsToShow {
-			view, err := views.RenderView(viewName, allResults)
+			view, err := results.RenderView(viewName)
 			if err != nil {
 				return err
 			}
@@ -65,7 +63,7 @@ var exportCmd = &cobra.Command{
 				return errors.New("sqlite-db is required")
 			}
 
-			viewSlice := lo.MapToSlice(allViews, func(viewName string, view *views.View) *views.View {
+			viewSlice := lo.MapToSlice(allViews, func(viewName string, view *analysis.View) *analysis.View {
 				return view
 			})
 			err := export.SaveToDB(&export.SqlOptions{
@@ -82,7 +80,7 @@ var exportCmd = &cobra.Command{
 }
 
 func init() {
-	exportCmd.Flags().StringSliceP(FlagView, "v", views.GetQuickViews(), "The view(s) to export")
+	exportCmd.Flags().StringSliceP(FlagView, "v", []string{}, "The view(s) to export")
 	exportCmd.Flags().Bool(FlagAllViews, false, "The view(s) to export")
 	exportCmd.Flags().String(FlagReportId, "", "The report id")
 	exportCmd.Flags().String(FlagReportDate, "", "The report date")
