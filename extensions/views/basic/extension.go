@@ -20,10 +20,13 @@ func (v *extension) Init(settings analysis.Analyzer) error {
 
 func getViewFactories() map[string]analysis.ViewFactoryFunction {
 	return map[string]analysis.ViewFactoryFunction{
-		"summary":     summaryView,
-		"components":  componentView,
-		"files":       fileView,
-		"directories": directoryView,
-		"snippets":    snippetsView,
+		"summary":                            summaryView,
+		"components":                         componentView,
+		"files":                              fileView,
+		"directories":                        directoryView,
+		"snippets":                           snippetsView,
+		"component_connections_direct":       componentConnectionsView,
+		"component_connections_indirect":     componentDistanceView,
+		"strongly_connected_components_view": stronglyConnectedComponentGroupsView,
 	}
 }

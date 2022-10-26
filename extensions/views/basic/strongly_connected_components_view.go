@@ -1,12 +1,12 @@
-package graph
+package basic
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
 	"gonum.org/v1/gonum/graph/topo"
 )
 
-func StronglyConnectedComponentGroupsView(results *analysis.Results) *analysis.View {
-	theGraph := createGraph(results)
+func stronglyConnectedComponentGroupsView(results *analysis.Results) *analysis.View {
+	theGraph := results.ComponentGraph
 
 	groups := topo.TarjanSCC(theGraph)
 	var rows []*analysis.Row
@@ -16,7 +16,7 @@ func StronglyConnectedComponentGroupsView(results *analysis.Results) *analysis.V
 				Data: map[string]interface{}{
 					"group_nr":   groupNr,
 					"group_size": len(theGroup),
-					"component":  theGraph.Node(component.ID()).(*componentNode).name,
+					"component":  theGraph.IdToComponent(component.ID()),
 				},
 			})
 		}

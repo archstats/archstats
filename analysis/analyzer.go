@@ -64,6 +64,8 @@ type Results struct {
 	ComponentToFiles map[string][]string
 	DirectoryToFiles map[string][]string
 
+	ComponentGraph *ComponentGraph
+
 	views map[string]ViewFactoryFunction
 }
 
@@ -174,6 +176,7 @@ func aggregateResults(settings *analyzer, fileResults []*FileResults) *Results {
 		FileToDirectory:  fileToDirectory,
 		ComponentToFiles: componentToFiles,
 		DirectoryToFiles: directoryToFiles,
+		ComponentGraph:   createComponentGraph(componentConnections),
 
 		views: settings.views,
 	}

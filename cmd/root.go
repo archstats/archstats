@@ -7,6 +7,7 @@ import (
 	"github.com/RyanSusana/archstats/extensions/analyzers/regex"
 	"github.com/RyanSusana/archstats/extensions/analyzers/required"
 	"github.com/RyanSusana/archstats/extensions/views/basic"
+	"github.com/RyanSusana/archstats/extensions/views/cycles"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"os"
@@ -113,7 +114,9 @@ func DefaultExtensions() []analysis.Extension {
 func OptionalExtension(in string) (analysis.Extension, error) {
 	switch in {
 	case "indentation":
-		return &indentation.Analyzer{}, nil
+		return indentation.Extension(), nil
+	case "cycles":
+		return cycles.Extension(), nil
 	default:
 		return regex.BuiltInRegexExtension(in)
 	}

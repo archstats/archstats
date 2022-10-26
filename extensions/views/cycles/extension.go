@@ -1,6 +1,8 @@
-package graph
+package cycles
 
-import "github.com/RyanSusana/archstats/analysis"
+import (
+	"github.com/RyanSusana/archstats/analysis"
+)
 
 func Extension() analysis.Extension {
 	return &extension{}
@@ -18,8 +20,7 @@ func (v *extension) Init(settings analysis.Analyzer) error {
 
 func getViewFactories() map[string]analysis.ViewFactoryFunction {
 	return map[string]analysis.ViewFactoryFunction{
-		"all_component_cycles":               ComponentCyclesView,
-		"largest_component_cycle":            LargestComponentCycleView,
-		"strongly_connected_components_view": StronglyConnectedComponentGroupsView,
+		"all_component_cycles":    componentCyclesView,
+		"largest_component_cycle": largestComponentCycleView,
 	}
 }

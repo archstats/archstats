@@ -13,13 +13,17 @@ const (
 	Avg   = "indentation_avg"
 )
 
-type Analyzer struct{}
+func Extension() analysis.Extension {
+	return &extension{}
+}
 
-func (i *Analyzer) typeAssertions() (analysis.Extension, analysis.FileAnalyzer) {
+type extension struct{}
+
+func (i *extension) typeAssertions() (analysis.Extension, analysis.FileAnalyzer) {
 	return i, i
 }
 
-func (i *Analyzer) Init(settings analysis.Analyzer) error {
+func (i *extension) Init(settings analysis.Analyzer) error {
 	settings.RegisterFileAnalyzer(i)
 	settings.RegisterStatAccumulator(Max, maxAccumulator)
 	settings.RegisterStatAccumulator(Avg, avgAccumulator)
@@ -47,7 +51,7 @@ func avgAccumulator(indentations []interface{}) interface{} {
 	return allIndentations / allLines
 }
 
-func (i *Analyzer) AnalyzeFile(file analysis.File) *analysis.FileResults {
+func (i *extension) AnalyzeFile(file analysis.File) *analysis.FileResults {
 	bytesReader := bytes.NewReader(file.Content())
 
 	fileReader := bufio.NewReader(bytesReader)

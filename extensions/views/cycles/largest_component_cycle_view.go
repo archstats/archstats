@@ -1,4 +1,4 @@
-package graph
+package cycles
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
@@ -6,8 +6,8 @@ import (
 	"sort"
 )
 
-func LargestComponentCycleView(results *analysis.Results) *analysis.View {
-	theGraph := createGraph(results)
+func largestComponentCycleView(results *analysis.Results) *analysis.View {
+	theGraph := results.ComponentGraph
 
 	cycles := topo.DirectedCyclesIn(theGraph)
 	sort.Slice(cycles, func(i, j int) bool {
@@ -23,9 +23,9 @@ func LargestComponentCycleView(results *analysis.Results) *analysis.View {
 		predecessor := theCycle[wrapIndex(componentIndex-1, len(theCycle))]
 		rows = append(rows, &analysis.Row{
 			Data: map[string]interface{}{
-				"component":   theGraph.Node(component.ID()).(*componentNode).name,
-				"successor":   theGraph.Node(successor.ID()).(*componentNode).name,
-				"predecessor": theGraph.Node(predecessor.ID()).(*componentNode).name,
+				"component":   theGraph.IdToComponent(component.ID()),
+				"successor":   theGraph.IdToComponent(successor.ID()),
+				"predecessor": theGraph.IdToComponent(predecessor.ID()),
 			},
 		})
 	}

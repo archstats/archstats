@@ -1,12 +1,12 @@
-package graph
+package cycles
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
 	"gonum.org/v1/gonum/graph/topo"
 )
 
-func ComponentCyclesView(results *analysis.Results) *analysis.View {
-	theGraph := createGraph(results)
+func componentCyclesView(results *analysis.Results) *analysis.View {
+	theGraph := results.ComponentGraph
 
 	cycles := topo.DirectedCyclesIn(theGraph)
 
@@ -24,9 +24,9 @@ func ComponentCyclesView(results *analysis.Results) *analysis.View {
 				Data: map[string]interface{}{
 					"cycle_nr":    cycleNr,
 					"cycle_size":  len(theCycle),
-					"component":   theGraph.Node(component.ID()).(*componentNode).name,
-					"successor":   theGraph.Node(successor.ID()).(*componentNode).name,
-					"predecessor": theGraph.Node(predecessor.ID()).(*componentNode).name,
+					"component":   theGraph.IdToComponent(component.ID()),
+					"successor":   theGraph.IdToComponent(successor.ID()),
+					"predecessor": theGraph.IdToComponent(predecessor.ID()),
 				},
 			})
 		}

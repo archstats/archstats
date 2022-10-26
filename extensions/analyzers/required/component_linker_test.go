@@ -24,7 +24,7 @@ package required
 //
 //func TestCalculateResults_ComponentConnections(t *testing.T) {
 //	snippets := []*analysis.Snippet{
-//		// Package/Component declarations
+//		// Package/ComponentToNode declarations
 //		{
 //			File:  "src/main/java/mainPackage/testFile1.java",
 //			Type:  "component_declaration",
@@ -41,7 +41,7 @@ package required
 //			Value: "mainPackage.subpackage2",
 //		},
 //
-//		// Package/Component imports
+//		// Package/ComponentToNode imports
 //		{
 //			File:  "src/main/java/mainPackage/testFile1.java",
 //			Type:  "component_import",

@@ -5,7 +5,7 @@ import (
 	"github.com/samber/lo"
 )
 
-func ComponentConnectionsView(results *analysis.Results) *analysis.View {
+func componentConnectionsView(results *analysis.Results) *analysis.View {
 	groupedConnections := lo.GroupBy(results.Connections, func(connection *analysis.ComponentConnection) string {
 		return connection.From + ":" + connection.File + " -> " + connection.To
 	})
