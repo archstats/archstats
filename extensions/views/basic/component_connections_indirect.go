@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func componentDistanceView(results *analysis.Results) *analysis.View {
+func componentConnectionsIndirectView(results *analysis.Results) *analysis.View {
 	theGraph := results.ComponentGraph
 
 	allShortest := path.DijkstraAllPaths(theGraph)
