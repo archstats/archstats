@@ -27,6 +27,9 @@ func componentConnectionsFurthestView(results *analysis.Results) *analysis.View 
 			}
 		}
 
+		if len(furthest) <= 0 {
+			continue
+		}
 		rows = append(rows, &analysis.Row{
 			Data: map[string]interface{}{
 				"component":                   key,
