@@ -1,5 +1,10 @@
 package analysis
 
+type ViewFactory struct {
+	Name        string
+	Description string
+	Create      ViewFactoryFunction
+}
 type ViewFactoryFunction func(results *Results) *View
 
 type View struct {

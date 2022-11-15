@@ -2,7 +2,7 @@ package analysis
 
 func New(rootPath string, extensions []Extension) *analyzer {
 	return &analyzer{rootPath: rootPath, extensions: extensions,
-		views: map[string]ViewFactoryFunction{},
+		views: map[string]*ViewFactory{},
 		accumulator: &accumulator{
 			AccumulateFunctions: make(map[string]StatAccumulateFunction),
 		}}
@@ -11,7 +11,7 @@ func New(rootPath string, extensions []Extension) *analyzer {
 type Analyzer interface {
 	RootPath() string
 	RegisterStatAccumulator(statType string, merger StatAccumulateFunction)
-	RegisterView(viewName string, viewFactory ViewFactoryFunction)
+	RegisterView(viewFactory *ViewFactory)
 	RegisterFileAnalyzer(analyzer FileAnalyzer)
 	RegisterFileResultsEditor(editor FileResultsEditor)
 	RegisterResultsEditor(editor ResultsEditor)
@@ -19,7 +19,7 @@ type Analyzer interface {
 type analyzer struct {
 	rootPath           string
 	extensions         []Extension
-	views              map[string]ViewFactoryFunction
+	views              map[string]*ViewFactory
 	accumulator        *accumulator
 	fileAnalyzers      []FileAnalyzer
 	fileResultsEditors []FileResultsEditor
@@ -30,8 +30,8 @@ func (a *analyzer) typeAssertion() Analyzer {
 	return a
 }
 
-func (a *analyzer) RegisterView(viewName string, viewFactory ViewFactoryFunction) {
-	a.views[viewName] = viewFactory
+func (a *analyzer) RegisterView(factory *ViewFactory) {
+	a.views[factory.Name] = factory
 }
 
 func (a *analyzer) RegisterFileAnalyzer(analyzer FileAnalyzer) {

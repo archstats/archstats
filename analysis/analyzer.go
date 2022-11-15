@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/RyanSusana/archstats/walker"
 	"github.com/samber/lo"
+	"strings"
 	"sync"
 )
 
@@ -66,7 +67,7 @@ type Results struct {
 
 	ComponentGraph *ComponentGraph
 
-	views map[string]ViewFactoryFunction
+	views map[string]*ViewFactory
 }
 
 func aggregateResults(settings *analyzer, fileResults []*FileResults) *Results {
@@ -110,13 +111,6 @@ func aggregateResults(settings *analyzer, fileResults []*FileResults) *Results {
 		}))
 	})
 
-	fileToComponent := lo.MapValues(snippetsByFile, func(snippets []*Snippet, _ string) string {
-		return snippets[0].Component
-	})
-	fileToDirectory := lo.MapValues(snippetsByFile, func(snippets []*Snippet, _ string) string {
-		return snippets[0].Directory
-	})
-
 	statsByFile := lo.MapValues(statRecordsByFile, func(statRecords []*StatRecord, _ string) *Stats {
 		return theAccumulator.merge(statRecords)
 	})
@@ -133,10 +127,14 @@ func aggregateResults(settings *analyzer, fileResults []*FileResults) *Results {
 		return theAccumulator.merge(stats)
 	})
 
-	statsByDirectory := lo.MapValues(directoryToFiles, func(files []string, directory string) *Stats {
+	directoryResults := lo.GroupBy(fileResults, func(item *FileResults) string {
+		return item.Name[:strings.LastIndex(item.Name, "/")]
+	})
+
+	statsByDirectory := lo.MapValues(directoryResults, func(files []*FileResults, directory string) *Stats {
 		var stats []*StatRecord
 		for _, file := range files {
-			stats = append(stats, statRecordsByFile[file]...)
+			stats = append(stats, file.Stats...)
 		}
 		stats = append(stats, &StatRecord{
 			StatType: FileCount,
@@ -154,6 +152,12 @@ func aggregateResults(settings *analyzer, fileResults []*FileResults) *Results {
 	})
 	statsTotal := theAccumulator.merge(allStatRecords)
 
+	fileToComponent := lo.MapValues(snippetsByFile, func(snippets []*Snippet, _ string) string {
+		return snippets[0].Component
+	})
+	fileToDirectory := lo.MapValues(statsByFile, func(snippets *Stats, file string) string {
+		return file[:strings.LastIndex(file, "/")]
+	})
 	return &Results{
 		RootDirectory: rootPath,
 
@@ -183,18 +187,21 @@ func aggregateResults(settings *analyzer, fileResults []*FileResults) *Results {
 }
 func (r *Results) RenderView(viewName string) (*View, error) {
 	if viewFactory, ok := r.views[viewName]; ok {
-		view := viewFactory(r)
+		view := viewFactory.Create(r)
 		view.Name = viewName
 		return view, nil
 	} else {
-		return nil, fmt.Errorf("no view named %s", viewName)
+		availableKeys := strings.Join(lo.MapToSlice(r.views, func(k string, v *ViewFactory) string {
+			return fmt.Sprintf("'%s'", k)
+		}), ", ")
+		return nil, fmt.Errorf("no view named '%s', available views: %v", viewName, availableKeys)
 	}
 }
 
-func (r *Results) GetAllViews() []string {
-	var views []string
-	for viewName := range r.views {
-		views = append(views, viewName)
+func (r *Results) GetAllViewFactories() []*ViewFactory {
+	var views []*ViewFactory
+	for _, vf := range r.views {
+		views = append(views, vf)
 	}
 	return views
 }

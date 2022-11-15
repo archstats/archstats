@@ -9,24 +9,38 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
+	"io"
+	"sort"
 	"strings"
 )
 
 var viewCmd = &cobra.Command{
-	Use:   "view",
-	Short: "View data",
-	Long:  `View data`,
+	Use:          "view <view>",
+	Short:        "View data",
+	Long:         `View data`,
+	Args:         cobra.ExactArgs(1),
+	SilenceUsage: true,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		cmd.AddCommand(exportCmd)
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		results, err := getResults(cmd)
 		if err != nil {
 			return err
 		}
 
-		view, err := cmd.Flags().GetString("view")
-		if err != nil {
-			return err
+		view := args[0]
+		availableViews := lo.Map(results.GetAllViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+			return vf.Name
+		})
+		if !slices.Contains(availableViews, view) {
+			viewStrings := lo.Map(results.GetAllViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+				return fmt.Sprintf("  - %s: %s", vf.Name, vf.Description)
+			})
+			sort.Strings(viewStrings)
+			availableViewsString := strings.Join(viewStrings, "\n")
+			return fmt.Errorf("no view named '%s'. Available views:\n%s", view, availableViewsString)
 		}
-
 		sortedBy, err := cmd.Flags().GetString("sorted-by")
 		if err != nil {
 			return err
@@ -38,23 +52,32 @@ var viewCmd = &cobra.Command{
 		}
 
 		basic.SortRows(sortedBy, resultsFromCommand)
-		printRows(resultsFromCommand, cmd)
-		return nil
+		str := outputString(resultsFromCommand, cmd)
+
+		_, err = io.WriteString(cmd.OutOrStdout(), str)
+
+		return err
 	},
 }
 
+func createCommand(factory *analysis.ViewFactory) *cobra.Command {
+	return &cobra.Command{
+		Use:   factory.Name,
+		Short: factory.Description,
+		Long:  factory.Description,
+	}
+}
+
 func init() {
-	viewCmd.Flags().StringP("view", "v", "", "View to include")
 	viewCmd.Flags().StringP("column", "c", "", "When this option is present, it will only show columns in the comma-separated list of columns.")
 	viewCmd.Flags().Bool("no-header", false, "No header (only applicable for csv, tsv, table)")
-	viewCmd.Flags().String("sorted-by", "", "Sorted by column name. For number based columns, this is in descending order.")
+	viewCmd.Flags().String("sorted-by", "", "Sort by <column>. For number based columns, this is in descending order.")
 	viewCmd.Flags().StringP("output-format", "o", "table", "Output format")
-	viewCmd.MarkFlagRequired("view")
 }
 
 type rowData map[string]interface{}
 
-func printRows(resultsFromCommand *analysis.View, cmd *cobra.Command) string {
+func outputString(resultsFromCommand *analysis.View, cmd *cobra.Command) string {
 
 	columnsInput, err := cmd.Flags().GetStringSlice("column")
 	output, err := cmd.Flags().GetString("output-format")

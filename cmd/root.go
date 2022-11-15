@@ -7,10 +7,9 @@ import (
 	"github.com/RyanSusana/archstats/extensions/analyzers/regex"
 	"github.com/RyanSusana/archstats/extensions/analyzers/required"
 	"github.com/RyanSusana/archstats/extensions/views/basic"
-	"github.com/RyanSusana/archstats/extensions/views/cycles"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
-	"os"
+	"io"
 	"path/filepath"
 	"regexp"
 )
@@ -19,6 +18,9 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "archstats",
 		Short: "archstats is a command line tool for generating software architectural insights",
+		PreRun: func(cmd *cobra.Command, args []string) {
+			fmt.Println("OK BRO!")
+		},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			//TODO
 
@@ -53,11 +55,11 @@ var (
 	}
 )
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+func Execute(outStream, errorStream io.Writer, args []string) error {
+	rootCmd.SetArgs(args)
+	rootCmd.SetOut(outStream)
+	rootCmd.SetErr(errorStream)
+	return rootCmd.Execute()
 }
 
 func init() {
@@ -115,8 +117,6 @@ func OptionalExtension(in string) (analysis.Extension, error) {
 	switch in {
 	case "indentation":
 		return indentation.Extension(), nil
-	case "cycles":
-		return cycles.Extension(), nil
 	default:
 		return regex.BuiltInRegexExtension(in)
 	}

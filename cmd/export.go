@@ -36,7 +36,9 @@ var exportCmd = &cobra.Command{
 			return err
 		}
 
-		viewsToShow = results.GetAllViews()
+		viewsToShow = lo.Map(results.GetAllViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+			return vf.Name
+		})
 		if reportDateString == "" {
 			reportDate = time.Now()
 		} else {
