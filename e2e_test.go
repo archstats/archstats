@@ -77,10 +77,9 @@ func testCase(t *testing.T, theCase Case) {
 		log.Println("Case passed:", theCase.Name)
 		log.Println()
 	} else {
-		log.Println("Expected output:")
-		log.Println(expectedOutput)
-		log.Println("Actual output:")
-		log.Println(actualOutput)
+		log.Printf("\n\nExpected output `archstats %s`):\n%s\n", strings.Join(allArgs, " "), expectedOutput)
+		log.Println("\n" + expectedOutput)
+		log.Printf("\n\nActual output for `archstats %s`):\n%s\n", strings.Join(allArgs, " "), actualOutput)
 	}
 }
 

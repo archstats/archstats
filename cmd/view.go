@@ -52,7 +52,7 @@ var viewCmd = &cobra.Command{
 		}
 
 		basic.SortRows(sortedBy, resultsFromCommand)
-		str := outputString(resultsFromCommand, cmd)
+		str, err := outputString(resultsFromCommand, cmd)
 
 		_, err = io.WriteString(cmd.OutOrStdout(), str)
 
@@ -69,7 +69,7 @@ func createCommand(factory *analysis.ViewFactory) *cobra.Command {
 }
 
 func init() {
-	viewCmd.Flags().StringP("column", "c", "", "When this option is present, it will only show columns in the comma-separated list of columns.")
+	viewCmd.Flags().StringSliceP("column", "c", []string{}, "When this option is present, it will only show columns in the comma-separated list of columns.")
 	viewCmd.Flags().Bool("no-header", false, "No header (only applicable for csv, tsv, table)")
 	viewCmd.Flags().String("sorted-by", "", "Sort by <column>. For number based columns, this is in descending order.")
 	viewCmd.Flags().StringP("output-format", "o", "table", "Output format")
@@ -77,34 +77,28 @@ func init() {
 
 type rowData map[string]interface{}
 
-func outputString(resultsFromCommand *analysis.View, cmd *cobra.Command) string {
+func outputString(resultsFromCommand *analysis.View, cmd *cobra.Command) (string, error) {
 
-	columnsInput, err := cmd.Flags().GetStringSlice("column")
+	columnsInput, _ := cmd.Flags().GetStringSlice("column")
 	output, err := cmd.Flags().GetString("output-format")
 	noHeader, err := cmd.Flags().GetBool("no-header")
 
 	columnsInput = lo.Map(columnsInput, func(columnName string, idx int) string {
 		return strings.ToLower(strings.TrimSpace(columnName))
 	})
+
+	columnsToPrint, err := getValidColumns(resultsFromCommand.Columns, columnsInput)
 	if err != nil {
-
-	}
-
-	columnsToPrint := resultsFromCommand.Columns
-
-	if len(columnsInput) > 0 {
-		columnsToPrint = lo.Filter(columnsToPrint, func(column *analysis.Column, idx int) bool {
-			return slices.Contains(columnsInput, column.Name)
-		})
+		return "", err
 	}
 
 	switch output {
 	case "csv":
-		return strings.Join(getRows(columnsToPrint, resultsFromCommand.Rows, true, ","), "\n")
+		return strings.Join(getRows(columnsToPrint, resultsFromCommand.Rows, true, ","), "\n"), nil
 	case "tsv":
-		return strings.Join(getRows(columnsToPrint, resultsFromCommand.Rows, !noHeader, "\t"), "\n")
+		return strings.Join(getRows(columnsToPrint, resultsFromCommand.Rows, !noHeader, "\t"), "\n"), nil
 	case "json":
-		return string(getJson(columnsToPrint, resultsFromCommand.Rows))
+		return string(getJson(columnsToPrint, resultsFromCommand.Rows)), nil
 	case "ndjson":
 		var stringBuilder strings.Builder
 		for _, dir := range resultsFromCommand.Rows {
@@ -113,10 +107,31 @@ func outputString(resultsFromCommand *analysis.View, cmd *cobra.Command) string 
 			stringBuilder.WriteString(string(theJson))
 			stringBuilder.WriteString("\n")
 		}
-		return stringBuilder.String()
+		return stringBuilder.String(), nil
 	default:
-		return columnize.SimpleFormat(getRows(columnsToPrint, resultsFromCommand.Rows, !noHeader, "|"))
+		return columnize.SimpleFormat(getRows(columnsToPrint, resultsFromCommand.Rows, !noHeader, "|")), nil
 	}
+}
+
+func getValidColumns(availableColumns []*analysis.Column, requestedColumns []string) ([]*analysis.Column, error) {
+	availableColumnsIndex := lo.Associate(availableColumns, func(column *analysis.Column) (string, *analysis.Column) {
+		return column.Name, column
+	})
+	var columnsToPrint []*analysis.Column
+	var invalidColumns []string
+	for _, requestedColumn := range requestedColumns {
+
+		if column, columnExists := availableColumnsIndex[requestedColumn]; columnExists {
+			columnsToPrint = append(columnsToPrint, column)
+		} else {
+			invalidColumns = append(invalidColumns, requestedColumn)
+		}
+	}
+
+	if len(invalidColumns) > 0 {
+		return nil, fmt.Errorf("invalid column(s): %s", strings.Join(invalidColumns, ", "))
+	}
+	return columnsToPrint, nil
 }
 
 func getJson(columnsToPrint []*analysis.Column, rows []*analysis.Row) []byte {
