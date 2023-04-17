@@ -9,5 +9,5 @@
 *.test
 *.out
 go.work
-#archstats
-#**/temp_testdata/**
+archstats
+**/temp_testdata/**
