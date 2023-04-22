@@ -62,6 +62,13 @@ func componentView(results *analysis.Results) *analysis.View {
 		analysis.IntColumn(EfferentCouplings),
 		analysis.FloatColumn(Instability),
 		analysis.FloatColumn(DistanceMainSequence),
+		analysis.FloatColumn(Betweenness),
+		analysis.FloatColumn(PageRank),
+		analysis.FloatColumn(HubScore),
+		analysis.FloatColumn(AuthorityScore),
+		analysis.FloatColumn(HarmonicCentrality),
+		analysis.FloatColumn(FarnessCentrality),
+		analysis.FloatColumn(ResidualCloseness),
 	)
 
 	return view
