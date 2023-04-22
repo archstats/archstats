@@ -11,3 +11,4 @@
 go.work
 archstats
 **/temp_testdata/**
+*.db
