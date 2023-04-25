@@ -1,0 +1,10 @@
+name: Abstractness
+summary: |
+  The abstractness of a package is measured by the ratio of the number of abstract classes (and interfaces) it contains to the total number of classes in the package.
+full_description: |
+  The range for this metric is 0 to 1, with A=0 indicating a completely concrete package and A=1 indicating a completely abstract package.
+  The abstractness of a package should be measured as an indicator of the amount of reuse possible for that package.
+  Although it is not desirable to create packages that are not at all abstract, a package that is too abstract may be difficult to understand and maintain.
+  The abstractness of a package should be balanced by its stability.
+  
+  See: https://www.oodesign.com/abstractness.html
