@@ -114,6 +114,9 @@ func outputString(resultsFromCommand *analysis.View, cmd *cobra.Command) (string
 }
 
 func getValidColumns(availableColumns []*analysis.Column, requestedColumns []string) ([]*analysis.Column, error) {
+	if len(requestedColumns) == 0 {
+		return availableColumns, nil
+	}
 	availableColumnsIndex := lo.Associate(availableColumns, func(column *analysis.Column) (string, *analysis.Column) {
 		return column.Name, column
 	})
