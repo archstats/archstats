@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/cmd/common"
 	"github.com/RyanSusana/archstats/extensions/views/basic"
 	"github.com/ryanuber/columnize"
 	"github.com/samber/lo"
@@ -24,7 +25,7 @@ var viewCmd = &cobra.Command{
 		cmd.AddCommand(exportCmd)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		results, err := getResults(cmd)
+		results, err := common.Analyze(cmd)
 		if err != nil {
 			return err
 		}

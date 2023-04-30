@@ -6,6 +6,7 @@ require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/go-git/go-git/v5 v5.5.1
 	github.com/gobwas/glob v0.2.3
+	github.com/kelindar/dbscan v0.0.1
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/ryanuber/columnize v2.1.2+incompatible
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06

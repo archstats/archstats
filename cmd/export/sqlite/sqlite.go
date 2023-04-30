@@ -1,15 +1,74 @@
-package export
+package sqlite
 
 import (
 	"database/sql"
 	"errors"
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/cmd/common"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/samber/lo"
+	"github.com/spf13/cobra"
 	"os"
 	"strings"
 	"time"
 )
+
+const (
+	//FlagSqliteDb = "db"
+	FlagReportId = "report-id"
+)
+
+var Command = &cobra.Command{
+	Use:   "sqlite",
+	Short: "Export data to an SQLite database",
+	Long:  `Export data to an SQLite database`,
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		reportId, _ := cmd.Flags().GetString(FlagReportId)
+		results, _ := common.Analyze(cmd)
+		var reportDate time.Time
+
+		reportDate = time.Now()
+
+		viewsToShow := lo.Map(results.GetAllViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+			return vf.Name
+		})
+
+		allViews := make(map[string]*analysis.View)
+
+		for _, viewName := range viewsToShow {
+			view, err := results.RenderView(viewName)
+			if err != nil {
+				return err
+			}
+			allViews[viewName] = view
+		}
+
+		dbPath := args[1]
+		if dbPath == "" {
+			return errors.New("sqlite-db is required")
+		}
+
+		viewSlice := lo.MapToSlice(allViews, func(viewName string, view *analysis.View) *analysis.View {
+			return view
+		})
+		err := SaveToDB(&SqlOptions{
+			DatabaseName: dbPath,
+			ReportId:     reportId,
+			ScanTime:     reportDate,
+		}, viewSlice)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+func init() {
+	Command.Flags().String(FlagReportId, "", "The report id")
+}
 
 type SqlOptions struct {
 	DatabaseName string
