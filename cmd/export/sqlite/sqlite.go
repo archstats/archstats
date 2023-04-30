@@ -45,7 +45,7 @@ var Command = &cobra.Command{
 			allViews[viewName] = view
 		}
 
-		dbPath := args[1]
+		dbPath := args[0]
 		if dbPath == "" {
 			return errors.New("sqlite-db is required")
 		}
