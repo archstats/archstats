@@ -14,7 +14,7 @@ It helps in answering questions like this:
 # Installation
 Archstats is distributed as a [Go module](https://go.dev/blog/using-go-modules). It can be installed like this:
 ```shell
-go install github.com/RyanSusana/archstats
+go install github.com/RyanSusana/archstats@latest
 ```
 
 Make sure that installed Go binaries are on your `PATH`. You can do so by running `go help install` and following the instructions.

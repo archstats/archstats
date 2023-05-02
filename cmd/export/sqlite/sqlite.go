@@ -46,9 +46,6 @@ var Command = &cobra.Command{
 		}
 
 		dbPath := args[0]
-		if dbPath == "" {
-			return errors.New("sqlite-db is required")
-		}
 
 		viewSlice := lo.MapToSlice(allViews, func(viewName string, view *analysis.View) *analysis.View {
 			return view
