@@ -11,6 +11,13 @@ type Stats map[string]interface{}
 // StatsGroup is a mapping of a name to a Stats
 type StatsGroup map[string]*Stats
 
+func (s StatsGroup) SetStat(key, stat string, value interface{}) {
+	if _, has := s[key]; !has {
+		s[key] = &Stats{}
+	}
+	(*s[key])[stat] = value
+}
+
 func SnippetsToStats(snippets []*Snippet) []*StatRecord {
 	stats := make(map[string]int)
 	for _, snippet := range snippets {

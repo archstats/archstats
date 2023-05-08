@@ -18,7 +18,7 @@ var rootCmd = &cobra.Command{
 
 		//// Enable cpu profiling if requested.
 		//if generalOptions.Profile.Cpu != "" {
-		//	f, err := os.Create(generalOptions.Profile.Cpu)
+		//	f, err := os.CreateViewFunc(generalOptions.Profile.Cpu)
 		//	if err != nil {
 		//		return "", err
 		//	}
@@ -33,7 +33,7 @@ var rootCmd = &cobra.Command{
 		//
 		//// Enable memory profiling if requested.
 		//if generalOptions.Profile.Mem != "" {
-		//	f, err := os.Create(generalOptions.Profile.Mem)
+		//	f, err := os.CreateViewFunc(generalOptions.Profile.Mem)
 		//	if err != nil {
 		//		return "", err
 		//	}

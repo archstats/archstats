@@ -187,7 +187,7 @@ func aggregateResults(settings *analyzer, fileResults []*FileResults) *Results {
 }
 func (r *Results) RenderView(viewName string) (*View, error) {
 	if viewFactory, ok := r.views[viewName]; ok {
-		view := viewFactory.Create(r)
+		view := viewFactory.CreateViewFunc(r)
 		view.Name = viewName
 		return view, nil
 	} else {

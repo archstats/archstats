@@ -1,9 +1,9 @@
 package analysis
 
 type ViewFactory struct {
-	Name        string
-	Description string
-	Create      ViewFactoryFunction
+	Name           string
+	Description    string
+	CreateViewFunc ViewFactoryFunction
 }
 type ViewFactoryFunction func(results *Results) *View
 
@@ -17,9 +17,10 @@ type RowData map[string]interface{}
 type Row struct {
 	Data RowData
 }
+type ColumnType int
 
 const (
-	Integer = iota
+	Integer ColumnType = iota
 	Float
 	String
 	Date
@@ -27,7 +28,7 @@ const (
 
 type Column struct {
 	Name string
-	Type int
+	Type ColumnType
 }
 
 func StringColumn(name string) *Column {

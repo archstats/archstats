@@ -13,69 +13,69 @@ type extension struct {
 
 func (v *extension) Init(settings analysis.Analyzer) error {
 	settings.RegisterView(&analysis.ViewFactory{
-		Name:        "summary",
-		Description: "A summary of the codebase",
-		Create:      summaryView,
+		Name:           "summary",
+		Description:    "A summary of the codebase",
+		CreateViewFunc: summaryView,
 	})
 
 	settings.RegisterView(&analysis.ViewFactory{
-		Name:        "components",
-		Description: "All components in the codebase with stats per component",
-		Create:      componentView,
+		Name:           "components",
+		Description:    "All components in the codebase with stats per component",
+		CreateViewFunc: componentView,
 	})
 
 	settings.RegisterView(&analysis.ViewFactory{
-		Name:        "files",
-		Description: "All files in the codebase with stats per file",
-		Create:      fileView,
+		Name:           "files",
+		Description:    "All files in the codebase with stats per file",
+		CreateViewFunc: fileView,
 	})
 
 	settings.RegisterView(&analysis.ViewFactory{
-		Name:        "directories",
-		Description: "All directories in the codebase with stats per directory",
-		Create:      directoryView,
+		Name:           "directories",
+		Description:    "All directories in the codebase with stats per directory",
+		CreateViewFunc: directoryView,
 	})
 
 	settings.RegisterView(&analysis.ViewFactory{
-		Name:        "snippets",
-		Description: "All snippets in the codebase",
-		Create:      snippetsView,
+		Name:           "snippets",
+		Description:    "All snippets in the codebase",
+		CreateViewFunc: snippetsView,
 	})
 
 	settings.RegisterView(&analysis.ViewFactory{
-		Name:        "component_connections_direct",
-		Description: "All connections between components. Use this to build a component graph.",
-		Create:      componentConnectionsView,
+		Name:           "component_connections_direct",
+		Description:    "All connections between components. Use this to build a component graph.",
+		CreateViewFunc: componentConnectionsView,
 	})
 
 	settings.RegisterView(&analysis.ViewFactory{
-		Name:        "component_connections_indirect",
-		Description: "All indirect connections between components.",
-		Create:      componentConnectionsIndirectView,
+		Name:           "component_connections_indirect",
+		Description:    "All indirect connections between components.",
+		CreateViewFunc: componentConnectionsIndirectView,
 	})
 
 	settings.RegisterView(&analysis.ViewFactory{
-		Name:        "component_connections_furthest",
-		Description: "The furthest component from any given component.",
-		Create:      componentConnectionsFurthestView,
+		Name:           "component_connections_furthest",
+		Description:    "The furthest component from any given component.",
+		CreateViewFunc: componentConnectionsFurthestView,
 	})
 
 	settings.RegisterView(&analysis.ViewFactory{
-		Name:        "strongly_connected_component_groups",
-		Description: "Strongly connected component groups",
-		Create:      stronglyConnectedComponentGroupsView,
+		Name:           "strongly_connected_component_groups",
+		Description:    "Strongly connected component groups",
+		CreateViewFunc: stronglyConnectedComponentGroupsView,
 	})
 
 	//settings.RegisterView(&analysis.ViewFactory{
 	//	Name:        "all_component_cycles",
 	//	Description: "All component cycles. This can be VERY expensive to calculate and store",
-	//	Create:      componentCyclesView,
+	//	CreateViewFunc:      componentCyclesView,
 	//})
 	//
 	//settings.RegisterView(&analysis.ViewFactory{
 	//	Name:        "largest_component_cycle",
 	//	Description: "The largest component cycle. This can be VERY expensive to calculate.",
-	//	Create:      largestComponentCycleView,
+	//	CreateViewFunc:      largestComponentCycleView,
 	//})
 	return nil
 }

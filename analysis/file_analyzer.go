@@ -9,6 +9,7 @@ type FileAnalyzer interface {
 }
 
 type FileResults struct {
+	// TODO can I avoid exposing this field?
 	Name     string
 	Stats    []*StatRecord
 	Snippets []*Snippet
