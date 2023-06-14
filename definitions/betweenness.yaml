@@ -1,0 +1,11 @@
+name: Betweenness
+summary: |
+  The importance of the component for the connectivity of the dependency graph.
+full_description: |
+  Betweenness centrality: This metric measures how often a node lies on the shortest path between pairs of other nodes 
+  in a dependency graph. Nodes with high betweenness centrality are important for navigation because they serve as gateways 
+  or bridges between different parts of the graph.
+
+  For every pair of components in a graph, there exists at least one shortest path between the components such that either the number of edges that the path passes through 
+  or the sum of the weights of the edges (for weighted graphs) is minimized. The betweenness centrality for each component is the number of these shortest 
+  paths that pass through the component.
