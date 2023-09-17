@@ -1,8 +1,4 @@
-package analysis
-
-import (
-	"os"
-)
+package file
 
 const (
 	ComponentDeclaration = "component_declaration"
@@ -16,24 +12,15 @@ const (
 // Snippets are used to generate Stats for a code base.
 // Snippets can have several types, for example "function" or "class".
 type Snippet struct {
-	File      string `json:"file"`
-	Directory string `json:"directory"`
-	Component string `json:"component"`
-	Type      string `json:"type"`
-	Begin     int    `json:"begin"`
-	End       int    `json:"end"`
-	Value     string `json:"Value"`
+	File      string    `json:"file"`
+	Directory string    `json:"directory"`
+	Component string    `json:"component"`
+	Type      string    `json:"type"`
+	Begin     *Position `json:"begin"`
+	End       *Position `json:"end"`
+	Value     string    `json:"Value"`
 }
 
-type FileDescription interface {
-	Path() string
-	Info() os.FileInfo
-}
-
-type File interface {
-	FileDescription
-	Content() []byte
-}
 type SnippetGroup map[string][]*Snippet
 type GroupSnippetByFunc func(*Snippet) string
 

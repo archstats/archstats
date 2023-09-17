@@ -2,6 +2,7 @@ package regex
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/gobwas/glob"
 	"regexp"
 )
@@ -24,12 +25,12 @@ func (s *Extension) Init(a analysis.Analyzer) error {
 	return nil
 }
 
-func (s *Extension) AnalyzeFile(file analysis.File) *analysis.FileResults {
-	if s.Glob != nil && !s.Glob.Match(file.Path()) {
-		return &analysis.FileResults{}
+func (s *Extension) AnalyzeFile(theFile file.File) *file.Results {
+	if s.Glob != nil && !s.Glob.Match(theFile.Path()) {
+		return &file.Results{}
 	}
-	var toReturn []*analysis.Snippet
-	stringContent := string(file.Content())
+	var toReturn []*file.Snippet
+	stringContent := string(theFile.Content())
 
 	for _, pattern := range s.Patterns {
 		matches := getMatches(pattern, &stringContent)
@@ -39,24 +40,29 @@ func (s *Extension) AnalyzeFile(file analysis.File) *analysis.FileResults {
 			if match.begin == -1 || match.end == -1 {
 				continue
 			}
-			theSnip := &analysis.Snippet{
-				Type:  match.name,
-				File:  file.Path(),
-				Begin: match.begin,
-				End:   match.end,
+			theSnip := &file.Snippet{
+				Type: match.name,
+				File: theFile.Path(),
+				Begin: &file.Position{
+					Offset: match.begin,
+				},
+				End: &file.Position{
+					Offset: match.end,
+				},
 				Value: stringContent[match.begin:match.end],
 			}
 			toReturn = append(toReturn, theSnip)
 		}
 	}
+
 	if s.OnlyStats {
-		return &analysis.FileResults{
-			Stats: analysis.SnippetsToStats(toReturn),
+		return &file.Results{
+			Stats: file.SnippetsToStats(toReturn),
 		}
 	} else {
-		return &analysis.FileResults{
+		return &file.Results{
 			Snippets: toReturn,
-			Stats:    analysis.SnippetsToStats(toReturn),
+			Stats:    file.SnippetsToStats(toReturn),
 		}
 	}
 }

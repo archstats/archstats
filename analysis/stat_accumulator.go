@@ -1,14 +1,17 @@
 package analysis
 
-import "github.com/samber/lo"
+import (
+	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/samber/lo"
+)
 
-type StatAccumulateFunction func(statsToMerge []interface{}) interface{}
+type StatAccumulatorFunction func(statsToMerge []interface{}) interface{}
 
-type accumulator struct {
-	AccumulateFunctions map[string]StatAccumulateFunction
+type accumulatorIndex struct {
+	AccumulateFunctions map[string]StatAccumulatorFunction
 }
 
-func (merger *accumulator) getAccumulatorFunction(statType string) StatAccumulateFunction {
+func (merger *accumulatorIndex) getAccumulatorFunction(statType string) StatAccumulatorFunction {
 	function, exists := merger.AccumulateFunctions[statType]
 	if exists {
 		return function
@@ -16,20 +19,20 @@ func (merger *accumulator) getAccumulatorFunction(statType string) StatAccumulat
 	return SumStatMerger
 }
 
-func (merger *accumulator) merge(statsToMerge []*StatRecord) *Stats {
-	statsToReturn := make(Stats)
+func (merger *accumulatorIndex) merge(statsToMerge []*file.StatRecord) *file.Stats {
+	statsToReturn := make(file.Stats)
 
-	nonNilStats := lo.Filter(statsToMerge, func(stats *StatRecord, _ int) bool {
+	nonNilStats := lo.Filter(statsToMerge, func(stats *file.StatRecord, _ int) bool {
 		return stats != nil
 	})
 
-	groupedStats := lo.GroupBy(nonNilStats, func(stat *StatRecord) string {
+	groupedStats := lo.GroupBy(nonNilStats, func(stat *file.StatRecord) string {
 		return stat.StatType
 	})
 
 	for statType, records := range groupedStats {
 		function := merger.getAccumulatorFunction(statType)
-		recordValues := lo.Map(records, func(record *StatRecord, _ int) interface{} {
+		recordValues := lo.Map(records, func(record *file.StatRecord, _ int) interface{} {
 			return record.Value
 		})
 		statsToReturn[statType] = function(recordValues)

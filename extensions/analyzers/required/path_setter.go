@@ -2,6 +2,7 @@ package required
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"strings"
 )
 
@@ -15,7 +16,7 @@ func (p *rootPathStripper) Init(settings analysis.Analyzer) error {
 	return nil
 }
 
-func (p *rootPathStripper) EditFileResults(results []*analysis.FileResults) {
+func (p *rootPathStripper) EditFileResults(results []*file.Results) {
 	for _, result := range results {
 		newFileName := result.Name[len(p.root):]
 		result.Name = newFileName

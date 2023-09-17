@@ -2,13 +2,14 @@ package basic
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"golang.org/x/exp/slices"
 	"math"
 	"sort"
 	"strings"
 )
 
-func genericView(allColumns []string, group analysis.StatsGroup) *analysis.View {
+func genericView(allColumns []string, group file.StatsGroup) *analysis.View {
 	var toReturn []*analysis.Row
 	for groupItem, stats := range group {
 		if groupItem == "" {
@@ -23,7 +24,7 @@ func genericView(allColumns []string, group analysis.StatsGroup) *analysis.View 
 	}
 
 	columnsToReturn := []*analysis.Column{analysis.StringColumn(Name)}
-	if slices.Contains(allColumns, analysis.AbstractType) {
+	if slices.Contains(allColumns, file.AbstractType) {
 		columnsToReturn = append(columnsToReturn, analysis.FloatColumn(Abstractness))
 	}
 	for _, column := range allColumns {
@@ -43,17 +44,17 @@ func ensureRowHasAllColumns(data map[string]interface{}, columns []string) {
 	}
 }
 
-func addAbstractness(data map[string]interface{}, theStats *analysis.Stats) {
+func addAbstractness(data map[string]interface{}, theStats *file.Stats) {
 	stats := *theStats
-	if _, hasAbstractTypes := data[analysis.AbstractType]; hasAbstractTypes {
-		abstractTypes := toInt(stats[analysis.AbstractType])
-		types := toInt(stats[analysis.Type])
+	if _, hasAbstractTypes := data[file.AbstractType]; hasAbstractTypes {
+		abstractTypes := toInt(stats[file.AbstractType])
+		types := toInt(stats[file.Type])
 		abstractness := math.Max(0, math.Min(1, float64(abstractTypes)/float64(types)))
 		data[Abstractness] = nanToZero(abstractness)
 	}
 }
 
-func statsToRowData(name string, statsRef *analysis.Stats) map[string]interface{} {
+func statsToRowData(name string, statsRef *file.Stats) map[string]interface{} {
 	stats := *statsRef
 	toReturn := make(map[string]interface{}, len(stats)+1)
 	toReturn["name"] = name

@@ -1,6 +1,8 @@
-package analysis
+package file
 
-import "github.com/samber/lo"
+import (
+	"github.com/samber/lo"
+)
 
 // Stats are a map of stat type to value
 // For example: {"function": 10, "class": 5}

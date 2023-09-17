@@ -2,6 +2,7 @@ package basic
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/samber/lo"
 )
 
@@ -14,7 +15,7 @@ func fileView(results *analysis.Results) *analysis.View {
 		row.Data["component"] = results.FileToComponent[row.Data["name"].(string)]
 	}
 	view.Columns = lo.Filter(view.Columns, func(c *analysis.Column, _ int) bool {
-		return c.Name != analysis.FileCount
+		return c.Name != file.FileCount
 	})
 	return view
 }

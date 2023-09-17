@@ -86,12 +86,12 @@ package required
 //	assertHasAConnection("mainPackage.subpackage1", "mainPackage.subpackage2")
 //}
 //
-//func toFileResults(snippets []*analysis.Snippet) []*analysis.FileResults {
+//func toFileResults(snippets []*analysis.Snippet) []*file.Results {
 //	groupedByFile := lo.GroupBy(snippets, func(snippet *analysis.Snippet) string {
 //		return snippet.File
 //	})
-//	allFileResults := lo.MapToSlice(groupedByFile, func(key string, snippets []*analysis.Snippet) *analysis.FileResults {
-//		return &analysis.FileResults{
+//	allFileResults := lo.MapToSlice(groupedByFile, func(key string, snippets []*analysis.Snippet) *file.Results {
+//		return &file.Results{
 //			Name:     key,
 //			Stats:    analysis.SnippetsToStats(snippets),
 //			Snippets: snippets,

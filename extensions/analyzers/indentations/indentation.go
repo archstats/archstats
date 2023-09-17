@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"strings"
 )
 
@@ -51,8 +52,8 @@ func avgAccumulator(indentations []interface{}) interface{} {
 	return allIndentations / allLines
 }
 
-func (i *extension) AnalyzeFile(file analysis.File) *analysis.FileResults {
-	bytesReader := bytes.NewReader(file.Content())
+func (i *extension) AnalyzeFile(theFile file.File) *file.Results {
+	bytesReader := bytes.NewReader(theFile.Content())
 
 	fileReader := bufio.NewReader(bytesReader)
 
@@ -74,8 +75,8 @@ func (i *extension) AnalyzeFile(file analysis.File) *analysis.FileResults {
 		}
 	}
 
-	return &analysis.FileResults{
-		Stats: []*analysis.StatRecord{
+	return &file.Results{
+		Stats: []*file.StatRecord{
 			{
 				StatType: Max,
 				Value:    maxIndentations,

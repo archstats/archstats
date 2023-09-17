@@ -1,6 +1,7 @@
 package walker
 
 import (
+	"github.com/RyanSusana/archstats/analysis/file"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -8,7 +9,7 @@ import (
 	"sync"
 )
 
-func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file OpenedFile)) {
+func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file file.File)) {
 	allFiles := GetAllFiles(dirAbsolutePath)
 	wg := &sync.WaitGroup{}
 	wg.Add(len(allFiles))
@@ -38,12 +39,9 @@ type FileDescription interface {
 	Path() string
 	Info() os.FileInfo
 }
-type OpenedFile interface {
-	FileDescription
-	Content() []byte
-}
+
 type FileVisitor interface {
-	Visit(file OpenedFile)
+	Visit(file file.File)
 }
 
 func getAllFiles(dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []*fileDescription {

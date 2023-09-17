@@ -2,6 +2,7 @@ package git
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/samber/lo"
@@ -105,7 +106,7 @@ type partOfCommit struct {
 	deletions   int
 }
 
-func setStats(statsByFile analysis.StatsGroup, perFile map[string][]*partOfCommit) {
+func setStats(statsByFile file.StatsGroup, perFile map[string][]*partOfCommit) {
 	for filePath, commitParts := range perFile {
 		statsByFile.SetStat(filePath, "additions_count", lo.SumBy(commitParts, func(part *partOfCommit) int {
 			return part.additions

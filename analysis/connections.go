@@ -1,5 +1,9 @@
 package analysis
 
+import (
+	"github.com/RyanSusana/archstats/analysis/file"
+)
+
 // ComponentConnection is a connection between two components.
 type ComponentConnection struct {
 	From string
@@ -8,9 +12,9 @@ type ComponentConnection struct {
 	File string
 }
 
-func getConnections(snippetsByType SnippetGroup, snippetsByComponent SnippetGroup) []*ComponentConnection {
+func getConnections(snippetsByType file.SnippetGroup, snippetsByComponent file.SnippetGroup) []*ComponentConnection {
 	var toReturn []*ComponentConnection
-	from := snippetsByType[ComponentImport]
+	from := snippetsByType[file.ComponentImport]
 	for _, snippet := range from {
 		if _, componentExistsInCodebase := snippetsByComponent[snippet.Value]; componentExistsInCodebase {
 			toReturn = append(toReturn, &ComponentConnection{

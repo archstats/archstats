@@ -2,7 +2,8 @@ package analysis
 
 import (
 	"fmt"
-	"github.com/RyanSusana/archstats/walker"
+	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/RyanSusana/archstats/analysis/walker"
 	"github.com/samber/lo"
 	"strings"
 	"sync"
@@ -19,7 +20,7 @@ type Settings struct {
 type Analyzer interface {
 	Analyze() (*Results, error)
 	RootPath() string
-	RegisterStatAccumulator(statType string, merger StatAccumulateFunction)
+	RegisterStatAccumulator(statType string, merger StatAccumulatorFunction)
 	RegisterView(viewFactory *ViewFactory)
 	RegisterFileAnalyzer(analyzer FileAnalyzer)
 	RegisterFileResultsEditor(editor FileResultsEditor)
@@ -29,8 +30,8 @@ type Analyzer interface {
 func New(settings *Settings) Analyzer {
 	return &analyzer{rootPath: settings.RootPath, extensions: settings.Extensions,
 		views: map[string]*ViewFactory{},
-		accumulator: &accumulator{
-			AccumulateFunctions: make(map[string]StatAccumulateFunction),
+		accumulator: &accumulatorIndex{
+			AccumulateFunctions: make(map[string]StatAccumulatorFunction),
 		}}
 }
 
@@ -38,7 +39,7 @@ type analyzer struct {
 	rootPath           string
 	extensions         []Extension
 	views              map[string]*ViewFactory
-	accumulator        *accumulator
+	accumulator        *accumulatorIndex
 	fileAnalyzers      []FileAnalyzer
 	fileResultsEditors []FileResultsEditor
 	resultsEditors     []ResultsEditor
@@ -68,7 +69,7 @@ func (analyzer *analyzer) RootPath() string {
 	return analyzer.rootPath
 }
 
-func (analyzer *analyzer) RegisterStatAccumulator(statType string, merger StatAccumulateFunction) {
+func (analyzer *analyzer) RegisterStatAccumulator(statType string, merger StatAccumulatorFunction) {
 	analyzer.accumulator.AccumulateFunctions[statType] = merger
 }
 
@@ -76,11 +77,12 @@ func (analyzer *analyzer) RegisterStatAccumulator(statType string, merger StatAc
 type Extension interface {
 	Init(settings Analyzer) error
 }
-
-type FileResultsEditor interface {
-	EditFileResults(all []*FileResults)
+type FileAnalyzer interface {
+	AnalyzeFile(file.File) *file.Results
 }
-
+type FileResultsEditor interface {
+	EditFileResults(all []*file.Results)
+}
 type ResultsEditor interface {
 	EditResults(results *Results)
 }
@@ -121,16 +123,16 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 type Results struct {
 	RootDirectory string
 
-	Snippets            []*Snippet
-	SnippetsByFile      SnippetGroup
-	SnippetsByDirectory SnippetGroup
-	SnippetsByComponent SnippetGroup
-	SnippetsByType      SnippetGroup
+	Snippets            []*file.Snippet
+	SnippetsByFile      file.SnippetGroup
+	SnippetsByDirectory file.SnippetGroup
+	SnippetsByComponent file.SnippetGroup
+	SnippetsByType      file.SnippetGroup
 
-	Stats            *Stats
-	StatsByFile      StatsGroup
-	StatsByDirectory StatsGroup
-	StatsByComponent StatsGroup
+	Stats            *file.Stats
+	StatsByFile      file.StatsGroup
+	StatsByDirectory file.StatsGroup
+	StatsByComponent file.StatsGroup
 
 	Connections     []*ComponentConnection
 	ConnectionsFrom map[string][]*ComponentConnection
@@ -149,22 +151,22 @@ type Results struct {
 	views map[string]*ViewFactory
 }
 
-func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*FileResults) *Results {
+func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*file.Results) *Results {
 
 	rootPath, theAccumulator := settings.rootPath, settings.accumulator
-	allSnippets := lo.FlatMap(fileResults, func(fileResult *FileResults, idx int) []*Snippet {
+	allSnippets := lo.FlatMap(fileResults, func(fileResult *file.Results, idx int) []*file.Snippet {
 		return fileResult.Snippets
 	})
 
-	statRecordsByFile := lo.SliceToMap(fileResults, func(fileResult *FileResults) (string, []*StatRecord) {
+	statRecordsByFile := lo.SliceToMap(fileResults, func(fileResult *file.Results) (string, []*file.StatRecord) {
 		return fileResult.Name, fileResult.Stats
 	})
 
-	allSnippetGroups := MultiGroupSnippetsBy(allSnippets, map[string]GroupSnippetByFunc{
-		"ByDirectory": ByDirectory,
-		"ByComponent": ByComponent,
-		"ByFile":      ByFile,
-		"ByType":      ByType,
+	allSnippetGroups := file.MultiGroupSnippetsBy(allSnippets, map[string]file.GroupSnippetByFunc{
+		"ByDirectory": file.ByDirectory,
+		"ByComponent": file.ByComponent,
+		"ByFile":      file.ByFile,
+		"ByType":      file.ByType,
 	})
 
 	snippetsByComponent, snippetsByType, snippetsByFile, snippetsByDirectory :=
@@ -178,63 +180,63 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*Fil
 		return connection.To
 	})
 
-	componentToFiles := lo.MapValues(snippetsByComponent, func(snippets []*Snippet, _ string) []string {
-		return lo.Uniq(lo.Map(snippets, func(snippet *Snippet, idx int) string {
+	componentToFiles := lo.MapValues(snippetsByComponent, func(snippets []*file.Snippet, _ string) []string {
+		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
 			return snippet.File
 		}))
 	})
 
-	directoryToFiles := lo.MapValues(snippetsByDirectory, func(snippets []*Snippet, _ string) []string {
-		return lo.Uniq(lo.Map(snippets, func(snippet *Snippet, idx int) string {
+	directoryToFiles := lo.MapValues(snippetsByDirectory, func(snippets []*file.Snippet, _ string) []string {
+		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
 			return snippet.File
 		}))
 	})
 
-	statsByFile := lo.MapValues(statRecordsByFile, func(statRecords []*StatRecord, _ string) *Stats {
+	statsByFile := lo.MapValues(statRecordsByFile, func(statRecords []*file.StatRecord, _ string) *file.Stats {
 		return theAccumulator.merge(statRecords)
 	})
 
-	statsByComponent := lo.MapValues(componentToFiles, func(files []string, component string) *Stats {
-		var stats []*StatRecord
+	statsByComponent := lo.MapValues(componentToFiles, func(files []string, component string) *file.Stats {
+		var stats []*file.StatRecord
 		for _, file := range files {
 			stats = append(stats, statRecordsByFile[file]...)
 		}
-		stats = append(stats, &StatRecord{
-			StatType: FileCount,
+		stats = append(stats, &file.StatRecord{
+			StatType: file.FileCount,
 			Value:    len(files),
 		})
 		return theAccumulator.merge(stats)
 	})
 
-	directoryResults := lo.GroupBy(fileResults, func(item *FileResults) string {
+	directoryResults := lo.GroupBy(fileResults, func(item *file.Results) string {
 		return item.Name[:strings.LastIndex(item.Name, "/")]
 	})
 
-	statsByDirectory := lo.MapValues(directoryResults, func(files []*FileResults, directory string) *Stats {
-		var stats []*StatRecord
+	statsByDirectory := lo.MapValues(directoryResults, func(files []*file.Results, directory string) *file.Stats {
+		var stats []*file.StatRecord
 		for _, file := range files {
 			stats = append(stats, file.Stats...)
 		}
-		stats = append(stats, &StatRecord{
-			StatType: FileCount,
+		stats = append(stats, &file.StatRecord{
+			StatType: file.FileCount,
 			Value:    len(files),
 		})
 		return theAccumulator.merge(stats)
 	})
 
-	allStatRecords := lo.Flatten(lo.MapToSlice(statRecordsByFile, func(file string, statRecords []*StatRecord) []*StatRecord {
+	allStatRecords := lo.Flatten(lo.MapToSlice(statRecordsByFile, func(file string, statRecords []*file.StatRecord) []*file.StatRecord {
 		return statRecords
 	}))
-	allStatRecords = append(allStatRecords, &StatRecord{
-		StatType: FileCount,
+	allStatRecords = append(allStatRecords, &file.StatRecord{
+		StatType: file.FileCount,
 		Value:    len(statRecordsByFile),
 	})
 	statsTotal := theAccumulator.merge(allStatRecords)
 
-	fileToComponent := lo.MapValues(snippetsByFile, func(snippets []*Snippet, _ string) string {
+	fileToComponent := lo.MapValues(snippetsByFile, func(snippets []*file.Snippet, _ string) string {
 		return snippets[0].Component
 	})
-	fileToDirectory := lo.MapValues(statsByFile, func(snippets *Stats, file string) string {
+	fileToDirectory := lo.MapValues(statsByFile, func(snippets *file.Stats, file string) string {
 		return file[:strings.LastIndex(file, "/")]
 	})
 	return &Results{
@@ -285,23 +287,33 @@ func (r *Results) GetAllViewFactories() []*ViewFactory {
 	return views
 }
 
-func getAllFileResults(rootPath string, snippetProviders []FileAnalyzer) []*FileResults {
-	var allFileResults []*FileResults
+func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) []*file.Results {
+	var allFileResults []*file.Results
 
 	lock := sync.Mutex{}
-	walker.WalkDirectoryConcurrently(rootPath, func(file walker.OpenedFile) {
-		var currentFileResultsToMerge []*FileResults
-		for _, provider := range snippetProviders {
-			analyzeFile := provider.AnalyzeFile(file)
+	walker.WalkDirectoryConcurrently(rootPath, func(theFile file.File) {
+		var currentFileResultsToMerge []*file.Results
+		for _, provider := range fileAnalyzers {
+			analyzeFile := provider.AnalyzeFile(theFile)
 			if analyzeFile != nil {
 				currentFileResultsToMerge = append(currentFileResultsToMerge, analyzeFile)
 			}
 		}
 		currentFileResults := mergeFileResults(currentFileResultsToMerge)
-		currentFileResults.Name = file.Path()
+		currentFileResults.Name = theFile.Path()
+		file.AddLineNumberAndCharInLineToSnippets(theFile.Content(), currentFileResults.Snippets)
 		lock.Lock()
 		allFileResults = append(allFileResults, currentFileResults)
 		lock.Unlock()
 	})
 	return allFileResults
+}
+
+func mergeFileResults(results []*file.Results) *file.Results {
+	newResults := &file.Results{}
+	for _, otherResult := range results {
+		newResults.Stats = append(newResults.Stats, otherResult.Stats...)
+		newResults.Snippets = append(newResults.Snippets, otherResult.Snippets...)
+	}
+	return newResults
 }

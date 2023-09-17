@@ -2,6 +2,7 @@ package analysis
 
 import (
 	_ "embed"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"gonum.org/v1/gonum/graph/topo"
@@ -59,12 +60,12 @@ func TestGraphCreation(t *testing.T) {
 
 func connectionStringsToResults(inputs []string) *Results {
 	connections := make([]*ComponentConnection, 0, len(inputs))
-	components := make(map[string][]*Snippet, 0)
+	components := make(map[string][]*file.Snippet, 0)
 
 	for _, input := range inputs {
 		connection := splitInput(input)
-		components[connection.From] = []*Snippet{}
-		components[connection.To] = []*Snippet{}
+		components[connection.From] = []*file.Snippet{}
+		components[connection.To] = []*file.Snippet{}
 		connections = append(connections, connection)
 	}
 

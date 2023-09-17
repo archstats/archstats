@@ -1,6 +1,7 @@
 package walker
 
 import (
+	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
@@ -19,7 +20,7 @@ func TestWalkDirectoryConcurrently(t *testing.T) {
 
 	lock := sync.Mutex{}
 	var walkedFiles []string
-	WalkDirectoryConcurrently("./test_example", func(file OpenedFile) {
+	WalkDirectoryConcurrently("./test_example", func(file file.File) {
 		assert.NotContains(t, file.Path(), "ignore")
 		assert.Equal(t, "should not be ignored", string(file.Content()), "file '%s' should be ignored", file.Path())
 		lock.Lock()
