@@ -1,4 +1,4 @@
-package indentation
+package indentations
 
 import (
 	"bufio"

@@ -8,32 +8,109 @@ import (
 	"sync"
 )
 
+// Settings represents the settings for an analysis.
+type Settings struct {
+	// RootPath is the path to the root directory of the codebase to analyze. If not specified, the current working directory is used.
+	RootPath string
+	// Extensions are the extensions to use for the analysis.
+	Extensions []Extension
+}
+
+type Analyzer interface {
+	Analyze() (*Results, error)
+	RootPath() string
+	RegisterStatAccumulator(statType string, merger StatAccumulateFunction)
+	RegisterView(viewFactory *ViewFactory)
+	RegisterFileAnalyzer(analyzer FileAnalyzer)
+	RegisterFileResultsEditor(editor FileResultsEditor)
+	RegisterResultsEditor(editor ResultsEditor)
+}
+
+func New(settings *Settings) Analyzer {
+	return &analyzer{rootPath: settings.RootPath, extensions: settings.Extensions,
+		views: map[string]*ViewFactory{},
+		accumulator: &accumulator{
+			AccumulateFunctions: make(map[string]StatAccumulateFunction),
+		}}
+}
+
+type analyzer struct {
+	rootPath           string
+	extensions         []Extension
+	views              map[string]*ViewFactory
+	accumulator        *accumulator
+	fileAnalyzers      []FileAnalyzer
+	fileResultsEditors []FileResultsEditor
+	resultsEditors     []ResultsEditor
+}
+
+func (analyzer *analyzer) typeAssertion() Analyzer {
+	return analyzer
+}
+
+func (analyzer *analyzer) RegisterView(factory *ViewFactory) {
+	analyzer.views[factory.Name] = factory
+}
+
+func (analyzer *analyzer) RegisterFileAnalyzer(fileAnalyzer FileAnalyzer) {
+	analyzer.fileAnalyzers = append(analyzer.fileAnalyzers, fileAnalyzer)
+}
+
+func (analyzer *analyzer) RegisterFileResultsEditor(editor FileResultsEditor) {
+	analyzer.fileResultsEditors = append(analyzer.fileResultsEditors, editor)
+}
+
+func (analyzer *analyzer) RegisterResultsEditor(editor ResultsEditor) {
+	analyzer.resultsEditors = append(analyzer.resultsEditors, editor)
+}
+
+func (analyzer *analyzer) RootPath() string {
+	return analyzer.rootPath
+}
+
+func (analyzer *analyzer) RegisterStatAccumulator(statType string, merger StatAccumulateFunction) {
+	analyzer.accumulator.AccumulateFunctions[statType] = merger
+}
+
+// Extension represents an extension to the analysis. All Archstats extensions must implement this interface and live outside the core package
+type Extension interface {
+	Init(settings Analyzer) error
+}
+
+type FileResultsEditor interface {
+	EditFileResults(all []*FileResults)
+}
+
+type ResultsEditor interface {
+	EditResults(results *Results)
+}
+
 // Analyze analyzes the given root directory and returns the results.
-func Analyze(settings *analyzer) (*Results, error) {
+func (analyzer *analyzer) Analyze() (*Results, error) {
 
 	// Initialize extensions
-	for _, extension := range settings.extensions {
-		err := extension.Init(settings)
+	for _, extension := range analyzer.extensions {
+		err := extension.Init(analyzer)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Get Snippets and OnlyStats from the files
-	fileResults := getAllFileResults(settings.rootPath, settings.fileAnalyzers)
+	// Get Snippets and Stats from the files
+	fileResults := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers)
 
 	// Edit file results
 	// Used to set the component and directory of a snippet
-	for _, editor := range settings.fileResultsEditors {
+	for _, editor := range analyzer.fileResultsEditors {
 		editor.EditFileResults(fileResults)
 	}
 
-	// Aggregate Snippets and OnlyStats into Results
-	results := aggregateResults(settings, fileResults)
+	// Aggregate Snippets and Stats into Results
+	results := aggregateSnippetsAndStatsIntoResults(analyzer, fileResults)
 
 	// Edit results after they've been aggregated
 
-	for _, editor := range settings.resultsEditors {
+	for _, editor := range analyzer.resultsEditors {
 		editor.EditResults(results)
 	}
 
@@ -67,10 +144,12 @@ type Results struct {
 
 	ComponentGraph *ComponentGraph
 
+	Views []*View
+
 	views map[string]*ViewFactory
 }
 
-func aggregateResults(settings *analyzer, fileResults []*FileResults) *Results {
+func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*FileResults) *Results {
 
 	rootPath, theAccumulator := settings.rootPath, settings.accumulator
 	allSnippets := lo.FlatMap(fileResults, func(fileResult *FileResults, idx int) []*Snippet {

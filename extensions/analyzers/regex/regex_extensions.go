@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/RyanSusana/archstats/analysis"
 	"github.com/gobwas/glob"
-	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 	"regexp"
 )
@@ -49,10 +48,4 @@ func BuiltInRegexExtension(extension string) (analysis.Extension, error) {
 	} else {
 		return nil, errors.New("extension not found: " + extension)
 	}
-}
-
-func AvailableExtensions() []string {
-	return lo.MapToSlice(regexExtensions, func(key string, _ analysis.Extension) string {
-		return key
-	})
 }

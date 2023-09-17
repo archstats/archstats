@@ -1,11 +1,11 @@
-package basic
+package cycles
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
 	"gonum.org/v1/gonum/graph/topo"
 )
 
-func componentCyclesView(results *analysis.Results) *analysis.View {
+func allComponentCyclesView(results *analysis.Results) *analysis.View {
 	theGraph := results.ComponentGraph
 
 	cycles := topo.DirectedCyclesIn(theGraph)

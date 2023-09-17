@@ -1,4 +1,4 @@
-package indentation
+package indentations
 
 import (
 	"github.com/RyanSusana/archstats/analysis"

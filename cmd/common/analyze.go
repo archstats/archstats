@@ -2,10 +2,11 @@ package common
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/extensions/analyzers/indentation"
+	"github.com/RyanSusana/archstats/extensions/analyzers/indentations"
 	"github.com/RyanSusana/archstats/extensions/analyzers/regex"
 	"github.com/RyanSusana/archstats/extensions/analyzers/required"
 	"github.com/RyanSusana/archstats/extensions/views/basic"
+	"github.com/RyanSusana/archstats/extensions/views/cycles"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"path/filepath"
@@ -44,9 +45,11 @@ func Analyze(command *cobra.Command) (*analysis.Results, error) {
 		},
 	)
 
-	settings := analysis.New(rootDir, allExtensions)
+	allResults, err := analysis.New(&analysis.Settings{
+		RootPath:   rootDir,
+		Extensions: allExtensions,
+	}).Analyze()
 
-	allResults, err := analysis.Analyze(settings)
 	return allResults, err
 }
 
@@ -56,8 +59,10 @@ func defaultExtensions() []analysis.Extension {
 
 func optionalExtension(in string) (analysis.Extension, error) {
 	switch in {
-	case "indentation":
-		return indentation.Extension(), nil
+	case "cycles":
+		return cycles.Extension(), nil
+	case "indentations":
+		return indentations.Extension(), nil
 	default:
 		return regex.BuiltInRegexExtension(in)
 	}

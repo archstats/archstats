@@ -1,4 +1,4 @@
-package basic
+package cycles
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
