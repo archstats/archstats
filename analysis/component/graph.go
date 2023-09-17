@@ -1,11 +1,11 @@
-package analysis
+package component
 
 import (
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
 )
 
-func createComponentGraph(connections []*ComponentConnection) *ComponentGraph {
+func CreateGraph(connections []*Connection) *Graph {
 	components := map[string]struct{}{}
 	for _, connection := range connections {
 		components[connection.From] = struct{}{}
@@ -43,7 +43,7 @@ func createComponentGraph(connections []*ComponentConnection) *ComponentGraph {
 		})
 	}
 
-	return &ComponentGraph{
+	return &Graph{
 		idMapping:  idMapping,
 		components: allComponents,
 		edgesFrom:  edgesFrom,
@@ -51,9 +51,9 @@ func createComponentGraph(connections []*ComponentConnection) *ComponentGraph {
 	}
 }
 
-func getConnectionsWithCount(theConnections []*ComponentConnection) []*connectionWithCount {
+func getConnectionsWithCount(theConnections []*Connection) []*connectionWithCount {
 	connections := make([]*connectionWithCount, 0, len(theConnections))
-	grouped := lo.GroupBy(theConnections, func(connection *ComponentConnection) string {
+	grouped := lo.GroupBy(theConnections, func(connection *Connection) string {
 		return connection.From + " -> " + connection.To
 	})
 
@@ -111,28 +111,28 @@ func (c *componentEdge) ReversedEdge() graph.Edge {
 	}
 }
 
-type ComponentGraph struct {
+type Graph struct {
 	idMapping  map[string]int64
 	components map[int64]*componentNode
 	edgesFrom  map[int64][]*componentEdge
 	edgesTo    map[int64][]*componentEdge
 }
 
-func (c *ComponentGraph) IdToComponent(id int64) string {
+func (c *Graph) IdToComponent(id int64) string {
 	return c.components[id].name
 }
-func (c *ComponentGraph) ComponentToId(name string) int64 {
+func (c *Graph) ComponentToId(name string) int64 {
 	return c.idMapping[name]
 }
 
-func (c *ComponentGraph) ComponentToNode(name string) graph.Node {
+func (c *Graph) ComponentToNode(name string) graph.Node {
 	return c.components[c.ComponentToId(name)]
 }
-func (c *ComponentGraph) Node(id int64) graph.Node {
+func (c *Graph) Node(id int64) graph.Node {
 	return c.components[id]
 }
 
-func (c *ComponentGraph) Nodes() graph.Nodes {
+func (c *Graph) Nodes() graph.Nodes {
 	nodes := make([]graph.Node, 0, len(c.components))
 	for _, node := range c.components {
 		nodes = append(nodes, node)
@@ -140,21 +140,21 @@ func (c *ComponentGraph) Nodes() graph.Nodes {
 	return nodeListOf(nodes)
 }
 
-func (c *ComponentGraph) From(id int64) graph.Nodes {
+func (c *Graph) From(id int64) graph.Nodes {
 	nodes := lo.Map(c.edgesFrom[id], func(before *componentEdge, _ int) graph.Node {
 		return before.To()
 	})
 	return nodeListOf(nodes)
 }
 
-func (c *ComponentGraph) To(id int64) graph.Nodes {
+func (c *Graph) To(id int64) graph.Nodes {
 	nodes := lo.Map(c.edgesTo[id], func(before *componentEdge, _ int) graph.Node {
 		return before.From()
 	})
 	return nodeListOf(nodes)
 }
 
-func (c *ComponentGraph) Edge(xid, yid int64) graph.Edge {
+func (c *Graph) Edge(xid, yid int64) graph.Edge {
 	xEdges := c.edgesFrom[xid]
 
 	for _, edge := range xEdges {
@@ -165,11 +165,11 @@ func (c *ComponentGraph) Edge(xid, yid int64) graph.Edge {
 	return nil
 }
 
-func (c *ComponentGraph) HasEdgeFromTo(xid, yid int64) bool {
+func (c *Graph) HasEdgeFromTo(xid, yid int64) bool {
 	return c.Edge(xid, yid) != nil
 }
 
-func (c *ComponentGraph) HasEdgeBetween(xid, yid int64) bool {
+func (c *Graph) HasEdgeBetween(xid, yid int64) bool {
 	return c.Edge(xid, yid) != nil || c.Edge(yid, xid) != nil
 }
 

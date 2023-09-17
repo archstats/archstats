@@ -2,11 +2,12 @@ package basic
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/component"
 	"github.com/samber/lo"
 )
 
 func componentConnectionsView(results *analysis.Results) *analysis.View {
-	groupedConnections := lo.GroupBy(results.Connections, func(connection *analysis.ComponentConnection) string {
+	groupedConnections := lo.GroupBy(results.Connections, func(connection *component.Connection) string {
 		return connection.From + ":" + connection.File + " -> " + connection.To
 	})
 

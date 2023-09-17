@@ -1,7 +1,8 @@
-package analysis
+package component
 
 import (
 	_ "embed"
+	"github.com/RyanSusana/archstats/analysis"
 	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +18,7 @@ var elepyConnections string
 func TestElepy(t *testing.T) {
 	input := connectionStringsToResults(strings.Split(elepyConnections, "\n"))
 
-	theGraph := createComponentGraph(input.Connections)
+	theGraph := CreateGraph(input.Connections)
 	cycles := topo.DirectedCyclesIn(theGraph)
 
 	sort.Slice(cycles, func(i, j int) bool {
@@ -33,7 +34,7 @@ func TestGraphCreation(t *testing.T) {
 		"D -> A",
 	})
 
-	theGraph := createComponentGraph(input.Connections)
+	theGraph := CreateGraph(input.Connections)
 
 	shouldBeC := theGraph.To(theGraph.ComponentToId("A"))
 	shouldBeC.Next()
@@ -58,8 +59,8 @@ func TestGraphCreation(t *testing.T) {
 	assert.Len(t, cycles, 1)
 }
 
-func connectionStringsToResults(inputs []string) *Results {
-	connections := make([]*ComponentConnection, 0, len(inputs))
+func connectionStringsToResults(inputs []string) *analysis.Results {
+	connections := make([]*Connection, 0, len(inputs))
 	components := make(map[string][]*file.Snippet, 0)
 
 	for _, input := range inputs {
@@ -69,21 +70,21 @@ func connectionStringsToResults(inputs []string) *Results {
 		connections = append(connections, connection)
 	}
 
-	return &Results{
+	return &analysis.Results{
 		SnippetsByComponent: components,
 		Connections:         connections,
-		ConnectionsFrom: lo.GroupBy(connections, func(connection *ComponentConnection) string {
+		ConnectionsFrom: lo.GroupBy(connections, func(connection *Connection) string {
 			return connection.From
 		}),
-		ConnectionsTo: lo.GroupBy(connections, func(connection *ComponentConnection) string {
+		ConnectionsTo: lo.GroupBy(connections, func(connection *Connection) string {
 			return connection.To
 		}),
 	}
 }
 
-func splitInput(input string) *ComponentConnection {
+func splitInput(input string) *Connection {
 	split := strings.Split(input, "->")
-	connection := &ComponentConnection{
+	connection := &Connection{
 		From: strings.TrimSpace(split[0]),
 		To:   strings.TrimSpace(split[1]),
 	}

@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"github.com/RyanSusana/archstats/analysis/component"
 	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/RyanSusana/archstats/analysis/walker"
 	"github.com/samber/lo"
@@ -134,9 +135,9 @@ type Results struct {
 	StatsByDirectory file.StatsGroup
 	StatsByComponent file.StatsGroup
 
-	Connections     []*ComponentConnection
-	ConnectionsFrom map[string][]*ComponentConnection
-	ConnectionsTo   map[string][]*ComponentConnection
+	Connections     []*component.Connection
+	ConnectionsFrom map[string][]*component.Connection
+	ConnectionsTo   map[string][]*component.Connection
 
 	FileToComponent map[string]string
 	FileToDirectory map[string]string
@@ -144,7 +145,7 @@ type Results struct {
 	ComponentToFiles map[string][]string
 	DirectoryToFiles map[string][]string
 
-	ComponentGraph *ComponentGraph
+	ComponentGraph *component.Graph
 
 	Views []*View
 
@@ -172,11 +173,11 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	snippetsByComponent, snippetsByType, snippetsByFile, snippetsByDirectory :=
 		allSnippetGroups["ByComponent"], allSnippetGroups["ByType"], allSnippetGroups["ByFile"], allSnippetGroups["ByDirectory"]
 
-	componentConnections := getConnections(snippetsByType, snippetsByComponent)
-	componentConnectionsByFrom := lo.GroupBy(componentConnections, func(connection *ComponentConnection) string {
+	componentConnections := component.GetConnections(snippetsByType, snippetsByComponent)
+	componentConnectionsByFrom := lo.GroupBy(componentConnections, func(connection *component.Connection) string {
 		return connection.From
 	})
-	componentConnectionsByTo := lo.GroupBy(componentConnections, func(connection *ComponentConnection) string {
+	componentConnectionsByTo := lo.GroupBy(componentConnections, func(connection *component.Connection) string {
 		return connection.To
 	})
 
@@ -261,7 +262,7 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		FileToDirectory:  fileToDirectory,
 		ComponentToFiles: componentToFiles,
 		DirectoryToFiles: directoryToFiles,
-		ComponentGraph:   createComponentGraph(componentConnections),
+		ComponentGraph:   component.CreateGraph(componentConnections),
 
 		views: settings.views,
 	}
