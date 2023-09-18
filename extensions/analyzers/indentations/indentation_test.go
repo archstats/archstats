@@ -1,7 +1,7 @@
 package indentations
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -45,7 +45,7 @@ func TestFileInput(t *testing.T) {
 		content: content,
 	})
 
-	stats := lo.GroupBy(results.Stats, func(stat *analysis.StatRecord) string {
+	stats := lo.GroupBy(results.Stats, func(stat *file.StatRecord) string {
 		return stat.StatType
 	})
 

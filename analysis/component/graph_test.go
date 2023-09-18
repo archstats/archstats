@@ -2,9 +2,7 @@ package component
 
 import (
 	_ "embed"
-	"github.com/RyanSusana/archstats/analysis"
 	"github.com/RyanSusana/archstats/analysis/file"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"gonum.org/v1/gonum/graph/topo"
 	"sort"
@@ -16,9 +14,9 @@ import (
 var elepyConnections string
 
 func TestElepy(t *testing.T) {
-	input := connectionStringsToResults(strings.Split(elepyConnections, "\n"))
+	input := connectionStringsToConnections(strings.Split(elepyConnections, "\n"))
 
-	theGraph := CreateGraph(input.Connections)
+	theGraph := CreateGraph(input)
 	cycles := topo.DirectedCyclesIn(theGraph)
 
 	sort.Slice(cycles, func(i, j int) bool {
@@ -27,14 +25,14 @@ func TestElepy(t *testing.T) {
 	assert.Len(t, cycles[0], 17)
 }
 func TestGraphCreation(t *testing.T) {
-	input := connectionStringsToResults([]string{
+	input := connectionStringsToConnections([]string{
 		"A -> B",
 		"B -> C",
 		"C -> D",
 		"D -> A",
 	})
 
-	theGraph := CreateGraph(input.Connections)
+	theGraph := CreateGraph(input)
 
 	shouldBeC := theGraph.To(theGraph.ComponentToId("A"))
 	shouldBeC.Next()
@@ -59,7 +57,7 @@ func TestGraphCreation(t *testing.T) {
 	assert.Len(t, cycles, 1)
 }
 
-func connectionStringsToResults(inputs []string) *analysis.Results {
+func connectionStringsToConnections(inputs []string) []*Connection {
 	connections := make([]*Connection, 0, len(inputs))
 	components := make(map[string][]*file.Snippet, 0)
 
@@ -70,16 +68,7 @@ func connectionStringsToResults(inputs []string) *analysis.Results {
 		connections = append(connections, connection)
 	}
 
-	return &analysis.Results{
-		SnippetsByComponent: components,
-		Connections:         connections,
-		ConnectionsFrom: lo.GroupBy(connections, func(connection *Connection) string {
-			return connection.From
-		}),
-		ConnectionsTo: lo.GroupBy(connections, func(connection *Connection) string {
-			return connection.To
-		}),
-	}
+	return connections
 }
 
 func splitInput(input string) *Connection {

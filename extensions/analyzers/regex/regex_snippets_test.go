@@ -37,7 +37,7 @@ function function1(){
 
 	//Assert
 	sort.Slice(snippets, func(i, j int) bool {
-		return snippets[i].Begin < snippets[j].Begin
+		return snippets[i].Begin.Offset < snippets[j].Begin.Offset
 	})
 
 	assert.Len(t, snippets, 5)
@@ -58,17 +58,17 @@ function function1(){
 	assert.Equal(t, "fieldDeclaration", snippets[3].Type)
 	assert.Equal(t, "functionDeclaration", snippets[4].Type)
 
-	assert.Equal(t, 9, snippets[0].Begin)
-	assert.Equal(t, 31, snippets[1].Begin)
-	assert.Equal(t, 48, snippets[2].Begin)
-	assert.Equal(t, 68, snippets[3].Begin)
-	assert.Equal(t, 92, snippets[4].Begin)
+	assert.Equal(t, 9, snippets[0].Begin.Offset)
+	assert.Equal(t, 31, snippets[1].Begin.Offset)
+	assert.Equal(t, 48, snippets[2].Begin.Offset)
+	assert.Equal(t, 68, snippets[3].Begin.Offset)
+	assert.Equal(t, 92, snippets[4].Begin.Offset)
 
-	assert.Equal(t, 21, snippets[0].End)
-	assert.Equal(t, 40, snippets[1].End)
-	assert.Equal(t, 55, snippets[2].End)
-	assert.Equal(t, 75, snippets[3].End)
-	assert.Equal(t, 103, snippets[4].End)
+	assert.Equal(t, 21, snippets[0].End.Offset)
+	assert.Equal(t, 40, snippets[1].End.Offset)
+	assert.Equal(t, 55, snippets[2].End.Offset)
+	assert.Equal(t, 75, snippets[3].End.Offset)
+	assert.Equal(t, 103, snippets[4].End.Offset)
 }
 
 type fakeFile struct {
