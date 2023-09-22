@@ -24,6 +24,7 @@ const (
 	Float
 	String
 	Date
+	PositionInFile
 )
 
 type Column struct {
@@ -41,6 +42,12 @@ func IntColumn(name string) *Column {
 	return &Column{
 		Name: name,
 		Type: Integer,
+	}
+}
+func PositionInFileColumn(name string) *Column {
+	return &Column{
+		Name: name,
+		Type: PositionInFile,
 	}
 }
 

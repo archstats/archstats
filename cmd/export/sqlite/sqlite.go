@@ -3,7 +3,9 @@ package sqlite
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/RyanSusana/archstats/cmd/common"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/samber/lo"
@@ -207,7 +209,15 @@ func insertRowsForView(db *sql.DB, name string, columns []*analysis.Column, rows
 			case "timestamp":
 				valueArgs = append(valueArgs, options.ScanTime)
 			default:
-				valueArgs = append(valueArgs, row.Data[column.Name])
+				switch column.Type {
+
+				case analysis.PositionInFile:
+					position := row.Data[column.Name].(*file.Position)
+					valueArgs = append(valueArgs, fmt.Sprintf("%d:%d", position.Line, position.CharInLine))
+				default:
+					valueArgs = append(valueArgs, row.Data[column.Name])
+				}
+
 			}
 		}
 	}
@@ -268,6 +278,8 @@ func columnTypeDDL(column *analysis.Column) string {
 		return "REAL"
 	case analysis.Date:
 		return "DATE"
+	case analysis.PositionInFile:
+		return "TEXT"
 	default:
 		return "INTEGER"
 	}

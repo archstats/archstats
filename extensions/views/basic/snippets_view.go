@@ -2,7 +2,7 @@ package basic
 
 import "github.com/RyanSusana/archstats/analysis"
 
-//TODO: this is a noisy, not insightful, view. But it's handy for something like `--raw-snippets
+// TODO: this is a noisy, not insightful, view. But it's handy for something like `--raw-snippets
 func snippetsView(results *analysis.Results) *analysis.View {
 	toReturn := make([]*analysis.Row, 0, len(results.Snippets))
 	for _, snippet := range results.Snippets {
@@ -25,8 +25,8 @@ func snippetsView(results *analysis.Results) *analysis.View {
 			analysis.StringColumn("directory"),
 			analysis.StringColumn("component"),
 			analysis.StringColumn("type"),
-			analysis.IntColumn("begin"),
-			analysis.IntColumn("end"),
+			analysis.PositionInFileColumn("begin"),
+			analysis.PositionInFileColumn("end"),
 		},
 		Rows: toReturn,
 	}

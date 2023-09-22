@@ -9,7 +9,9 @@ type Connection struct {
 	From string
 	To   string
 	//The file in which the connection is made. The from side.
-	File string
+	File  string
+	Begin *file.Position
+	End   *file.Position
 }
 
 func GetConnections(snippetsByType file.SnippetGroup, snippetsByComponent file.SnippetGroup) []*Connection {
@@ -18,9 +20,11 @@ func GetConnections(snippetsByType file.SnippetGroup, snippetsByComponent file.S
 	for _, snippet := range from {
 		if _, componentExistsInCodebase := snippetsByComponent[snippet.Value]; componentExistsInCodebase {
 			toReturn = append(toReturn, &Connection{
-				From: snippet.Component,
-				To:   snippet.Value,
-				File: snippet.File,
+				From:  snippet.Component,
+				To:    snippet.Value,
+				File:  snippet.File,
+				Begin: snippet.Begin,
+				End:   snippet.End,
 			})
 		}
 	}
