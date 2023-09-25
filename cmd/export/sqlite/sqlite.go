@@ -33,7 +33,7 @@ var Command = &cobra.Command{
 
 		reportDate = time.Now()
 
-		viewsToShow := lo.Map(results.GetAllViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+		viewsToShow := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
 			return vf.Name
 		})
 

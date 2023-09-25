@@ -31,11 +31,11 @@ var viewCmd = &cobra.Command{
 		}
 
 		view := args[0]
-		availableViews := lo.Map(results.GetAllViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+		availableViews := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
 			return vf.Name
 		})
 		if !slices.Contains(availableViews, view) {
-			viewStrings := lo.Map(results.GetAllViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+			viewStrings := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
 				return fmt.Sprintf("  - %s: %s", vf.Name, vf.Description)
 			})
 			sort.Strings(viewStrings)

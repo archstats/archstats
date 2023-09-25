@@ -1,14 +1,11 @@
 package file
 
 import (
-	"os"
+	"io/fs"
 )
 
 type File interface {
-	Description
-	Content() []byte
-}
-type Description interface {
+	fs.FileInfo
 	Path() string
-	Info() os.FileInfo
+	Content() []byte
 }

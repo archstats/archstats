@@ -45,7 +45,7 @@ func Analyze(command *cobra.Command) (*analysis.Results, error) {
 		},
 	)
 
-	allResults, err := analysis.New(&analysis.Settings{
+	allResults, err := analysis.New(&analysis.Config{
 		RootPath:   rootDir,
 		Extensions: allExtensions,
 	}).Analyze()

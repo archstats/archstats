@@ -4,7 +4,9 @@ import (
 	"bufio"
 	ignore "github.com/sabhiram/go-gitignore"
 	"io/fs"
-	"os"
+	"path/filepath"
+
+	//"os"
 	"strings"
 )
 
@@ -20,25 +22,29 @@ func (ctx *ignoreContext) getGitIgnore() *ignore.GitIgnore {
 	return ignore.CompileIgnoreLines(ctx.lines...)
 }
 
-func (ctx *ignoreContext) addIgnoreLines(dirPath string, files []fs.FileInfo) {
-	ctx.lines = append(ctx.lines, getIgnoreLinesInDir(dirPath, files)...)
+func (ctx *ignoreContext) addIgnoreLines(fileSystem fs.FS, dirPath string, files []fs.DirEntry) {
+	ctx.lines = append(ctx.lines, getIgnoreLinesInDir(fileSystem, dirPath, files)...)
 }
 
-func getIgnoreLinesInDir(path string, entries []fs.FileInfo) []string {
+func getIgnoreLinesInDir(fileSystem fs.FS, path string, entries []fs.DirEntry) []string {
 	var globsToReturn []string
 
 	for _, entry := range entries {
 		shouldIgnore := isIgnoreFile(path + entry.Name())
 		if shouldIgnore {
-			globsToReturn = append(globsToReturn, getIgnoreLinesInFile(path, entry)...)
+			globsToReturn = append(globsToReturn, getIgnoreLinesInFile(fileSystem, path, entry)...)
 		}
 	}
 	return globsToReturn
 }
 
-func getIgnoreLinesInFile(path string, fileInfo fs.FileInfo) []string {
+func getIgnoreLinesInFile(fileSystem fs.FS, path string, fileInfo fs.DirEntry) []string {
 	var globs []string
-	file, _ := os.Open(path + fileInfo.Name())
+	fullPath := filepath.Clean(path + string(filepath.Separator) + fileInfo.Name())
+	file, err := fileSystem.Open(fullPath)
+	if err != nil {
+		panic(err)
+	}
 
 	defer file.Close()
 

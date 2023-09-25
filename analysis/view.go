@@ -1,17 +1,17 @@
 package analysis
 
-type ViewFactory struct {
-	Name           string
-	Description    string
-	CreateViewFunc ViewFactoryFunction
-}
-type ViewFactoryFunction func(results *Results) *View
-
 type View struct {
 	Name    string
 	Columns []*Column
 	Rows    []*Row
 }
+
+type ViewFactory struct {
+	Name           string
+	CreateViewFunc ViewFactoryFunction
+}
+type ViewFactoryFunction func(results *Results) *View
+
 type RowData map[string]interface{}
 
 type Row struct {
