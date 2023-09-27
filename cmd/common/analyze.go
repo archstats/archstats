@@ -2,11 +2,11 @@ package common
 
 import (
 	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/extensions/analyzers/indentations"
-	"github.com/RyanSusana/archstats/extensions/analyzers/regex"
-	"github.com/RyanSusana/archstats/extensions/analyzers/required"
-	"github.com/RyanSusana/archstats/extensions/views/basic"
-	"github.com/RyanSusana/archstats/extensions/views/cycles"
+	"github.com/RyanSusana/archstats/extensions/basic"
+	"github.com/RyanSusana/archstats/extensions/cycles"
+	"github.com/RyanSusana/archstats/extensions/indentations"
+	regex2 "github.com/RyanSusana/archstats/extensions/regex"
+	"github.com/RyanSusana/archstats/extensions/required"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"path/filepath"
@@ -38,7 +38,7 @@ func Analyze(command *cobra.Command) (*analysis.Results, error) {
 	}
 
 	allExtensions = append(allExtensions,
-		&regex.Extension{
+		&regex2.Extension{
 			Patterns: lo.Map(snippetStrings, func(s string, idx int) *regexp.Regexp {
 				return regexp.MustCompile(s)
 			}),
@@ -64,6 +64,6 @@ func optionalExtension(in string) (analysis.Extension, error) {
 	case "indentations":
 		return indentations.Extension(), nil
 	default:
-		return regex.BuiltInRegexExtension(in)
+		return regex2.BuiltInRegexExtension(in)
 	}
 }

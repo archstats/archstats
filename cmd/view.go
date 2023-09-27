@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/RyanSusana/archstats/analysis"
 	"github.com/RyanSusana/archstats/cmd/common"
-	"github.com/RyanSusana/archstats/extensions/views/basic"
+	"github.com/RyanSusana/archstats/extensions/basic"
 	"github.com/ryanuber/columnize"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -36,7 +36,7 @@ var viewCmd = &cobra.Command{
 		})
 		if !slices.Contains(availableViews, view) {
 			viewStrings := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
-				return fmt.Sprintf("  - %s: %s", vf.Name, vf.Description)
+				return fmt.Sprintf("  - %s", vf.Name)
 			})
 			sort.Strings(viewStrings)
 			availableViewsString := strings.Join(viewStrings, "\n")
@@ -59,14 +59,6 @@ var viewCmd = &cobra.Command{
 
 		return err
 	},
-}
-
-func createCommand(factory *analysis.ViewFactory) *cobra.Command {
-	return &cobra.Command{
-		Use:   factory.Name,
-		Short: factory.Description,
-		Long:  factory.Description,
-	}
 }
 
 func init() {
