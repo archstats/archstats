@@ -1,8 +1,9 @@
+id: page_rank
 name: PageRank
-summary: |
+short: |
   This is a link analysis algorithm that assigns a score to each component in a dependency graph based on the importance of the nodes that link to it. 
   Components with higher PageRank scores are generally more important and therefore more easily navigable.
-full_description: |
+long: |
   PageRank provides valuable insights into a dependency graph by measuring the importance or centrality of individual nodes (packages) within the graph. When applied to a dependency graph, PageRank can tell you the relative significance of each package based on its dependencies and the dependencies of other packages.
   
   Importance of packages: PageRank scores can indicate the importance of each package within the dependency graph. Packages with higher PageRank scores are considered more important as they are heavily relied upon by other packages in the system. These high-scoring packages are likely to play critical roles and may represent core components of the system.

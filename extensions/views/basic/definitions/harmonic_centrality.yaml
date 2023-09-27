@@ -1,7 +1,8 @@
+id: harmonic_centrality
 name: Harmonic Centrality
-summary: |
+short: |
   Harmonic centrality is a measure of centrality in a graph that takes into account the sum of the reciprocals of the shortest path distances from each component to all other components in the graph.
-full_description: |
+long: |
   Harmonic centrality is a measure of centrality in a graph that takes into account the sum of the reciprocals of the shortest path distances from each component to all other components in the graph. It is a type of closeness centrality, which is a measure of how close a component is to all other components in the graph.
 
   The harmonic centrality of a component i is defined as:

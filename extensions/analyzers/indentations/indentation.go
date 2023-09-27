@@ -103,7 +103,6 @@ type indentationStat struct {
 
 func getLeadingIndentation(line []byte) int {
 	lineTabs := strings.ReplaceAll(string(line), "    ", "\t")
-
 	indentation := 0
 	for _, char := range lineTabs {
 		if char == '\t' {

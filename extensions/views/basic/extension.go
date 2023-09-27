@@ -3,6 +3,7 @@ package basic
 import (
 	"embed"
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/definitions"
 )
 
 func Extension() analysis.Extension {
@@ -13,11 +14,18 @@ type extension struct {
 }
 
 //go:embed definitions/**
-var definitions embed.FS
+var defs embed.FS
 
 func (v *extension) Init(settings analysis.Analyzer) error {
 
-	// Register the file analyzer for the definitions
+	defs, err := definitions.LoadYamlFiles(defs)
+	if err != nil {
+		return err
+	}
+
+	for _, definition := range defs {
+		settings.AddDefinition(definition)
+	}
 
 	settings.RegisterView(&analysis.ViewFactory{
 		Name:           "definitions",

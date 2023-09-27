@@ -1,59 +1,52 @@
 package definitions
 
-//
-//func LoadYamlFiles(fs embed.FS) ([]*Definition, error) {
-//
-//	// scan dir for yaml files recursively
-//
-//	yamlFiles, err := getYamlFiles(".", fs)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//
-//
-//	wg := &sync.WaitGroup{}
-//	wg.Add(len(yamlFiles))
-//	for _, theFile := range yamlFiles {
-//		go func(file , group *sync.WaitGroup) {
-//
-//			//TODO cleanup error handling
-//			content, _ := os.ReadFile(file.Path())
-//			openedFile := &absoluteFile{
-//				path:    file.Path(),
-//				info:    file.Info(),
-//				content: content,
-//			}
-//
-//			visitor(openedFile)
-//			group.Done()
-//		}(theFile, wg)
-//	}
-//	wg.Wait()
-//
-//}
-//
-//func getYamlFiles(currentDirectory string, fileSystem fs.ReadDirFS) ([]fs.DirEntry, error) {
-//	var files []fs.DirEntry
-//
-//	dir, err := fileSystem.ReadDir(currentDirectory)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	for _, entry := range dir {
-//
-//		if entry.IsDir() {
-//			yamlFiles, err := getYamlFiles(currentDirectory+"/"+entry.Name(), fs)
-//			if err != nil {
-//				return nil, err
-//			}
-//			files = append(files, yamlFiles...)
-//		}
-//
-//		if strings.HasSuffix(entry.Name(), ".yaml") || strings.HasSuffix(entry.Name(), ".yml") {
-//			files = append(files, currentDirectory+"/"+entry.Name())
-//		}
-//	}
-//	return files, nil
-//}
+import (
+	"gopkg.in/yaml.v3"
+	"io/fs"
+	"strings"
+)
+
+func LoadYamlFiles(fsys fs.ReadFileFS) ([]*Definition, error) {
+	var definitions []*Definition
+
+	fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
+			definition, err := LoadYamlFile(fsys, path)
+			if err != nil {
+				return err
+			}
+			definitions = append(definitions, definition)
+
+		}
+		return nil
+	})
+	return definitions, nil
+}
+
+func LoadYamlFile(fsys fs.ReadFileFS, path string) (*Definition, error) {
+	file, err := fsys.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var definition Definition
+
+	err = yaml.Unmarshal(file, &definition)
+	if err != nil {
+		return nil, err
+	}
+
+	return &definition, nil
+}
+
+func LoadYaml(file fs.File) (*Definition, error) {
+
+	return nil, nil
+}

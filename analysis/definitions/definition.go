@@ -1,7 +1,8 @@
 package definitions
 
 type Definition struct {
-	Name  string
-	Short string
-	Long  string
+	Id    string `yaml:"id"`
+	Name  string `yaml:"name"`
+	Short string `yaml:"short"`
+	Long  string `yaml:"long"`
 }
