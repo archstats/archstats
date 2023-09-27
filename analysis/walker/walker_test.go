@@ -22,17 +22,18 @@ func TestWalkDirectoryConcurrently(t *testing.T) {
 	var walkedFiles []string
 	WalkDirectoryConcurrently("./test_example", func(file file.File) {
 		assert.NotContains(t, file.Path(), "ignore")
-		assert.Equal(t, "should not be ignored", string(file.Content()), "file '%s' should be ignored", file.Path())
+		content := string(file.Content())
+		assert.Equal(t, "should not be ignored", content, "file '%s' should be ignored", file.Path())
 		lock.Lock()
 		walkedFiles = append(walkedFiles, file.Path())
 		lock.Unlock()
 	})
 
 	expectedFilesToWalk := []string{
-		"./test_example/subdir2/file6.csv",
-		"./test_example/file2.txt",
-		"./test_example/file1.txt",
-		"./test_example/subdir1/file5.txt",
+		"subdir2/file6.csv",
+		"./file2.txt",
+		"./file1.txt",
+		"subdir1/file5.txt",
 	}
 	assert.ElementsMatch(t, expectedFilesToWalk, walkedFiles)
 }

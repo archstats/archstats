@@ -22,10 +22,12 @@ func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(fil
 		go func(file PathToFile, group *sync.WaitGroup) {
 
 			//TODO cleanup error handling
-			content, _ := fileSystem.ReadFile(file.Path())
+			content, err := fileSystem.ReadFile(filepath.Clean(file.Path()))
+			if err != nil {
+				panic(err)
+			}
 			openedFile := &openedFile{
-				path: file.Path(),
-
+				path:    file.Path(),
 				content: content,
 			}
 
