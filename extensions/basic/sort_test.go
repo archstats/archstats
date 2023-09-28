@@ -1,19 +1,19 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestSortRows(t *testing.T) {
 
-	createNewLineRow := func(newLine int) *analysis.Row {
-		return &analysis.Row{
+	createNewLineRow := func(newLine int) *core.Row {
+		return &core.Row{
 			Data: map[string]interface{}{"newLine": newLine},
 		}
 	}
-	rowsUnsorted := []*analysis.Row{
+	rowsUnsorted := []*core.Row{
 		createNewLineRow(10),
 		createNewLineRow(30),
 		createNewLineRow(40),
@@ -22,7 +22,7 @@ func TestSortRows(t *testing.T) {
 		createNewLineRow(70),
 		createNewLineRow(60),
 	}
-	rowsSorted := []*analysis.Row{
+	rowsSorted := []*core.Row{
 		createNewLineRow(70),
 		createNewLineRow(60),
 		createNewLineRow(50),
@@ -32,8 +32,8 @@ func TestSortRows(t *testing.T) {
 		createNewLineRow(10),
 	}
 
-	SortRows("newLine", &analysis.View{
-		Columns: []*analysis.Column{analysis.StringColumn("name"), analysis.IntColumn("newLine")},
+	SortRows("newLine", &core.View{
+		Columns: []*core.Column{core.StringColumn("name"), core.IntColumn("newLine")},
 		Rows:    rowsUnsorted,
 	})
 	for i, row := range rowsUnsorted {

@@ -3,9 +3,9 @@ package view
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/RyanSusana/archstats/cmd/common"
+	"github.com/RyanSusana/archstats/core"
+	"github.com/RyanSusana/archstats/core/file"
 	"github.com/RyanSusana/archstats/extensions/basic"
 	"github.com/ryanuber/columnize"
 	"github.com/samber/lo"
@@ -32,11 +32,11 @@ func Cmd() *cobra.Command {
 			}
 
 			view := args[0]
-			availableViews := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+			availableViews := lo.Map(results.GetViewFactories(), func(vf *core.ViewFactory, index int) string {
 				return vf.Name
 			})
 			if !slices.Contains(availableViews, view) {
-				viewStrings := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+				viewStrings := lo.Map(results.GetViewFactories(), func(vf *core.ViewFactory, index int) string {
 					return fmt.Sprintf("  - %s", vf.Name)
 				})
 				sort.Strings(viewStrings)
@@ -70,7 +70,7 @@ func Cmd() *cobra.Command {
 
 type rowData map[string]interface{}
 
-func outputString(resultsFromCommand *analysis.View, cmd *cobra.Command) (string, error) {
+func outputString(resultsFromCommand *core.View, cmd *cobra.Command) (string, error) {
 
 	columnsInput, _ := cmd.Flags().GetStringSlice("column")
 	output, err := cmd.Flags().GetString("output-format")
@@ -106,14 +106,14 @@ func outputString(resultsFromCommand *analysis.View, cmd *cobra.Command) (string
 	}
 }
 
-func getValidColumns(availableColumns []*analysis.Column, requestedColumns []string) ([]*analysis.Column, error) {
+func getValidColumns(availableColumns []*core.Column, requestedColumns []string) ([]*core.Column, error) {
 	if len(requestedColumns) == 0 {
 		return availableColumns, nil
 	}
-	availableColumnsIndex := lo.Associate(availableColumns, func(column *analysis.Column) (string, *analysis.Column) {
+	availableColumnsIndex := lo.Associate(availableColumns, func(column *core.Column) (string, *core.Column) {
 		return column.Name, column
 	})
-	var columnsToPrint []*analysis.Column
+	var columnsToPrint []*core.Column
 	var invalidColumns []string
 	for _, requestedColumn := range requestedColumns {
 
@@ -130,13 +130,13 @@ func getValidColumns(availableColumns []*analysis.Column, requestedColumns []str
 	return columnsToPrint, nil
 }
 
-func getJson(columnsToPrint []*analysis.Column, rows []*analysis.Row) []byte {
+func getJson(columnsToPrint []*core.Column, rows []*core.Row) []byte {
 	toPrint := rowsToMaps(columnsToPrint, rows)
 	theJson, _ := json.Marshal(toPrint)
 	return theJson
 }
 
-func rowsToMaps(columnsToPrint []*analysis.Column, rows []*analysis.Row) []rowData {
+func rowsToMaps(columnsToPrint []*core.Column, rows []*core.Row) []rowData {
 	var toPrint []rowData
 	for _, row := range rows {
 		toPrint = append(toPrint, measurableToMap(row, columnsToPrint))
@@ -144,7 +144,7 @@ func rowsToMaps(columnsToPrint []*analysis.Column, rows []*analysis.Row) []rowDa
 	return toPrint
 }
 
-func measurableToMap(measurable *analysis.Row, columns []*analysis.Column) map[string]interface{} {
+func measurableToMap(measurable *core.Row, columns []*core.Column) map[string]interface{} {
 	toReturn := map[string]interface{}{}
 	for _, column := range columns {
 		toReturn[column.Name] = measurable.Data[column.Name]
@@ -152,7 +152,7 @@ func measurableToMap(measurable *analysis.Row, columns []*analysis.Column) map[s
 	return toReturn
 }
 
-func getRows(columnsToPrint []*analysis.Column, resultsFromCommand []*analysis.Row, shouldPrintHeader bool, delimiter string) []string {
+func getRows(columnsToPrint []*core.Column, resultsFromCommand []*core.Row, shouldPrintHeader bool, delimiter string) []string {
 	var rows []string
 	if shouldPrintHeader {
 		rows = append(rows, getHeader(delimiter, columnsToPrint))
@@ -163,14 +163,14 @@ func getRows(columnsToPrint []*analysis.Column, resultsFromCommand []*analysis.R
 	return rows
 }
 
-func getHeader(delimiter string, columnsToPrint []*analysis.Column) string {
-	columnNames := lo.Map(columnsToPrint, func(column *analysis.Column, idx int) string {
+func getHeader(delimiter string, columnsToPrint []*core.Column) string {
+	columnNames := lo.Map(columnsToPrint, func(column *core.Column, idx int) string {
 		return column.Name
 	})
 	return strings.ToUpper(strings.Join(columnNames, delimiter))
 }
 
-func rowToString(columnsToPrint []*analysis.Column, delimiter string, row *analysis.Row) string {
+func rowToString(columnsToPrint []*core.Column, delimiter string, row *core.Row) string {
 	toReturn := make([]string, 0, len(columnsToPrint))
 	columns := row.Data
 

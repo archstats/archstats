@@ -1,11 +1,11 @@
-package analysis
+package core
 
 import (
 	"fmt"
-	"github.com/RyanSusana/archstats/analysis/component"
-	definitions2 "github.com/RyanSusana/archstats/analysis/definitions"
-	"github.com/RyanSusana/archstats/analysis/file"
-	"github.com/RyanSusana/archstats/analysis/walker"
+	"github.com/RyanSusana/archstats/core/component"
+	definitions2 "github.com/RyanSusana/archstats/core/definitions"
+	"github.com/RyanSusana/archstats/core/file"
+	"github.com/RyanSusana/archstats/core/walker"
 	"github.com/samber/lo"
 	"strings"
 	"sync"

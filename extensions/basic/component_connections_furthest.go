@@ -1,19 +1,19 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"strings"
 )
 
-func componentConnectionsFurthestView(results *analysis.Results) *analysis.View {
+func componentConnectionsFurthestView(results *core.Results) *core.View {
 	theGraph := results.ComponentGraph
 
 	allPaths := path.DijkstraAllPaths(theGraph)
 
-	var rows []*analysis.Row
+	var rows []*core.Row
 	for from := range results.SnippetsByComponent {
 		key := from
 		var furthest []graph.Node
@@ -30,7 +30,7 @@ func componentConnectionsFurthestView(results *analysis.Results) *analysis.View 
 		if len(furthest) <= 0 {
 			continue
 		}
-		rows = append(rows, &analysis.Row{
+		rows = append(rows, &core.Row{
 			Data: map[string]interface{}{
 				"component":                   key,
 				"furthest_component":          theGraph.IdToComponent(furthest[len(furthest)-1].ID()),
@@ -45,8 +45,8 @@ func componentConnectionsFurthestView(results *analysis.Results) *analysis.View 
 		})
 	}
 
-	return &analysis.View{
-		Columns: []*analysis.Column{analysis.StringColumn("component"), analysis.StringColumn("furthest_component"), analysis.IntColumn("furthest_component_distance"), analysis.StringColumn("furthest_component_shortest_path")},
+	return &core.View{
+		Columns: []*core.Column{core.StringColumn("component"), core.StringColumn("furthest_component"), core.IntColumn("furthest_component_distance"), core.StringColumn("furthest_component_shortest_path")},
 		Rows:    rows,
 	}
 }

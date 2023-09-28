@@ -1,4 +1,4 @@
-package analysis
+package core
 
 type View struct {
 	Name    string

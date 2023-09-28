@@ -1,12 +1,12 @@
 package cycles
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 	"gonum.org/v1/gonum/graph/topo"
 	"sort"
 )
 
-func largestComponentCycleView(results *analysis.Results) *analysis.View {
+func largestComponentCycleView(results *core.Results) *core.View {
 	theGraph := results.ComponentGraph
 
 	cycles := topo.DirectedCyclesIn(theGraph)
@@ -17,11 +17,11 @@ func largestComponentCycleView(results *analysis.Results) *analysis.View {
 	theCycle := cycles[0]
 	theCycle = theCycle[:len(theCycle)-1]
 
-	var rows []*analysis.Row
+	var rows []*core.Row
 	for componentIndex, component := range theCycle {
 		successor := theCycle[wrapIndex(componentIndex+1, len(theCycle))]
 		predecessor := theCycle[wrapIndex(componentIndex-1, len(theCycle))]
-		rows = append(rows, &analysis.Row{
+		rows = append(rows, &core.Row{
 			Data: map[string]interface{}{
 				"component":         theGraph.IdToComponent(component.ID()),
 				"cycle_successor":   theGraph.IdToComponent(successor.ID()),
@@ -30,11 +30,11 @@ func largestComponentCycleView(results *analysis.Results) *analysis.View {
 		})
 	}
 
-	return &analysis.View{
-		Columns: []*analysis.Column{
-			analysis.StringColumn("component"),
-			analysis.StringColumn("cycle_successor"),
-			analysis.StringColumn("cycle_predecessor"),
+	return &core.View{
+		Columns: []*core.Column{
+			core.StringColumn("component"),
+			core.StringColumn("cycle_successor"),
+			core.StringColumn("cycle_predecessor"),
 		},
 		Rows: rows,
 	}

@@ -1,12 +1,12 @@
 package basic
 
-import "github.com/RyanSusana/archstats/analysis"
+import "github.com/RyanSusana/archstats/core"
 
 // TODO: this is a noisy, not insightful, view. But it's handy for something like `--raw-snippets
-func snippetsView(results *analysis.Results) *analysis.View {
-	toReturn := make([]*analysis.Row, 0, len(results.Snippets))
+func snippetsView(results *core.Results) *core.View {
+	toReturn := make([]*core.Row, 0, len(results.Snippets))
 	for _, snippet := range results.Snippets {
-		toReturn = append(toReturn, &analysis.Row{
+		toReturn = append(toReturn, &core.Row{
 			Data: map[string]interface{}{
 				"file":           snippet.File,
 				"component":      snippet.Component,
@@ -17,14 +17,14 @@ func snippetsView(results *analysis.Results) *analysis.View {
 			},
 		})
 	}
-	return &analysis.View{
-		Columns: []*analysis.Column{
-			analysis.StringColumn("content"),
-			analysis.StringColumn("file"),
-			analysis.StringColumn("component"),
-			analysis.StringColumn("snippet_type"),
-			analysis.PositionInFileColumn("begin_position"),
-			analysis.PositionInFileColumn("end_position"),
+	return &core.View{
+		Columns: []*core.Column{
+			core.StringColumn("content"),
+			core.StringColumn("file"),
+			core.StringColumn("component"),
+			core.StringColumn("snippet_type"),
+			core.PositionInFileColumn("begin_position"),
+			core.PositionInFileColumn("end_position"),
 		},
 		Rows: toReturn,
 	}

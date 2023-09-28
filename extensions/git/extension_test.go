@@ -5,7 +5,7 @@ package git
 
 import (
 	"fmt"
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 	"github.com/stretchr/testify/assert"
 	"log"
 	"os"
@@ -18,8 +18,8 @@ const TestDataPath = "./temp_testdata"
 
 func Test(t *testing.T) {
 	createElepyRepo(t)
-	analyzer := analysis.New("temp_testdata/ktor", []analysis.Extension{&Extension{}})
-	results, err := analysis.Analyze(analyzer)
+	analyzer := core.New("temp_testdata/ktor", []core.Extension{&Extension{}})
+	results, err := core.Analyze(analyzer)
 	if err != nil {
 		return
 	}

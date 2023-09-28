@@ -1,7 +1,7 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 )
 
 const (
@@ -9,11 +9,11 @@ const (
 	ValueColumn = "value"
 )
 
-func summaryView(results *analysis.Results) *analysis.View {
-	var toReturn []*analysis.Row
+func summaryView(results *core.Results) *core.View {
+	var toReturn []*core.Row
 
 	for stat, value := range *results.Stats {
-		toReturn = append(toReturn, &analysis.Row{
+		toReturn = append(toReturn, &core.Row{
 			Data: map[string]interface{}{
 				NameColumn:  stat,
 				ValueColumn: value,
@@ -21,7 +21,7 @@ func summaryView(results *analysis.Results) *analysis.View {
 		})
 	}
 
-	extraRows := []analysis.RowData{
+	extraRows := []core.RowData{
 		{
 			NameColumn:  "component_count",
 			ValueColumn: len(results.StatsByComponent),
@@ -37,12 +37,12 @@ func summaryView(results *analysis.Results) *analysis.View {
 	}
 
 	for _, row := range extraRows {
-		toReturn = append(toReturn, &analysis.Row{
+		toReturn = append(toReturn, &core.Row{
 			Data: row,
 		})
 	}
-	return &analysis.View{
-		Columns: []*analysis.Column{analysis.StringColumn(NameColumn), analysis.IntColumn(ValueColumn)},
+	return &core.View{
+		Columns: []*core.Column{core.StringColumn(NameColumn), core.IntColumn(ValueColumn)},
 		Rows:    toReturn,
 	}
 }

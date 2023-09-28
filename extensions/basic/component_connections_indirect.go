@@ -1,19 +1,19 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"strings"
 )
 
-func componentConnectionsIndirectView(results *analysis.Results) *analysis.View {
+func componentConnectionsIndirectView(results *core.Results) *core.View {
 	theGraph := results.ComponentGraph
 
 	allShortest := path.DijkstraAllPaths(theGraph)
 
-	var rows []*analysis.Row
+	var rows []*core.Row
 	for from := range results.SnippetsByComponent {
 		for to := range results.SnippetsByComponent {
 			if from == to {
@@ -23,7 +23,7 @@ func componentConnectionsIndirectView(results *analysis.Results) *analysis.View 
 			shortest, _, _ := allShortest.Between(theGraph.ComponentToId(from), theGraph.ComponentToId(to))
 
 			if len(shortest) >= 2 {
-				rows = append(rows, &analysis.Row{
+				rows = append(rows, &core.Row{
 					Data: map[string]interface{}{
 						"from":                 from,
 						"to":                   to,
@@ -40,8 +40,8 @@ func componentConnectionsIndirectView(results *analysis.Results) *analysis.View 
 		}
 	}
 
-	return &analysis.View{
-		Columns: []*analysis.Column{analysis.StringColumn("from"), analysis.StringColumn("to"), analysis.IntColumn("shortest_path_length"), analysis.StringColumn("shortest_path")},
+	return &core.View{
+		Columns: []*core.Column{core.StringColumn("from"), core.StringColumn("to"), core.IntColumn("shortest_path_length"), core.StringColumn("shortest_path")},
 		Rows:    rows,
 	}
 }

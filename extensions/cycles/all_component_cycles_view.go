@@ -1,11 +1,11 @@
 package cycles
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 	"gonum.org/v1/gonum/graph/topo"
 )
 
-func allComponentCyclesView(results *analysis.Results) *analysis.View {
+func allComponentCyclesView(results *core.Results) *core.View {
 	theGraph := results.ComponentGraph
 
 	cycles := topo.DirectedCyclesIn(theGraph)
@@ -15,12 +15,12 @@ func allComponentCyclesView(results *analysis.Results) *analysis.View {
 		cycles[i] = cycle[:len(cycle)-1]
 	}
 
-	var rows []*analysis.Row
+	var rows []*core.Row
 	for cycleNr, theCycle := range cycles {
 		for componentIndex, component := range theCycle {
 			successor := theCycle[wrapIndex(componentIndex+1, len(theCycle))]
 			predecessor := theCycle[wrapIndex(componentIndex-1, len(theCycle))]
-			rows = append(rows, &analysis.Row{
+			rows = append(rows, &core.Row{
 				Data: map[string]interface{}{
 					"cycle_nr":          cycleNr + 1,
 					"cycle_size":        len(theCycle),
@@ -32,13 +32,13 @@ func allComponentCyclesView(results *analysis.Results) *analysis.View {
 		}
 
 	}
-	return &analysis.View{
-		Columns: []*analysis.Column{
-			analysis.IntColumn("cycle_nr"),
-			analysis.IntColumn("cycle_size"),
-			analysis.StringColumn("component"),
-			analysis.StringColumn("cycle_successor"),
-			analysis.StringColumn("cycle_predecessor"),
+	return &core.View{
+		Columns: []*core.Column{
+			core.IntColumn("cycle_nr"),
+			core.IntColumn("cycle_size"),
+			core.StringColumn("component"),
+			core.StringColumn("cycle_successor"),
+			core.StringColumn("cycle_predecessor"),
 		},
 		Rows: rows,
 	}

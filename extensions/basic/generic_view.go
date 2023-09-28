@@ -1,16 +1,16 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/RyanSusana/archstats/core"
+	"github.com/RyanSusana/archstats/core/file"
 	"golang.org/x/exp/slices"
 	"math"
 	"sort"
 	"strings"
 )
 
-func genericView(allColumns []string, group file.StatsGroup) *analysis.View {
-	var toReturn []*analysis.Row
+func genericView(allColumns []string, group file.StatsGroup) *core.View {
+	var toReturn []*core.Row
 	for groupItem, stats := range group {
 		if groupItem == "" {
 			groupItem = "Unknown"
@@ -18,19 +18,19 @@ func genericView(allColumns []string, group file.StatsGroup) *analysis.View {
 		data := statsToRowData(groupItem, stats)
 		ensureRowHasAllColumns(data, allColumns)
 		addAbstractness(data, stats)
-		toReturn = append(toReturn, &analysis.Row{
+		toReturn = append(toReturn, &core.Row{
 			Data: data,
 		})
 	}
 
-	columnsToReturn := []*analysis.Column{analysis.StringColumn(Name)}
+	columnsToReturn := []*core.Column{core.StringColumn(Name)}
 	if slices.Contains(allColumns, file.AbstractType) {
-		columnsToReturn = append(columnsToReturn, analysis.FloatColumn(Abstractness))
+		columnsToReturn = append(columnsToReturn, core.FloatColumn(Abstractness))
 	}
 	for _, column := range allColumns {
-		columnsToReturn = append(columnsToReturn, analysis.IntColumn(column))
+		columnsToReturn = append(columnsToReturn, core.IntColumn(column))
 	}
-	return &analysis.View{
+	return &core.View{
 		Columns: columnsToReturn,
 		Rows:    toReturn,
 	}
@@ -64,7 +64,7 @@ func statsToRowData(name string, statsRef *file.Stats) map[string]interface{} {
 	return toReturn
 }
 
-func getDistinctColumnsFromResults(results *analysis.Results) []string {
+func getDistinctColumnsFromResults(results *core.Results) []string {
 	var toReturn []string
 	for theType, _ := range *results.Stats {
 		if !strings.HasPrefix(theType, "_") {

@@ -1,8 +1,8 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/component"
+	"github.com/RyanSusana/archstats/core"
+	"github.com/RyanSusana/archstats/core/component"
 	"gonum.org/v1/gonum/graph/network"
 	"gonum.org/v1/gonum/graph/path"
 	"math"
@@ -24,7 +24,7 @@ const (
 	ResidualCloseness    = "residual_closeness"
 )
 
-func componentView(results *analysis.Results) *analysis.View {
+func componentView(results *core.Results) *core.View {
 	view := genericView(getDistinctColumnsFromResults(results), results.StatsByComponent)
 
 	graph := results.ComponentGraph
@@ -59,17 +59,17 @@ func componentView(results *analysis.Results) *analysis.View {
 		row.Data[ResidualCloseness] = residualClosenessIndex[componentId]
 	}
 	view.Columns = append(view.Columns,
-		analysis.IntColumn(AfferentCouplings),
-		analysis.IntColumn(EfferentCouplings),
-		analysis.FloatColumn(Instability),
-		analysis.FloatColumn(DistanceMainSequence),
-		analysis.FloatColumn(Betweenness),
-		analysis.FloatColumn(PageRank),
-		analysis.FloatColumn(HubScore),
-		analysis.FloatColumn(AuthorityScore),
-		analysis.FloatColumn(HarmonicCentrality),
-		analysis.FloatColumn(FarnessCentrality),
-		analysis.FloatColumn(ResidualCloseness),
+		core.IntColumn(AfferentCouplings),
+		core.IntColumn(EfferentCouplings),
+		core.FloatColumn(Instability),
+		core.FloatColumn(DistanceMainSequence),
+		core.FloatColumn(Betweenness),
+		core.FloatColumn(PageRank),
+		core.FloatColumn(HubScore),
+		core.FloatColumn(AuthorityScore),
+		core.FloatColumn(HarmonicCentrality),
+		core.FloatColumn(FarnessCentrality),
+		core.FloatColumn(ResidualCloseness),
 	)
 
 	return view

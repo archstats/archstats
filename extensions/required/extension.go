@@ -1,17 +1,17 @@
 package required
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 )
 
-func Extension() analysis.Extension {
+func Extension() core.Extension {
 	return &requiredExtensions{}
 }
 
 type requiredExtensions struct {
 }
 
-func (r *requiredExtensions) Init(settings analysis.Analyzer) error {
+func (r *requiredExtensions) Init(settings core.Analyzer) error {
 	settings.RegisterFileResultsEditor(&componentLinker{})
 	return nil
 }

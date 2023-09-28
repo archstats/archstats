@@ -1,18 +1,18 @@
 package required
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/RyanSusana/archstats/core"
+	"github.com/RyanSusana/archstats/core/file"
 	"github.com/samber/lo"
 )
 
 type componentLinker struct{}
 
-func (c *componentLinker) Init(settings analysis.Analyzer) error {
+func (c *componentLinker) Init(settings core.Analyzer) error {
 	return nil
 }
 
-func (c *componentLinker) interfaceAssertions() analysis.FileResultsEditor {
+func (c *componentLinker) interfaceAssertions() core.FileResultsEditor {
 	return c
 }
 

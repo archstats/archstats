@@ -1,7 +1,7 @@
-package analysis
+package core
 
 import (
-	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/RyanSusana/archstats/core/file"
 	"github.com/samber/lo"
 )
 

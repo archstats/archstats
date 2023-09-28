@@ -1,7 +1,7 @@
 package common
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 	"github.com/RyanSusana/archstats/extensions/basic"
 	"github.com/RyanSusana/archstats/extensions/cycles"
 	"github.com/RyanSusana/archstats/extensions/indentations"
@@ -19,7 +19,7 @@ const (
 	FlagSnippet          = "snippet"
 )
 
-func Analyze(command *cobra.Command) (*analysis.Results, error) {
+func Analyze(command *cobra.Command) (*core.Results, error) {
 	rootDir, _ := command.Flags().GetString(FlagWorkingDirectory)
 	rootDir, _ = filepath.Abs(rootDir)
 
@@ -28,7 +28,7 @@ func Analyze(command *cobra.Command) (*analysis.Results, error) {
 	snippetStrings, _ := command.Flags().GetStringSlice(FlagSnippet)
 
 	var allExtensions = defaultExtensions()
-	var extraExtensions = command.Context().Value("extraExtensions").([]analysis.Extension)
+	var extraExtensions = command.Context().Value("extraExtensions").([]core.Extension)
 	allExtensions = append(allExtensions, extraExtensions...)
 	for _, extension := range extensionStrings {
 		provider, err := optionalExtension(extension)
@@ -46,7 +46,7 @@ func Analyze(command *cobra.Command) (*analysis.Results, error) {
 		},
 	)
 
-	allResults, err := analysis.New(&analysis.Config{
+	allResults, err := core.New(&core.Config{
 		RootPath:   rootDir,
 		Extensions: allExtensions,
 	}).Analyze()
@@ -54,11 +54,11 @@ func Analyze(command *cobra.Command) (*analysis.Results, error) {
 	return allResults, err
 }
 
-func defaultExtensions() []analysis.Extension {
-	return []analysis.Extension{required.Extension(), basic.Extension()}
+func defaultExtensions() []core.Extension {
+	return []core.Extension{required.Extension(), basic.Extension()}
 }
 
-func optionalExtension(in string) (analysis.Extension, error) {
+func optionalExtension(in string) (core.Extension, error) {
 	switch in {
 	case "cycles":
 		return cycles.Extension(), nil

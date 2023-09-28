@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/RyanSusana/archstats/cmd/common"
+	"github.com/RyanSusana/archstats/core"
+	"github.com/RyanSusana/archstats/core/file"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -35,11 +35,11 @@ func Cmd() *cobra.Command {
 
 			reportDate = time.Now()
 
-			viewsToShow := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+			viewsToShow := lo.Map(results.GetViewFactories(), func(vf *core.ViewFactory, index int) string {
 				return vf.Name
 			})
 
-			allViews := make(map[string]*analysis.View)
+			allViews := make(map[string]*core.View)
 
 			for _, viewName := range viewsToShow {
 				view, err := results.RenderView(viewName)
@@ -51,7 +51,7 @@ func Cmd() *cobra.Command {
 
 			dbPath := args[0]
 
-			viewSlice := lo.MapToSlice(allViews, func(viewName string, view *analysis.View) *analysis.View {
+			viewSlice := lo.MapToSlice(allViews, func(viewName string, view *core.View) *core.View {
 				return view
 			})
 			err := SaveToDB(&SqlOptions{
@@ -78,7 +78,7 @@ type SqlOptions struct {
 	ScanTime time.Time
 }
 
-func SaveToDB(options *SqlOptions, views []*analysis.View) error {
+func SaveToDB(options *SqlOptions, views []*core.View) error {
 	// check DB exists. If not, create it. If so, check tables exist.
 
 	var db *sql.DB
@@ -119,7 +119,7 @@ func SaveToDB(options *SqlOptions, views []*analysis.View) error {
 	return err
 }
 
-func insertRowsForAllViews(options *SqlOptions, views []*analysis.View, db *sql.DB) error {
+func insertRowsForAllViews(options *SqlOptions, views []*core.View, db *sql.DB) error {
 	for _, view := range views {
 		chunks := lo.Chunk(view.Rows, 500)
 		for _, chunk := range chunks {
@@ -132,7 +132,7 @@ func insertRowsForAllViews(options *SqlOptions, views []*analysis.View, db *sql.
 	return nil
 }
 
-func deleteExistingReportFromAllTables(reportId string, views []*analysis.View, db *sql.DB) error {
+func deleteExistingReportFromAllTables(reportId string, views []*core.View, db *sql.DB) error {
 	for _, view := range views {
 		_, err := db.Exec("DELETE FROM `"+view.Name+"` WHERE report_id = ?", reportId)
 		if err != nil {
@@ -141,7 +141,7 @@ func deleteExistingReportFromAllTables(reportId string, views []*analysis.View, 
 	}
 	return nil
 }
-func addMissingColumnsForViews(db *sql.DB, views []*analysis.View) error {
+func addMissingColumnsForViews(db *sql.DB, views []*core.View) error {
 	for _, view := range views {
 		err := addMissingColumnsForView(db, view)
 		if err != nil {
@@ -150,7 +150,7 @@ func addMissingColumnsForViews(db *sql.DB, views []*analysis.View) error {
 	}
 	return nil
 }
-func addMissingColumnsForView(db *sql.DB, view *analysis.View) error {
+func addMissingColumnsForView(db *sql.DB, view *core.View) error {
 	// get existing columns
 	rows, err := db.Query("select name from pragma_table_info(?)", view.Name)
 	if err != nil {
@@ -192,8 +192,8 @@ func createDb(options *SqlOptions) (*sql.DB, error) {
 	}
 	return db, nil
 }
-func insertRowsForView(db *sql.DB, name string, columns []*analysis.Column, rows []*analysis.Row, options *SqlOptions) error {
-	extraColumns := []*analysis.Column{analysis.StringColumn("report_id"), analysis.DateColumn("timestamp")}
+func insertRowsForView(db *sql.DB, name string, columns []*core.Column, rows []*core.Row, options *SqlOptions) error {
+	extraColumns := []*core.Column{core.StringColumn("report_id"), core.DateColumn("timestamp")}
 	allColumns := append(columns, extraColumns...)
 
 	valueStrings := make([]string, 0, len(rows))
@@ -213,7 +213,7 @@ func insertRowsForView(db *sql.DB, name string, columns []*analysis.Column, rows
 			default:
 				switch column.Type {
 
-				case analysis.PositionInFile:
+				case core.PositionInFile:
 					position := row.Data[column.Name].(*file.Position)
 					valueArgs = append(valueArgs, fmt.Sprintf("%d:%d", position.Line, position.CharInLine))
 				default:
@@ -224,7 +224,7 @@ func insertRowsForView(db *sql.DB, name string, columns []*analysis.Column, rows
 		}
 	}
 
-	columnNames := lo.Map(allColumns, func(item *analysis.Column, index int) string {
+	columnNames := lo.Map(allColumns, func(item *core.Column, index int) string {
 		return "`" + item.Name + "`"
 	})
 	theSql := "INSERT INTO " + name + " (" + strings.Join(columnNames, ",") + ") VALUES " + strings.Join(valueStrings, ",")
@@ -236,7 +236,7 @@ func insertRowsForView(db *sql.DB, name string, columns []*analysis.Column, rows
 	return nil
 }
 
-func ensureAllTablesExist(views []*analysis.View, db *sql.DB) error {
+func ensureAllTablesExist(views []*core.View, db *sql.DB) error {
 	for _, view := range views {
 		err := ensureTableExists(db, view)
 
@@ -246,7 +246,7 @@ func ensureAllTablesExist(views []*analysis.View, db *sql.DB) error {
 	}
 	return nil
 }
-func ensureTableExists(db *sql.DB, view *analysis.View) error {
+func ensureTableExists(db *sql.DB, view *core.View) error {
 
 	ddl := tableDDL(view)
 	_, err := db.Exec(ddl)
@@ -256,31 +256,31 @@ func ensureTableExists(db *sql.DB, view *analysis.View) error {
 	return nil
 }
 
-func tableDDL(view *analysis.View) string {
+func tableDDL(view *core.View) string {
 	return "CREATE TABLE IF NOT EXISTS `" + view.Name + "` (" + columnsDDL(view) + ", report_id TEXT, timestamp DATE)"
 }
 
-func columnsDDL(view *analysis.View) string {
-	columnDDLStrings := lo.Map(view.Columns, func(column *analysis.Column, index int) string {
+func columnsDDL(view *core.View) string {
+	columnDDLStrings := lo.Map(view.Columns, func(column *core.Column, index int) string {
 		return columnDDL(column)
 	})
 
 	return strings.Join(columnDDLStrings, ",")
 }
 
-func columnDDL(column *analysis.Column) string {
+func columnDDL(column *core.Column) string {
 	return "`" + column.Name + "` " + columnTypeDDL(column)
 }
 
-func columnTypeDDL(column *analysis.Column) string {
+func columnTypeDDL(column *core.Column) string {
 	switch column.Type {
-	case analysis.String:
+	case core.String:
 		return "TEXT"
-	case analysis.Float:
+	case core.Float:
 		return "REAL"
-	case analysis.Date:
+	case core.Date:
 		return "DATE"
-	case analysis.PositionInFile:
+	case core.PositionInFile:
 		return "TEXT"
 	default:
 		return "INTEGER"

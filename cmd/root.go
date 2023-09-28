@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"context"
-	"github.com/RyanSusana/archstats/analysis"
 	"github.com/RyanSusana/archstats/cmd/common"
 	"github.com/RyanSusana/archstats/cmd/export"
 	"github.com/RyanSusana/archstats/cmd/view"
+	"github.com/RyanSusana/archstats/core"
 	"github.com/spf13/cobra"
 	"io"
 )
@@ -27,7 +27,7 @@ func Cmd() *cobra.Command {
 	return cmd
 }
 
-func Execute(outStream, errorStream io.Writer, extensions []analysis.Extension, args []string) error {
+func Execute(outStream, errorStream io.Writer, extensions []core.Extension, args []string) error {
 	rootCmd := Cmd()
 	rootCmd.SetArgs(args)
 	rootCmd.SetOut(outStream)

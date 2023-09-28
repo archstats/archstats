@@ -1,8 +1,8 @@
 package git
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/RyanSusana/archstats/core"
+	"github.com/RyanSusana/archstats/core/file"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/samber/lo"
@@ -25,9 +25,9 @@ type Extension struct {
 	commitParts []*partOfCommit
 }
 
-func (e *Extension) Init(settings analysis.Analyzer) error {
+func (e *Extension) Init(settings core.Analyzer) error {
 	settings.RegisterResultsEditor(e)
-	settings.RegisterView(&analysis.ViewFactory{
+	settings.RegisterView(&core.ViewFactory{
 		Name:           "git",
 		CreateViewFunc: e.gitViewFactory,
 	})
@@ -45,7 +45,7 @@ func (e *Extension) Init(settings analysis.Analyzer) error {
 	return nil
 }
 
-func (e *Extension) EditResults(results *analysis.Results) {
+func (e *Extension) EditResults(results *core.Results) {
 	for _, part := range e.commitParts {
 		part.component = results.FileToComponent[part.file]
 	}
@@ -57,27 +57,27 @@ func (e *Extension) EditResults(results *analysis.Results) {
 	}))
 }
 
-func (e *Extension) gitViewFactory(*analysis.Results) *analysis.View {
-	return &analysis.View{
+func (e *Extension) gitViewFactory(*core.Results) *core.View {
+	return &core.View{
 		Name: "git",
-		Columns: []*analysis.Column{
-			analysis.StringColumn("component"),
-			analysis.StringColumn("commit"),
-			analysis.DateColumn("time"),
-			analysis.StringColumn("file"),
-			analysis.StringColumn("author"),
-			analysis.StringColumn("author_email"),
-			analysis.StringColumn("message"),
-			analysis.IntColumn("additions"),
-			analysis.IntColumn("deletions"),
+		Columns: []*core.Column{
+			core.StringColumn("component"),
+			core.StringColumn("commit"),
+			core.DateColumn("time"),
+			core.StringColumn("file"),
+			core.StringColumn("author"),
+			core.StringColumn("author_email"),
+			core.StringColumn("message"),
+			core.IntColumn("additions"),
+			core.IntColumn("deletions"),
 		},
 		Rows: commitPartToRows(e.commitParts),
 	}
 }
 
-func commitPartToRows(parts []*partOfCommit) []*analysis.Row {
-	return lo.Map(parts, func(part *partOfCommit, _ int) *analysis.Row {
-		return &analysis.Row{
+func commitPartToRows(parts []*partOfCommit) []*core.Row {
+	return lo.Map(parts, func(part *partOfCommit, _ int) *core.Row {
+		return &core.Row{
 			Data: map[string]interface{}{
 				"component":    part.component,
 				"commit":       part.commit,

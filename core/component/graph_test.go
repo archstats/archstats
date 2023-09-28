@@ -2,7 +2,7 @@ package component
 
 import (
 	_ "embed"
-	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/RyanSusana/archstats/core/file"
 	"github.com/stretchr/testify/assert"
 	"gonum.org/v1/gonum/graph/topo"
 	"sort"

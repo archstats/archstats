@@ -1,20 +1,20 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/component"
+	"github.com/RyanSusana/archstats/core"
+	"github.com/RyanSusana/archstats/core/component"
 	"github.com/samber/lo"
 )
 
-func componentConnectionsView(results *analysis.Results) *analysis.View {
+func componentConnectionsView(results *core.Results) *core.View {
 	groupedConnections := lo.GroupBy(results.Connections, func(connection *component.Connection) string {
 		return connection.From + ":" + connection.File + " -> " + connection.To
 	})
 
-	var rows []*analysis.Row
+	var rows []*core.Row
 	for _, connections := range groupedConnections {
 		connection := connections[0]
-		rows = append(rows, &analysis.Row{
+		rows = append(rows, &core.Row{
 			Data: map[string]interface{}{
 				"from":            connection.From,
 				"to":              connection.To,
@@ -24,13 +24,13 @@ func componentConnectionsView(results *analysis.Results) *analysis.View {
 		})
 	}
 
-	return &analysis.View{
+	return &core.View{
 		Name: "component_connections",
-		Columns: []*analysis.Column{
-			analysis.StringColumn("from"),
-			analysis.StringColumn("to"),
-			analysis.StringColumn("file"),
-			analysis.IntColumn("reference_count"),
+		Columns: []*core.Column{
+			core.StringColumn("from"),
+			core.StringColumn("to"),
+			core.StringColumn("file"),
+			core.IntColumn("reference_count"),
 		},
 		Rows: rows,
 	}

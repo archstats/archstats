@@ -1,7 +1,7 @@
 package component
 
 import (
-	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/RyanSusana/archstats/core/file"
 )
 
 // Connection is a connection between two components.

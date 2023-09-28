@@ -3,8 +3,8 @@ package e2eTest
 import (
 	"bytes"
 	"fmt"
-	"github.com/RyanSusana/archstats/analysis"
 	"github.com/RyanSusana/archstats/cmd"
+	"github.com/RyanSusana/archstats/core"
 	"github.com/RyanSusana/archstats/extensions/regex"
 	"github.com/jszwec/csvutil"
 	"github.com/stretchr/testify/assert"
@@ -81,7 +81,7 @@ func simpleComponentsTest[T any](t *testing.T, view string, columns string, expe
 	output := bytes.NewBufferString("")
 
 	//cmd.Reset()
-	cmd.Execute(output, bytes.NewBufferString(""), []analysis.Extension{
+	cmd.Execute(output, bytes.NewBufferString(""), []core.Extension{
 		ext,
 	}, []string{"-c", columns, "-o", "csv", "-f", "simple_components", "view", view}) //"-c", "name,afferent_couplings,efferent_couplings",
 

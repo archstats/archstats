@@ -1,8 +1,8 @@
 package regex
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/RyanSusana/archstats/core"
+	"github.com/RyanSusana/archstats/core/file"
 	"github.com/gobwas/glob"
 	"regexp"
 )
@@ -20,7 +20,7 @@ type Extension struct {
 	Patterns  []*regexp.Regexp
 }
 
-func (s *Extension) Init(a analysis.Analyzer) error {
+func (s *Extension) Init(a core.Analyzer) error {
 	a.RegisterFileAnalyzer(s)
 	return nil
 }

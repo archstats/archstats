@@ -1,23 +1,23 @@
 package cycles
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 )
 
-func Extension() analysis.Extension {
+func Extension() core.Extension {
 	return &extension{}
 }
 
 type extension struct {
 }
 
-func (v *extension) Init(settings analysis.Analyzer) error {
-	settings.RegisterView(&analysis.ViewFactory{
+func (v *extension) Init(settings core.Analyzer) error {
+	settings.RegisterView(&core.ViewFactory{
 		Name:           "all_component_cycles",
 		CreateViewFunc: allComponentCyclesView,
 	})
 
-	settings.RegisterView(&analysis.ViewFactory{
+	settings.RegisterView(&core.ViewFactory{
 		Name:           "largest_component_cycle",
 		CreateViewFunc: largestComponentCycleView,
 	})

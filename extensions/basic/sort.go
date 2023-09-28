@@ -1,13 +1,13 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 	"github.com/samber/lo"
 	"sort"
 )
 
-func SortRows(columnName string, resultsFromCommand *analysis.View) {
-	column, columnFound := lo.Find(resultsFromCommand.Columns, func(column *analysis.Column) bool {
+func SortRows(columnName string, resultsFromCommand *core.View) {
+	column, columnFound := lo.Find(resultsFromCommand.Columns, func(column *core.Column) bool {
 		return column.Name == columnName
 	})
 
@@ -26,14 +26,14 @@ func SortRows(columnName string, resultsFromCommand *analysis.View) {
 	sort.Slice(resultsFromCommand.Rows, lessFunc)
 }
 
-func getLessFunc(resultsFromCommand []*analysis.Row, column *analysis.Column) func(i int, j int) bool {
+func getLessFunc(resultsFromCommand []*core.Row, column *core.Column) func(i int, j int) bool {
 	columnName := column.Name
 	switch column.Type {
-	case analysis.String:
+	case core.String:
 		return func(i, j int) bool {
 			return resultsFromCommand[i].Data[columnName].(string) < resultsFromCommand[j].Data[columnName].(string)
 		}
-	case analysis.Float:
+	case core.Float:
 		return func(i, j int) bool {
 			return resultsFromCommand[i].Data[columnName].(float64) > resultsFromCommand[j].Data[columnName].(float64)
 		}

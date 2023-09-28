@@ -3,8 +3,8 @@ package indentations
 import (
 	"bufio"
 	"bytes"
-	"github.com/RyanSusana/archstats/analysis"
-	"github.com/RyanSusana/archstats/analysis/file"
+	"github.com/RyanSusana/archstats/core"
+	"github.com/RyanSusana/archstats/core/file"
 	"strings"
 )
 
@@ -14,17 +14,17 @@ const (
 	Avg   = "indentation_avg"
 )
 
-func Extension() analysis.Extension {
+func Extension() core.Extension {
 	return &extension{}
 }
 
 type extension struct{}
 
-func (i *extension) typeAssertions() (analysis.Extension, analysis.FileAnalyzer) {
+func (i *extension) typeAssertions() (core.Extension, core.FileAnalyzer) {
 	return i, i
 }
 
-func (i *extension) Init(settings analysis.Analyzer) error {
+func (i *extension) Init(settings core.Analyzer) error {
 	settings.RegisterFileAnalyzer(i)
 	settings.RegisterStatAccumulator(Max, maxAccumulator)
 	settings.RegisterStatAccumulator(Avg, avgAccumulator)

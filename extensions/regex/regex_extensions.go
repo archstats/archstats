@@ -3,7 +3,7 @@ package regex
 import (
 	_ "embed"
 	"errors"
-	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/core"
 	"github.com/gobwas/glob"
 	"gopkg.in/yaml.v3"
 	"regexp"
@@ -12,7 +12,7 @@ import (
 //go:embed regex_extensions.yaml
 var regexExtensionsRaw []byte
 
-var regexExtensions map[string]analysis.Extension
+var regexExtensions map[string]core.Extension
 
 type embeddedExtensionDefinition struct {
 	FileGlob  string   `yaml:"file_glob"`
@@ -26,7 +26,7 @@ type ExtensionYamlFile struct {
 func init() {
 	regexExtensionsConfig := &ExtensionYamlFile{}
 	yaml.Unmarshal(regexExtensionsRaw, regexExtensionsConfig)
-	regexExtensions = make(map[string]analysis.Extension)
+	regexExtensions = make(map[string]core.Extension)
 	for lang, extension := range regexExtensionsConfig.Extensions {
 		var patterns []*regexp.Regexp
 		for _, pattern := range extension.Patterns {
@@ -41,7 +41,7 @@ func init() {
 
 	}
 }
-func BuiltInRegexExtension(extension string) (analysis.Extension, error) {
+func BuiltInRegexExtension(extension string) (core.Extension, error) {
 	ext, has := regexExtensions[extension]
 	if has {
 		return ext, nil
