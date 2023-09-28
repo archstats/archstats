@@ -20,6 +20,12 @@ func FourTabs() *Extension {
 	}
 }
 
+func TwoTabs() *Extension {
+	return &Extension{
+		SpacesInTab: 2,
+	}
+}
+
 type Extension struct {
 	SpacesInTab int
 }
