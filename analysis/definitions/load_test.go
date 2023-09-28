@@ -16,6 +16,6 @@ func TestLoadYamlFiles(t *testing.T) {
 		return
 	}
 
-	assert.Len(t, definitions, 4)
+	assert.Len(t, definitions, 3)
 
 }

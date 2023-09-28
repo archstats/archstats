@@ -2,10 +2,12 @@ package regex
 
 import (
 	"github.com/stretchr/testify/assert"
+	"io/fs"
 	"os"
 	"regexp"
 	"sort"
 	"testing"
+	"time"
 )
 
 func TestRegexBasedSnippetsProvider_GetSnippetsFromFile(t *testing.T) {
@@ -74,6 +76,36 @@ function function1(){
 type fakeFile struct {
 	name    string
 	content string
+}
+
+func (f *fakeFile) Name() string {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) Size() int64 {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) Mode() fs.FileMode {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) ModTime() time.Time {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) IsDir() bool {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) Sys() any {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (f *fakeFile) Path() string {

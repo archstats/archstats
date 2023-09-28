@@ -20,53 +20,55 @@ const (
 	FlagReportId = "report-id"
 )
 
-var Command = &cobra.Command{
-	Use:   "sqlite",
-	Short: "Export data to an SQLite database",
-	Long:  `Export data to an SQLite database`,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+func Cmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "sqlite",
+		Short: "Export data to an SQLite database",
+		Long:  `Export data to an SQLite database`,
+		Args:  cobra.ExactArgs(1),
 
-		reportId, _ := cmd.Flags().GetString(FlagReportId)
-		results, _ := common.Analyze(cmd)
-		var reportDate time.Time
+		RunE: func(cmd *cobra.Command, args []string) error {
 
-		reportDate = time.Now()
+			reportId, _ := cmd.Flags().GetString(FlagReportId)
+			results, _ := common.Analyze(cmd)
+			var reportDate time.Time
 
-		viewsToShow := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
-			return vf.Name
-		})
+			reportDate = time.Now()
 
-		allViews := make(map[string]*analysis.View)
+			viewsToShow := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+				return vf.Name
+			})
 
-		for _, viewName := range viewsToShow {
-			view, err := results.RenderView(viewName)
+			allViews := make(map[string]*analysis.View)
+
+			for _, viewName := range viewsToShow {
+				view, err := results.RenderView(viewName)
+				if err != nil {
+					return err
+				}
+				allViews[viewName] = view
+			}
+
+			dbPath := args[0]
+
+			viewSlice := lo.MapToSlice(allViews, func(viewName string, view *analysis.View) *analysis.View {
+				return view
+			})
+			err := SaveToDB(&SqlOptions{
+				DatabaseName: dbPath,
+				ReportId:     reportId,
+				ScanTime:     reportDate,
+			}, viewSlice)
 			if err != nil {
 				return err
 			}
-			allViews[viewName] = view
-		}
 
-		dbPath := args[0]
+			return nil
+		},
+	}
+	cmd.Flags().String(FlagReportId, "", "The report id")
 
-		viewSlice := lo.MapToSlice(allViews, func(viewName string, view *analysis.View) *analysis.View {
-			return view
-		})
-		err := SaveToDB(&SqlOptions{
-			DatabaseName: dbPath,
-			ReportId:     reportId,
-			ScanTime:     reportDate,
-		}, viewSlice)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	},
-}
-
-func init() {
-	Command.Flags().String(FlagReportId, "", "The report id")
+	return cmd
 }
 
 type SqlOptions struct {

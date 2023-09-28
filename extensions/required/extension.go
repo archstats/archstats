@@ -13,6 +13,5 @@ type requiredExtensions struct {
 
 func (r *requiredExtensions) Init(settings analysis.Analyzer) error {
 	settings.RegisterFileResultsEditor(&componentLinker{})
-	settings.RegisterFileResultsEditor(&rootPathStripper{root: settings.RootPath()})
 	return nil
 }

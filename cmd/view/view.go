@@ -1,9 +1,10 @@
-package cmd
+package view
 
 import (
 	"encoding/json"
 	"fmt"
 	"github.com/RyanSusana/archstats/analysis"
+	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/RyanSusana/archstats/cmd/common"
 	"github.com/RyanSusana/archstats/extensions/basic"
 	"github.com/ryanuber/columnize"
@@ -15,57 +16,56 @@ import (
 	"strings"
 )
 
-var viewCmd = &cobra.Command{
-	Use:          "view <view>",
-	Short:        "View data",
-	Long:         `View data`,
-	Args:         cobra.ExactArgs(1),
-	SilenceUsage: true,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		cmd.AddCommand(exportCmd)
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		results, err := common.Analyze(cmd)
-		if err != nil {
-			return err
-		}
+func Cmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "view <view>",
+		Short:        "View data",
+		Long:         `View data`,
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
+		PreRun: func(cmd *cobra.Command, args []string) {
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			results, err := common.Analyze(cmd)
+			if err != nil {
+				return err
+			}
 
-		view := args[0]
-		availableViews := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
-			return vf.Name
-		})
-		if !slices.Contains(availableViews, view) {
-			viewStrings := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
-				return fmt.Sprintf("  - %s", vf.Name)
+			view := args[0]
+			availableViews := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+				return vf.Name
 			})
-			sort.Strings(viewStrings)
-			availableViewsString := strings.Join(viewStrings, "\n")
-			return fmt.Errorf("no view named '%s'. Available views:\n%s", view, availableViewsString)
-		}
-		sortedBy, err := cmd.Flags().GetString("sorted-by")
-		if err != nil {
+			if !slices.Contains(availableViews, view) {
+				viewStrings := lo.Map(results.GetViewFactories(), func(vf *analysis.ViewFactory, index int) string {
+					return fmt.Sprintf("  - %s", vf.Name)
+				})
+				sort.Strings(viewStrings)
+				availableViewsString := strings.Join(viewStrings, "\n")
+				return fmt.Errorf("no view named '%s'. Available views:\n%s", view, availableViewsString)
+			}
+			sortedBy, err := cmd.Flags().GetString("sorted-by")
+			if err != nil {
+				return err
+			}
+
+			resultsFromCommand, err := results.RenderView(view)
+			if err != nil {
+				return err
+			}
+
+			basic.SortRows(sortedBy, resultsFromCommand)
+			str, err := outputString(resultsFromCommand, cmd)
+
+			_, err = io.WriteString(cmd.OutOrStdout(), str)
+
 			return err
-		}
-
-		resultsFromCommand, err := results.RenderView(view)
-		if err != nil {
-			return err
-		}
-
-		basic.SortRows(sortedBy, resultsFromCommand)
-		str, err := outputString(resultsFromCommand, cmd)
-
-		_, err = io.WriteString(cmd.OutOrStdout(), str)
-
-		return err
-	},
-}
-
-func init() {
-	viewCmd.Flags().StringSliceP("column", "c", []string{}, "When this option is present, it will only show columns in the comma-separated list of columns.")
-	viewCmd.Flags().Bool("no-header", false, "No header (only applicable for csv, tsv, table)")
-	viewCmd.Flags().String("sorted-by", "", "Sort by <column>. For number based columns, this is in descending order.")
-	viewCmd.Flags().StringP("output-format", "o", "table", "Output format")
+		},
+	}
+	cmd.Flags().StringSliceP("column", "c", []string{}, "When this option is present, it will only show columns in the comma-separated list of columns.")
+	cmd.Flags().Bool("no-header", false, "No header (only applicable for csv, tsv, table)")
+	cmd.Flags().String("sorted-by", "", "Sort by <column>. For number based columns, this is in descending order.")
+	cmd.Flags().StringP("output-format", "o", "table", "Output format")
+	return cmd
 }
 
 type rowData map[string]interface{}
@@ -177,10 +177,20 @@ func rowToString(columnsToPrint []*analysis.Column, delimiter string, row *analy
 	for _, columnToPrint := range columnsToPrint {
 		theStat, hasStat := columns[columnToPrint.Name]
 		if hasStat {
-			toReturn = append(toReturn, fmt.Sprintf("%v", theStat))
+			toReturn = append(toReturn, toString(theStat))
 		} else {
 			toReturn = append(toReturn, "-")
 		}
 	}
 	return strings.Join(toReturn, delimiter)
+}
+
+func toString(theStat interface{}) string {
+	switch theStat.(type) {
+	case *file.Position:
+		position := theStat.(*file.Position)
+		return position.String()
+	default:
+		return fmt.Sprintf("%v", theStat)
+	}
 }

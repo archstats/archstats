@@ -29,7 +29,6 @@ func (e *Extension) Init(settings analysis.Analyzer) error {
 	settings.RegisterResultsEditor(e)
 	settings.RegisterView(&analysis.ViewFactory{
 		Name:           "git",
-		Description:    "Git statistics",
 		CreateViewFunc: e.gitViewFactory,
 	})
 

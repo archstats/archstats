@@ -1,6 +1,9 @@
 package file
 
-import "github.com/samber/lo"
+import (
+	"fmt"
+	"github.com/samber/lo"
+)
 
 // Position in a file. Only the offset is required.
 type Position struct {
@@ -10,6 +13,10 @@ type Position struct {
 	Line int
 	// The character position in the line. This value is not always available, and is calculated from the offset.
 	CharInLine int
+}
+
+func (p *Position) String() string {
+	return fmt.Sprintf("%d:%d (%d)", p.Line, p.CharInLine, p.Offset)
 }
 
 func AddLineNumberAndCharInLineToSnippets(theFile []byte, snippets []*Snippet) {
@@ -23,12 +30,12 @@ func AddLineNumberAndCharInLineToPositions(theFile []byte, positions []*Position
 
 	for i, b := range theFile {
 		if i == len(theFile)-1 {
-			// Reached the end of the byte slice, set remaining positions to -1
+			// Reached the end of the byte slice, set remaining positions to end of file
 			for _, pos := range positions {
 				if pos.Line == 0 {
 					// Set Line and CharInLine to -1 for positions that haven't been calculated
-					pos.Line = -1
-					pos.CharInLine = -1
+					pos.Line = lineNumber
+					pos.CharInLine = charPosition
 				}
 			}
 			break

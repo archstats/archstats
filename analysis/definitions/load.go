@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-func LoadYamlFiles(fsys fs.ReadFileFS) ([]Definition, error) {
-	var definitions []Definition
+func LoadYamlFiles(fsys fs.ReadFileFS) ([]*Definition, error) {
+	var definitions []*Definition
 
 	fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -18,11 +18,11 @@ func LoadYamlFiles(fsys fs.ReadFileFS) ([]Definition, error) {
 		}
 
 		if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
-			defs, err := LoadYamlFile(fsys, path)
+			def, err := LoadYamlFile(fsys, path)
 			if err != nil {
 				return err
 			}
-			definitions = append(definitions, defs...)
+			definitions = append(definitions, def)
 
 		}
 		return nil
@@ -30,18 +30,18 @@ func LoadYamlFiles(fsys fs.ReadFileFS) ([]Definition, error) {
 	return definitions, nil
 }
 
-func LoadYamlFile(fsys fs.ReadFileFS, path string) ([]Definition, error) {
+func LoadYamlFile(fsys fs.ReadFileFS, path string) (*Definition, error) {
 	file, err := fsys.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var definitions []Definition
+	var definitions Definition
 
 	err = yaml.Unmarshal(file, &definitions)
 	if err != nil {
 		return nil, err
 	}
 
-	return definitions, nil
+	return &definitions, nil
 }

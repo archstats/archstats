@@ -22,11 +22,11 @@ func allComponentCyclesView(results *analysis.Results) *analysis.View {
 			predecessor := theCycle[wrapIndex(componentIndex-1, len(theCycle))]
 			rows = append(rows, &analysis.Row{
 				Data: map[string]interface{}{
-					"cycle_nr":    cycleNr,
-					"cycle_size":  len(theCycle),
-					"component":   theGraph.IdToComponent(component.ID()),
-					"successor":   theGraph.IdToComponent(successor.ID()),
-					"predecessor": theGraph.IdToComponent(predecessor.ID()),
+					"cycle_nr":          cycleNr + 1,
+					"cycle_size":        len(theCycle),
+					"component":         theGraph.IdToComponent(component.ID()),
+					"cycle_successor":   theGraph.IdToComponent(successor.ID()),
+					"cycle_predecessor": theGraph.IdToComponent(predecessor.ID()),
 				},
 			})
 		}
@@ -37,8 +37,8 @@ func allComponentCyclesView(results *analysis.Results) *analysis.View {
 			analysis.IntColumn("cycle_nr"),
 			analysis.IntColumn("cycle_size"),
 			analysis.StringColumn("component"),
-			analysis.StringColumn("successor"),
-			analysis.StringColumn("predecessor"),
+			analysis.StringColumn("cycle_successor"),
+			analysis.StringColumn("cycle_predecessor"),
 		},
 		Rows: rows,
 	}

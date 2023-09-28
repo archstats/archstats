@@ -39,10 +39,10 @@ func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(fil
 }
 
 func GetAllFiles(dirAbsolutePath string) []PathToFile {
-	return getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, ignoreContext{}, nil)
+	return getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, ignoreContext{})
 }
 
-func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ignoreCtx ignoreContext, shouldAdd func(info fs.DirEntry) bool) []PathToFile {
+func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []PathToFile {
 	separator := string(filepath.Separator)
 
 	dirAbsolutePath = filepath.Clean(dirAbsolutePath)
@@ -57,14 +57,14 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 	gitIgnore := ignoreCtx.getGitIgnore()
 	for _, entry := range files {
 		path := dirAbsolutePath + separator + entry.Name()
-		if shouldIgnore(path, gitIgnore) {
-			continue
-		}
 
 		if entry.IsDir() {
 			path += separator
-			fileDescriptions = append(fileDescriptions, getAllFiles(fileSystem, path, depth+1, ignoreCtx, shouldAdd)...)
-		} else if shouldAdd == nil || shouldAdd(entry) {
+			fileDescriptions = append(fileDescriptions, getAllFiles(fileSystem, path, depth+1, ignoreCtx)...)
+		} else {
+			if shouldIgnore(path, gitIgnore) {
+				continue
+			}
 			info, err := entry.Info()
 			// What could go wrong :D
 			if err == nil {

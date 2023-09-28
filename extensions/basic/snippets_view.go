@@ -8,25 +8,23 @@ func snippetsView(results *analysis.Results) *analysis.View {
 	for _, snippet := range results.Snippets {
 		toReturn = append(toReturn, &analysis.Row{
 			Data: map[string]interface{}{
-				"file":      snippet.File,
-				"directory": snippet.Directory,
-				"component": snippet.Component,
-				"type":      snippet.Type,
-				"begin":     snippet.Begin,
-				"end":       snippet.End,
-				"value":     snippet.Value,
+				"file":           snippet.File,
+				"component":      snippet.Component,
+				"snippet_type":   snippet.Type,
+				"begin_position": snippet.Begin,
+				"end_position":   snippet.End,
+				"content":        snippet.Value,
 			},
 		})
 	}
 	return &analysis.View{
 		Columns: []*analysis.Column{
-			analysis.StringColumn("value"),
+			analysis.StringColumn("content"),
 			analysis.StringColumn("file"),
-			analysis.StringColumn("directory"),
 			analysis.StringColumn("component"),
-			analysis.StringColumn("type"),
-			analysis.PositionInFileColumn("begin"),
-			analysis.PositionInFileColumn("end"),
+			analysis.StringColumn("snippet_type"),
+			analysis.PositionInFileColumn("begin_position"),
+			analysis.PositionInFileColumn("end_position"),
 		},
 		Rows: toReturn,
 	}

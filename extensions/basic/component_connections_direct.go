@@ -16,10 +16,10 @@ func componentConnectionsView(results *analysis.Results) *analysis.View {
 		connection := connections[0]
 		rows = append(rows, &analysis.Row{
 			Data: map[string]interface{}{
-				"from":  connection.From,
-				"to":    connection.To,
-				"file":  connection.File,
-				"count": len(connections),
+				"from":            connection.From,
+				"to":              connection.To,
+				"file":            connection.File,
+				"reference_count": len(connections),
 			},
 		})
 	}
@@ -30,7 +30,7 @@ func componentConnectionsView(results *analysis.Results) *analysis.View {
 			analysis.StringColumn("from"),
 			analysis.StringColumn("to"),
 			analysis.StringColumn("file"),
-			analysis.IntColumn("count"),
+			analysis.IntColumn("reference_count"),
 		},
 		Rows: rows,
 	}

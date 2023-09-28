@@ -4,9 +4,11 @@ import (
 	"github.com/RyanSusana/archstats/analysis/file"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestIndentationLogic(t *testing.T) {
@@ -61,6 +63,36 @@ func TestMax(t *testing.T) {
 
 type fakeFile struct {
 	content []byte
+}
+
+func (f *fakeFile) Name() string {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) Size() int64 {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) Mode() fs.FileMode {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) ModTime() time.Time {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) IsDir() bool {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *fakeFile) Sys() any {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (f *fakeFile) Path() string {
