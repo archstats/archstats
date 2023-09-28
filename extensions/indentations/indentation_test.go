@@ -42,7 +42,7 @@ func TestFileInput(t *testing.T) {
 		return
 	}
 
-	analyzer := Extension{}
+	analyzer := FourTabs()
 
 	results := analyzer.AnalyzeFile(&fakeFile{
 		content: content,
