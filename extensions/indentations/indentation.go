@@ -15,10 +15,14 @@ const (
 )
 
 func Extension() core.Extension {
-	return &extension{}
+	return &extension{
+		SpacesInTab: 4,
+	}
 }
 
-type extension struct{}
+type extension struct {
+	SpacesInTab int
+}
 
 func (i *extension) typeAssertions() (core.Extension, core.FileAnalyzer) {
 	return i, i
@@ -57,8 +61,6 @@ func (i *extension) AnalyzeFile(theFile file.File) *file.Results {
 
 	fileReader := bufio.NewReader(bytesReader)
 
-	fileReader.ReadBytes('\n')
-
 	var maxIndentations int
 	var totalIndentation int
 	var lineCount int
@@ -68,7 +70,7 @@ func (i *extension) AnalyzeFile(theFile file.File) *file.Results {
 		if err != nil {
 			break
 		}
-		indentation := getLeadingIndentation(line)
+		indentation := i.getLeadingIndentation(line)
 		totalIndentation += indentation
 		if indentation > maxIndentations {
 			maxIndentations = indentation
@@ -101,8 +103,8 @@ type indentationStat struct {
 	lines       int
 }
 
-func getLeadingIndentation(line []byte) int {
-	lineTabs := strings.ReplaceAll(string(line), "    ", "\t")
+func (i *extension) getLeadingIndentation(line []byte) int {
+	lineTabs := strings.ReplaceAll(string(line), strings.Repeat(" ", i.SpacesInTab), "\t")
 	indentation := 0
 	for _, char := range lineTabs {
 		if char == '\t' {
