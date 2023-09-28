@@ -14,21 +14,21 @@ const (
 	Avg   = "indentation_avg"
 )
 
-func Extension() core.Extension {
-	return &extension{
+func FourTabs() *Extension {
+	return &Extension{
 		SpacesInTab: 4,
 	}
 }
 
-type extension struct {
+type Extension struct {
 	SpacesInTab int
 }
 
-func (i *extension) typeAssertions() (core.Extension, core.FileAnalyzer) {
+func (i *Extension) typeAssertions() (core.Extension, core.FileAnalyzer) {
 	return i, i
 }
 
-func (i *extension) Init(settings core.Analyzer) error {
+func (i *Extension) Init(settings core.Analyzer) error {
 	settings.RegisterFileAnalyzer(i)
 	settings.RegisterStatAccumulator(Max, maxAccumulator)
 	settings.RegisterStatAccumulator(Avg, avgAccumulator)
@@ -56,7 +56,7 @@ func avgAccumulator(indentations []interface{}) interface{} {
 	return allIndentations / allLines
 }
 
-func (i *extension) AnalyzeFile(theFile file.File) *file.Results {
+func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	bytesReader := bytes.NewReader(theFile.Content())
 
 	fileReader := bufio.NewReader(bytesReader)
@@ -103,7 +103,7 @@ type indentationStat struct {
 	lines       int
 }
 
-func (i *extension) getLeadingIndentation(line []byte) int {
+func (i *Extension) getLeadingIndentation(line []byte) int {
 	lineTabs := strings.ReplaceAll(string(line), strings.Repeat(" ", i.SpacesInTab), "\t")
 	indentation := 0
 	for _, char := range lineTabs {

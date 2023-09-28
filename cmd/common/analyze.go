@@ -63,7 +63,7 @@ func optionalExtension(in string) (core.Extension, error) {
 	case "cycles":
 		return cycles.Extension(), nil
 	case "indentations":
-		return indentations.Extension(), nil
+		return indentations.FourTabs(), nil
 	default:
 		return regex.BuiltInRegexExtension(in)
 	}

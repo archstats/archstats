@@ -27,9 +27,10 @@ func TestIndentationLogic(t *testing.T) {
 		{"2 tabs", "\t\ttestIndentation", 2},
 		{"3 tabs", "\t\t\ttestIndentation", 3},
 	}
+	ext := FourTabs()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, getLeadingIndentation([]byte(test.in)), test.want)
+			assert.Equal(t, ext.getLeadingIndentation([]byte(test.in)), test.want)
 		})
 	}
 }
@@ -41,7 +42,7 @@ func TestFileInput(t *testing.T) {
 		return
 	}
 
-	analyzer := extension{}
+	analyzer := Extension{}
 
 	results := analyzer.AnalyzeFile(&fakeFile{
 		content: content,
