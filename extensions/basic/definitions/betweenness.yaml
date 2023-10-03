@@ -1,4 +1,4 @@
-id: abstractness
+id: betweenness
 name: Betweenness
 short: |
   The importance of the component for the connectivity of the dependency graph.

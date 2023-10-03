@@ -22,6 +22,8 @@ const (
 	HarmonicCentrality   = "harmonic_centrality"
 	FarnessCentrality    = "farness_centrality"
 	ResidualCloseness    = "residual_closeness"
+	Dependents           = "dependents"
+	Dependencies         = "dependencies"
 )
 
 func componentView(results *core.Results) *core.View {
@@ -46,6 +48,8 @@ func componentView(results *core.Results) *core.View {
 		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
 		distanceMainSequence := math.Abs(abstractness + instability - 1)
 
+		row.Data[Dependents] = len(results.ConnectionsTo[component])
+		row.Data[Dependencies] = len(results.ConnectionsFrom[component])
 		row.Data[AfferentCouplings] = afferentCouplings
 		row.Data[EfferentCouplings] = efferentCouplings
 		row.Data[Instability] = nanToZero(instability)
@@ -59,6 +63,8 @@ func componentView(results *core.Results) *core.View {
 		row.Data[ResidualCloseness] = residualClosenessIndex[componentId]
 	}
 	view.Columns = append(view.Columns,
+		core.IntColumn(Dependents),
+		core.IntColumn(Dependencies),
 		core.IntColumn(AfferentCouplings),
 		core.IntColumn(EfferentCouplings),
 		core.FloatColumn(Instability),
@@ -74,6 +80,7 @@ func componentView(results *core.Results) *core.View {
 
 	return view
 }
+
 func countUniqueFilesInConnections(connections []*component.Connection) int {
 	uniqueFiles := make(map[string]bool)
 	for _, connection := range connections {

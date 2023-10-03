@@ -1,0 +1,30 @@
+id: afferent_couplings
+name: Afferent Couplings
+short: |
+  Afferent coupling is a measure of how much other software packages depend on a package. A higher afferent coupling score means that the package is more tightly coupled to other packages and more likely to affect other packages if it is changed.
+long: |
+  Afferent coupling in software package metrics is a measure of the number of dependencies that other packages have on the package. It is calculated by counting the number of external classes or modules that reference the package.
+
+  A higher afferent coupling score indicates that the package is more tightly coupled to other packages. This means that changes to the package may have unintended consequences for other packages.
+
+  ### Example:
+  Imagine you have a software package that provides a library of mathematical functions. This package is used by many other packages in your software system. If you change the package, it is likely that you will need to update all of the other packages that depend on it. This means that the mathematical functions package has a high afferent coupling score.
+
+  ### Why is afferent coupling important?
+
+  High afferent coupling can make software development more difficult and expensive. When a package has a high afferent coupling score, it means that developers need to be more careful when making changes to that package, as those changes may have unintended consequences for other packages. This can lead to delays and increased costs.
+
+  ### How to reduce afferent coupling
+
+  There are a few things that you can do to reduce the afferent coupling of your software packages:
+
+  - Design your packages so that they are cohesive and self-contained. This means that each package should have a clear responsibility and should not depend on other packages for functionality that is essential to its responsibility.
+  - Avoid exposing internal implementation details of your packages. This will make it less likely that other packages will become dependent on your packages.
+  - Use dependency injection to decouple your packages from each other. This means that your packages should not create or manage their own dependencies. Instead, they should rely on a dependency injection framework to inject their dependencies into them.
+  - By reducing the afferent coupling of your software packages, you can make your software more maintainable and less prone to bugs.
+
+  In general, a package with a high afferent coupling score will also have a high instability score. However, it is possible for a package to have a high afferent coupling score but a low instability score. This is because the package may have a high number of dependencies on other packages, but those dependencies may be weak.
+
+  For example, a package that is used by many other packages to provide logging and error handling services may have a high afferent coupling score. However, these dependencies are likely to be weak, meaning that changes to those packages are unlikely to require changes to the logging and error handling package.
+
+  As a general rule, it is best to minimize both afferent coupling and instability in your software packages. This will make your software more maintainable and less prone to bugs.

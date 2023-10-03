@@ -1,0 +1,31 @@
+id: distance_main_sequence
+name: Distance from the Main Sequence
+short: |
+  Distance from main sequence is a measure of how well-balanced a software package is between abstractness and stability. 
+  A lower distance from main sequence indicates that the package is more well-balanced.
+long: |
+  Distance from main sequence in software package metrics is a measure of how well-balanced a package is between abstractness and stability. It is calculated as the perpendicular distance of the package from the idealized line A + I = 1, where:
+
+  - A is the package's abstractness score, which is calculated as the ratio of the number of abstract types in the package to the total number of types.
+  - I is the package's instability score, which is calculated as the ratio of efferent coupling to total coupling.
+  
+  A package that is squarely on the main sequence has a distance from main sequence of 0. This means that the package is well-balanced between abstractness and stability.
+
+  There are different thresholds, but generally speaking, a package that has a distance from main sequence greater than 0.7 is either too abstract or too unstable. A package that is too abstract is more likely to be fragile and difficult to maintain. A package that is too unstable is more likely to be affected by changes to other packages.
+
+  ### Example:
+  Imagine you have a software package that is responsible for managing customer accounts. This package is well-designed and has a good balance of abstract and concrete classes. The package also has a low number of dependencies on other packages. This means that the package has a low distance from main sequence.
+
+  ### Why is distance from main sequence important?
+
+  Packages that are far from the main sequence are more likely to be difficult to maintain and prone to bugs. Packages that are too abstract may be fragile and difficult to change. Packages that are too unstable may be affected by changes to other packages.
+
+  How to reduce distance from main sequence
+
+  There are a few things that you can do to reduce the distance from main sequence of your software packages:
+
+  - Design your packages to be cohesive and self-contained. This means that each package should have a clear responsibility and should not depend on other packages for functionality that is essential to its responsibility.
+  - Avoid exposing internal implementation details of your packages. This will make it less likely that other packages will become dependent on your packages.
+  - Use dependency injection to decouple your packages from each other. This means that your packages should not create or manage their own dependencies. Instead, they should rely on a dependency injection framework to inject their dependencies into them.
+  
+  By reducing the distance from main sequence of your software packages, you can make your software more maintainable and less prone to bugs.

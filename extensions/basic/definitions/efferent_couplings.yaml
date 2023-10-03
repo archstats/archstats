@@ -1,0 +1,26 @@
+id: efferent_couplings
+name: Efferent Couplings
+short: |
+  Efferent coupling is a measure of how much a software package depends on other packages. 
+  A higher efferent coupling score means that the package is more tightly coupled to other packages \
+  and more likely to be affected by changes to those packages.
+long: |
+  Efferent coupling in software package metrics is a measure of the number of dependencies that a package has on other packages. It is calculated by counting the number of external classes or modules that the package references.
+  
+  A higher efferent coupling score indicates that the package is more tightly coupled to other packages. This means that changes to those packages may require changes to the package as well.
+
+  ### Example:
+  Imagine you have a software package that is responsible for managing customer orders. This package depends on other packages for things like sending emails and managing inventory. If the email package or inventory management package changes, it is likely that the customer order management package will need to change as well. This means that the customer order management package has a high efferent coupling score.
+  
+  ### Why is efferent coupling important?
+  
+  High efferent coupling can make software development more difficult and expensive. When a package has a high efferent coupling score, it means that developers need to be more careful when making changes to that package, as those changes may have unintended consequences for other packages. This can lead to delays and increased costs.
+  
+  ### How to reduce efferent coupling
+  
+  There are a few things that you can do to reduce the efferent coupling of your software packages:
+  
+    - Use abstraction to decouple your packages from each other. This means that your packages should depend on interfaces rather than concrete implementations.
+    - Minimize the number of dependencies that your packages have on other packages.
+    - Use archstats to analyze the coupling between your packages and identify areas where you can reduce coupling.
+    - By reducing the efferent coupling of your software packages, you can make your software more maintainable and less prone to bugs.

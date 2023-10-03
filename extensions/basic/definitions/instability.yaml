@@ -1,0 +1,31 @@
+id: instability
+name: Instability
+short: |
+  Instability is a measure of how much a software component depends on other components. 
+  A higher instability score means that the component is more likely to be affected by changes to other components.
+long: |
+  Instability in software component metrics is a measure of how likely a component is to be affected by changes to other components. It is calculated as the ratio of efferent coupling to total coupling, where:
+
+  The instability of a component is measured by the ratio of efferent coupling (Ce) to total coupling (Ce + Ca) such that I = Ce / (Ce + Ca).
+  Ce = Efferent Coupling: The number of dependencies that the component has on other components.
+  Ca = Afferent Coupling: The number of dependencies that other components have on the component.
+  
+  A higher instability score indicates that the component is more likely to be affected by changes to other components. This is because the component is more tightly coupled to other components, meaning that changes to those components may require changes to the component as well.
+
+  ### Example:
+
+  Imagine you have a software component that is responsible for managing customer accounts. This component depends on other components for things like sending emails and processing payments. If the email component or payment processing component changes, it is likely that the customer account management component will need to change as well. This means that the customer account management component has a high instability score.
+  
+  ### Why is instability important?
+
+  Instability can make software development more difficult and expensive. When a component has a high instability score, it means that developers need to be more careful when making changes to that component, as those changes may have unintended consequences for other components. This can lead to delays and increased costs.
+
+  ### How to reduce instability
+
+  There are a few things that you can do to reduce the instability of your software components:
+
+  - Use abstraction to decouple your components from each other. This means that your components should depend on interfaces rather than concrete implementations.
+  - Minimize the number of dependencies that your components have on other components.
+  - Use tools to analyze the coupling between your components and identify areas where you can reduce coupling.
+  
+  By reducing the instability of your software components, you can make your software more maintainable and less prone to bugs.
