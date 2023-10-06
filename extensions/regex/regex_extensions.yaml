@@ -3,7 +3,7 @@ extensions:
   scala:
     file_glob: "**/*.scala"
     patterns:
-    - package (?P<component_declaration>.*)
+    - package (?P<component_declaration>[a-z0-9_.]*)
     - import (?P<component_import>[a-z0-9_.]*)\.[A-Z]
     - ((abstract.*class)|trait).*(?P<abstract_type>\w+)
     - (class|trait).*(?P<type>\w+)
