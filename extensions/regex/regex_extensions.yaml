@@ -4,7 +4,7 @@ extensions:
     file_glob: "**/*.scala"
     patterns:
     - package (?P<component_declaration>.*)
-    - import (?P<component_import>.*)\.\w+;
+    - import (?P<component_import>[a-z0-9_.]*)\.[A-Z]
     - ((abstract.*class)|trait).*(?P<abstract_type>\w+)
     - (class|trait).*(?P<type>\w+)
     - object (?P<type>\w+)
