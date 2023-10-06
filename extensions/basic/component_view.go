@@ -3,6 +3,7 @@ package basic
 import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/component"
+	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph/network"
 	"gonum.org/v1/gonum/graph/path"
 	"math"
@@ -10,8 +11,8 @@ import (
 
 const (
 	Name                 = "name"
-	AfferentCouplings    = "afferent_couplings"
-	EfferentCouplings    = "efferent_couplings"
+	AfferentCouplings    = "afferent_coupling_count"
+	EfferentCouplings    = "efferent_coupling_count"
 	Instability          = "instability"
 	Abstractness         = "abstractness"
 	DistanceMainSequence = "distance_main_sequence"
@@ -22,8 +23,8 @@ const (
 	HarmonicCentrality   = "harmonic_centrality"
 	FarnessCentrality    = "farness_centrality"
 	ResidualCloseness    = "residual_closeness"
-	Dependents           = "dependents"
-	Dependencies         = "dependencies"
+	Dependents           = "direct_dependent_count"
+	Dependencies         = "direct_dependency_count"
 )
 
 func componentView(results *core.Results) *core.View {
@@ -40,16 +41,20 @@ func componentView(results *core.Results) *core.View {
 	residualClosenessIndex := network.Residual(results.ComponentGraph, allShortestPaths)
 
 	for _, row := range view.Rows {
-		component := row.Data["name"].(string)
-		componentId := graph.ComponentToId(component)
+		componentName := row.Data["name"].(string)
+		componentId := graph.ComponentToId(componentName)
 
-		afferentCouplings, efferentCouplings := countUniqueFilesInConnections(results.ConnectionsTo[component]), countUniqueFilesInConnections(results.ConnectionsFrom[component])
+		afferentCouplings, efferentCouplings := countUniqueFilesInConnections(results.ConnectionsTo[componentName]), countUniqueFilesInConnections(results.ConnectionsFrom[componentName])
 		abstractness := convertToFloat(row.Data["abstractness"])
 		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
 		distanceMainSequence := math.Abs(nanToZero(abstractness) + nanToZero(instability) - 1)
 
-		row.Data[Dependents] = len(results.ConnectionsTo[component])
-		row.Data[Dependencies] = len(results.ConnectionsFrom[component])
+		row.Data[Dependents] = len(lo.UniqBy(results.ConnectionsTo[componentName], func(item *component.Connection) string {
+			return item.From
+		}))
+		row.Data[Dependencies] = len(lo.UniqBy(results.ConnectionsTo[componentName], func(item *component.Connection) string {
+			return item.To
+		}))
 		row.Data[AfferentCouplings] = afferentCouplings
 		row.Data[EfferentCouplings] = efferentCouplings
 		row.Data[Instability] = nanToZero(instability)

@@ -1,9 +1,0 @@
-id: the_id_of_the_metric
-name: The Name of the Metric
-short: |
-  A brief description of the metric. This should be a single paragraph or less.
-long: |
-    A longer description of the metric. This can be multiple paragraphs.
-    You can use Markdown to format the text.
-    You can also use HTML tags.
-    You can also use Markdown and HTML together.

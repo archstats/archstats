@@ -1,0 +1,9 @@
+id: direct_dependency_count
+name: Direct Dependency Count
+short: |
+  The direct dependency count of a component is measured by the number of other components it directly depends on.
+long: |
+    The direct dependency count of a component should be measured as an indicator of the amount of coupling between that component and other components.
+    A component that has a high direct dependency count is more likely to be affected by changes to other components.
+    A component that has a low direct dependency count is more likely to be stable and easy to maintain.
+    The direct dependency count of a component should be balanced by its stability.

@@ -1,0 +1,7 @@
+id: direct_dependent_count
+name: Direct Dependent Count
+short: |
+  The direct dependent count of a component is measured by the number of other components that directly depend on it.
+long: |
+  The direct dependent count of a component is measured by the number of other components that directly depend on it.
+  The direct dependent count of a component should be measured as an indicator of the amount of coupling between that component and other components.
