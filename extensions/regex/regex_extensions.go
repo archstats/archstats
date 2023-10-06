@@ -3,7 +3,7 @@ package regex
 import (
 	_ "embed"
 	"errors"
-	"github.com/RyanSusana/archstats/core"
+	"github.com/archstats/archstats/core"
 	"github.com/gobwas/glob"
 	"gopkg.in/yaml.v3"
 	"regexp"

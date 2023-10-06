@@ -2,8 +2,8 @@ package basic
 
 import (
 	"embed"
-	"github.com/RyanSusana/archstats/core"
-	"github.com/RyanSusana/archstats/core/definitions"
+	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/definitions"
 )
 
 func Extension() core.Extension {

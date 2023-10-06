@@ -1,4 +1,4 @@
-[![Go](https://github.com/RyanSusana/archstats/actions/workflows/ci.yml/badge.svg)](https://github.com/RyanSusana/archstats/actions/workflows/ci.yml)
+[![Go](https://github.com/archstats/archstats/actions/workflows/ci.yml/badge.svg)](https://github.com/archstats/archstats/actions/workflows/ci.yml)
 # Archstats introduction
 Archstats is a command line tool that assists in
 generating [package metrics for software projects](https://en.wikipedia.org/wiki/Software_package_metrics). It's based
@@ -14,7 +14,7 @@ It helps in answering questions like this:
 # Installation
 Archstats is distributed as a [Go module](https://go.dev/blog/using-go-modules). It can be installed like this:
 ```shell
-go install github.com/RyanSusana/archstats@latest
+go install github.com/archstats/archstats@latest
 ```
 
 Make sure that installed Go binaries are on your `PATH`. You can do so by running `go help install` and following the instructions.

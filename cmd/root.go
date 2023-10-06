@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"context"
-	"github.com/RyanSusana/archstats/cmd/common"
-	"github.com/RyanSusana/archstats/cmd/export"
-	"github.com/RyanSusana/archstats/cmd/view"
-	"github.com/RyanSusana/archstats/core"
+	"github.com/archstats/archstats/cmd/common"
+	"github.com/archstats/archstats/cmd/export"
+	"github.com/archstats/archstats/cmd/view"
+	"github.com/archstats/archstats/core"
 	"github.com/spf13/cobra"
 	"io"
 )

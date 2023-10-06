@@ -1,7 +1,7 @@
 package walker
 
 import (
-	"github.com/RyanSusana/archstats/core/file"
+	"github.com/archstats/archstats/core/file"
 	"io/fs"
 	"os"
 	"time"

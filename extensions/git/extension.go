@@ -1,8 +1,8 @@
 package git
 
 import (
-	"github.com/RyanSusana/archstats/core"
-	"github.com/RyanSusana/archstats/core/file"
+	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/file"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/samber/lo"

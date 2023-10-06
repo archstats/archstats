@@ -1,7 +1,7 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/core"
+	"github.com/archstats/archstats/core"
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"

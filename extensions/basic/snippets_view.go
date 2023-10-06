@@ -1,6 +1,6 @@
 package basic
 
-import "github.com/RyanSusana/archstats/core"
+import "github.com/archstats/archstats/core"
 
 // TODO: this is a noisy, not insightful, view. But it's handy for something like `--raw-snippets
 func snippetsView(results *core.Results) *core.View {

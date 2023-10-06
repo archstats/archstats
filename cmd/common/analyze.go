@@ -1,12 +1,12 @@
 package common
 
 import (
-	"github.com/RyanSusana/archstats/core"
-	"github.com/RyanSusana/archstats/extensions/basic"
-	"github.com/RyanSusana/archstats/extensions/cycles"
-	"github.com/RyanSusana/archstats/extensions/indentations"
-	"github.com/RyanSusana/archstats/extensions/regex"
-	"github.com/RyanSusana/archstats/extensions/required"
+	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/extensions/basic"
+	"github.com/archstats/archstats/extensions/cycles"
+	"github.com/archstats/archstats/extensions/indentations"
+	"github.com/archstats/archstats/extensions/regex"
+	"github.com/archstats/archstats/extensions/required"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"path/filepath"

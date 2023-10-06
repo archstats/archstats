@@ -1,8 +1,8 @@
 package regex
 
 import (
-	"github.com/RyanSusana/archstats/core"
-	"github.com/RyanSusana/archstats/core/file"
+	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/file"
 	"github.com/gobwas/glob"
 	"regexp"
 )

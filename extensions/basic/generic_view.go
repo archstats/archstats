@@ -1,8 +1,8 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/core"
-	"github.com/RyanSusana/archstats/core/file"
+	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/file"
 	"golang.org/x/exp/slices"
 	"math"
 	"sort"

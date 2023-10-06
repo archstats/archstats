@@ -1,7 +1,7 @@
 package cycles
 
 import (
-	"github.com/RyanSusana/archstats/core"
+	"github.com/archstats/archstats/core"
 	"gonum.org/v1/gonum/graph/topo"
 	"sort"
 )

@@ -1,7 +1,7 @@
 package indentations
 
 import (
-	"github.com/RyanSusana/archstats/core/file"
+	"github.com/archstats/archstats/core/file"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"io/fs"

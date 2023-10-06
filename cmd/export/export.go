@@ -1,7 +1,7 @@
 package export
 
 import (
-	"github.com/RyanSusana/archstats/cmd/export/sqlite"
+	"github.com/archstats/archstats/cmd/export/sqlite"
 	"github.com/spf13/cobra"
 )
 

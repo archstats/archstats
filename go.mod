@@ -1,4 +1,4 @@
-module github.com/RyanSusana/archstats
+module github.com/archstats/archstats
 
 go 1.21
 

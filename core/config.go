@@ -1,6 +1,6 @@
 package core
 
-import "github.com/RyanSusana/archstats/core/file"
+import "github.com/archstats/archstats/core/file"
 
 // Config represents the settings for an analysis.
 type Config struct {

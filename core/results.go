@@ -2,10 +2,10 @@ package core
 
 import (
 	"fmt"
-	"github.com/RyanSusana/archstats/core/component"
-	definitions2 "github.com/RyanSusana/archstats/core/definitions"
-	"github.com/RyanSusana/archstats/core/file"
-	"github.com/RyanSusana/archstats/core/walker"
+	"github.com/archstats/archstats/core/component"
+	definitions2 "github.com/archstats/archstats/core/definitions"
+	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/walker"
 	"github.com/samber/lo"
 	"strings"
 	"sync"

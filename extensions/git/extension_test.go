@@ -5,7 +5,7 @@ package git
 
 import (
 	"fmt"
-	"github.com/RyanSusana/archstats/core"
+	"github.com/archstats/archstats/core"
 	"github.com/stretchr/testify/assert"
 	"log"
 	"os"

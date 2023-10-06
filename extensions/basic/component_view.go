@@ -1,8 +1,8 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/core"
-	"github.com/RyanSusana/archstats/core/component"
+	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/component"
 	"gonum.org/v1/gonum/graph/network"
 	"gonum.org/v1/gonum/graph/path"
 	"math"
@@ -46,7 +46,7 @@ func componentView(results *core.Results) *core.View {
 		afferentCouplings, efferentCouplings := countUniqueFilesInConnections(results.ConnectionsTo[component]), countUniqueFilesInConnections(results.ConnectionsFrom[component])
 		abstractness := convertToFloat(row.Data["abstractness"])
 		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
-		distanceMainSequence := math.Abs(abstractness + instability - 1)
+		distanceMainSequence := math.Abs(nanToZero(abstractness) + nanToZero(instability) - 1)
 
 		row.Data[Dependents] = len(results.ConnectionsTo[component])
 		row.Data[Dependencies] = len(results.ConnectionsFrom[component])

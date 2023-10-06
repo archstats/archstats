@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/RyanSusana/archstats/cmd"
+	"github.com/archstats/archstats/cmd"
 	"os"
 )
 

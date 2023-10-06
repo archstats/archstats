@@ -1,8 +1,8 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/core"
-	"github.com/RyanSusana/archstats/core/component"
+	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/component"
 	"github.com/samber/lo"
 )
 

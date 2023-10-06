@@ -1,6 +1,6 @@
 package core
 
-import "github.com/RyanSusana/archstats/core/definitions"
+import "github.com/archstats/archstats/core/definitions"
 
 type Analyzer interface {
 	Analyze() (*Results, error)

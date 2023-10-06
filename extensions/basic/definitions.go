@@ -1,8 +1,8 @@
 package basic
 
 import (
-	"github.com/RyanSusana/archstats/core"
-	definitions2 "github.com/RyanSusana/archstats/core/definitions"
+	"github.com/archstats/archstats/core"
+	definitions2 "github.com/archstats/archstats/core/definitions"
 	"github.com/samber/lo"
 )
 

@@ -3,7 +3,7 @@ package required
 //
 //import (
 //	"encoding/json"
-//	"github.com/RyanSusana/archstats/analysis"
+//	"github.com/archstats/archstats/analysis"
 //	"github.com/samber/lo"
 //	"github.com/stretchr/testify/assert"
 //	"os"

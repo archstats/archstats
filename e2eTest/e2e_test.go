@@ -3,9 +3,9 @@ package e2eTest
 import (
 	"bytes"
 	"fmt"
-	"github.com/RyanSusana/archstats/cmd"
-	"github.com/RyanSusana/archstats/core"
-	"github.com/RyanSusana/archstats/extensions/regex"
+	"github.com/archstats/archstats/cmd"
+	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/extensions/regex"
 	"github.com/jszwec/csvutil"
 	"github.com/stretchr/testify/assert"
 	"log"

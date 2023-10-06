@@ -1,7 +1,7 @@
 package cycles
 
 import (
-	"github.com/RyanSusana/archstats/core"
+	"github.com/archstats/archstats/core"
 )
 
 func Extension() core.Extension {
