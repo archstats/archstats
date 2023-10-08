@@ -7,7 +7,7 @@ import (
 )
 
 func fileView(results *core.Results) *core.View {
-	view := genericView(getDistinctColumnsFromResults(results), results.StatsByFile)
+	view := genericView(getDistinctColumnsFrom(results.StatsByFile), results.StatsByFile)
 
 	view.Columns = append(view.Columns, []*core.Column{core.StringColumn("directory"), core.StringColumn("component")}...)
 	for _, row := range view.Rows {

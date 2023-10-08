@@ -18,7 +18,7 @@ const TestDataPath = "./temp_testdata"
 
 func Test(t *testing.T) {
 	createElepyRepo(t)
-	analyzer := core.New("temp_testdata/ktor", []core.Extension{&Extension{}})
+	analyzer := core.New("temp_testdata/ktor", []core.Extension{&extension{}})
 	results, err := core.Analyze(analyzer)
 	if err != nil {
 		return

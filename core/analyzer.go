@@ -5,6 +5,7 @@ import "github.com/archstats/archstats/core/definitions"
 type Analyzer interface {
 	Analyze() (*Results, error)
 	RootPath() string
+
 	AddDefinition(definition *definitions.Definition)
 	RegisterStatAccumulator(statType string, merger StatAccumulatorFunction)
 	RegisterView(viewFactory *ViewFactory)

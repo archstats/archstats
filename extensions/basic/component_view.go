@@ -28,7 +28,7 @@ const (
 )
 
 func componentView(results *core.Results) *core.View {
-	view := genericView(getDistinctColumnsFromResults(results), results.StatsByComponent)
+	view := genericView(getDistinctColumnsFrom(results.StatsByComponent), results.StatsByComponent)
 
 	graph := results.ComponentGraph
 	allShortestPaths := path.DijkstraAllPaths(graph)

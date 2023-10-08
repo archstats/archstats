@@ -3,6 +3,7 @@ package basic
 import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
+	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"math"
 	"sort"
@@ -64,9 +65,21 @@ func statsToRowData(name string, statsRef *file.Stats) map[string]interface{} {
 	return toReturn
 }
 
-func getDistinctColumnsFromResults(results *core.Results) []string {
+func getDistinctColumnsFrom(results file.StatsGroup) []string {
+
+	allStats := lo.MapToSlice(results, func(_ string, stats *file.Stats) *file.Stats {
+		return stats
+	})
+
+	init := make(file.Stats)
+	singleStats := lo.Reduce(allStats, func(acc *file.Stats, stats *file.Stats, _ int) *file.Stats {
+		for k, v := range *stats {
+			(*acc)[k] = v
+		}
+		return acc
+	}, &init)
 	var toReturn []string
-	for theType, _ := range *results.Stats {
+	for theType, _ := range *singleStats {
 		if !strings.HasPrefix(theType, "_") {
 			toReturn = append(toReturn, theType)
 		}

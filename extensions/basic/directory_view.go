@@ -5,5 +5,5 @@ import (
 )
 
 func directoryView(results *core.Results) *core.View {
-	return genericView(getDistinctColumnsFromResults(results), results.StatsByDirectory)
+	return genericView(getDistinctColumnsFrom(results.StatsByDirectory), results.StatsByDirectory)
 }

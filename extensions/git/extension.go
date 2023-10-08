@@ -2,95 +2,130 @@ package git
 
 import (
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/samber/lo"
-	"strings"
 	"time"
 )
 
+const (
+	AuthorCount                = "author_count"
+	AgeInDays                  = "age_in_days"
+	File                       = "file"
+	Component                  = "component"
+	CommitHash                 = "commit_hash"
+	CommitTime                 = "commit_time"
+	AuthorName                 = "author_name"
+	AuthorEmail                = "author_email"
+	CommitMessage              = "commit_message"
+	CommitFileAdditions        = "file_additions"
+	CommitFileDeletions        = "file_deletions"
+	CommitCount                = "commit_count"
+	AdditionCount              = "addition_count"
+	DeletionCount              = "deletion_count"
+	UniqueFileChangeCount      = "unique_file_change_count"
+	UniqueComponentChangeCount = "unique_component_change_count"
+)
+
 // TODO
-// Per file / Per component:
-// Code age in days
+// TESTS.............. you're better than this, Ryan.
 //
 // Per file and author combination:
 // Number of additions
 // Number of deletions
 // Number of commits
 
-type Extension struct {
-	repository *git.Repository
-	// Represents an individual change in a commit. A commit can have multiple parts if it changes multiple files.
-	commitParts []*partOfCommit
+func Extension() core.Extension {
+	return &extension{
+		DayBuckets:         []int{30, 90, 180},
+		GenerateCommitView: true,
+		GitAfter:           "",
+		GitSince:           "",
+		BasedOn:            time.Now(),
+	}
 }
 
-func (e *Extension) Init(settings core.Analyzer) error {
+type extension struct {
+	// The number of days to bucket stats into. For example, if this is set to [7, 30, 90], then the stats will be bucketed into
+	// 7 days, 30 days, and 90 days. This is useful for seeing code churn over time.
+	DayBuckets []int
+	// If true, a view will be generated that shows all commits
+	GenerateCommitView bool
+	// Passed to `git log --after`
+	GitAfter string
+	// Passed to `git log --since`
+	GitSince string
+	// What is the base date for the stats? If this is set, the aggregated time stats will be relative to this date.
+	BasedOn time.Time
+
+	// Represents an individual change in a commit. A commit can have multiple parts if it changes multiple files.
+	commitParts []*partOfCommit
+
+	commitPartsByFile      map[string][]*partOfCommit
+	commitPartsByComponent map[string][]*partOfCommit
+	commitPartsByCommit    map[string][]*partOfCommit
+	commitPartsByAuthor    map[string][]*partOfCommit
+	commitPartsByDayBucket map[int][]*partOfCommit
+}
+
+func (e *extension) Init(settings core.Analyzer) error {
 	settings.RegisterResultsEditor(e)
 	settings.RegisterView(&core.ViewFactory{
-		Name:           "git",
-		CreateViewFunc: e.gitViewFactory,
+		Name:           "git_authors",
+		CreateViewFunc: e.authorViewFactory,
+	})
+	settings.RegisterView(&core.ViewFactory{
+		Name:           "git_component_logical_coupling",
+		CreateViewFunc: e.componentCouplingViewFactory,
+	})
+	settings.RegisterView(&core.ViewFactory{
+		Name:           "git_file_logical_coupling",
+		CreateViewFunc: e.fileCouplingViewFactory,
+	})
+	if e.GenerateCommitView {
+		settings.RegisterView(&core.ViewFactory{
+			Name:           "git_commits",
+			CreateViewFunc: e.commitViewFactory,
+		})
+	}
+
+	rawCommits, err := e.parseGitLog(settings.RootPath())
+	if err != nil {
+		return err
+	}
+
+	e.commitParts = lo.FlatMap(rawCommits, func(commit *rawCommit, index int) []*partOfCommit {
+		return gitCommitToPartOfCommit(commit)
 	})
 
-	var err error
-	e.repository, err = git.PlainOpen(settings.RootPath())
-	if err != nil {
-		return err
-	}
-
-	e.commitParts, err = repositoryToCommitParts(e.repository)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
-func (e *Extension) EditResults(results *core.Results) {
-	for _, part := range e.commitParts {
-		part.component = results.FileToComponent[part.file]
-	}
-	setStats(results.StatsByFile, lo.GroupBy(e.commitParts, func(part *partOfCommit) string {
-		return part.file
-	}))
-	setStats(results.StatsByComponent, lo.GroupBy(e.commitParts, func(part *partOfCommit) string {
-		return part.component
-	}))
+// TODO add definitions after API is stable
+func (e *extension) definitions() []*definitions.Definition {
+
+	return []*definitions.Definition{}
 }
 
-func (e *Extension) gitViewFactory(*core.Results) *core.View {
-	return &core.View{
-		Name: "git",
-		Columns: []*core.Column{
-			core.StringColumn("component"),
-			core.StringColumn("commit"),
-			core.DateColumn("time"),
-			core.StringColumn("file"),
-			core.StringColumn("author"),
-			core.StringColumn("author_email"),
-			core.StringColumn("message"),
-			core.IntColumn("additions"),
-			core.IntColumn("deletions"),
-		},
-		Rows: commitPartToRows(e.commitParts),
-	}
-}
+func (e *extension) EditResults(results *core.Results) {
+	setComponent(results, e.commitParts)
 
-func commitPartToRows(parts []*partOfCommit) []*core.Row {
-	return lo.Map(parts, func(part *partOfCommit, _ int) *core.Row {
-		return &core.Row{
-			Data: map[string]interface{}{
-				"component":    part.component,
-				"commit":       part.commit,
-				"time":         part.time,
-				"file":         part.file,
-				"author":       part.author,
-				"author_email": part.authorEmail,
-				"message":      part.message,
-				"additions":    part.additions,
-				"deletions":    part.deletions,
-			},
-		}
-	})
+	e.commitPartsByFile = splitByFile(e.commitParts)
+	e.commitPartsByComponent = splitByComponent(e.commitParts)
+
+	e.commitPartsByDayBucket = splitCommitsIntoBucketsOfDays(e.BasedOn, e.commitParts, e.DayBuckets)
+
+	setStatsTotal(e.BasedOn, results.StatsByFile, e.commitPartsByFile)
+	setStatsTotal(e.BasedOn, results.StatsByComponent, e.commitPartsByComponent)
+
+	for days, commits := range e.commitPartsByDayBucket {
+
+		byComponent := splitByComponent(commits)
+		byFile := splitByFile(commits)
+
+		setStatsLastXDays(e.BasedOn, days, results.StatsByFile, byFile)
+		setStatsLastXDays(e.BasedOn, days, results.StatsByComponent, byComponent)
+	}
 }
 
 type partOfCommit struct {
@@ -105,55 +140,49 @@ type partOfCommit struct {
 	deletions   int
 }
 
-func setStats(statsByFile file.StatsGroup, perFile map[string][]*partOfCommit) {
-	for filePath, commitParts := range perFile {
-		statsByFile.SetStat(filePath, "additions_count", lo.SumBy(commitParts, func(part *partOfCommit) int {
-			return part.additions
-		}))
-		statsByFile.SetStat(filePath, "deletions_count", lo.SumBy(commitParts, func(part *partOfCommit) int {
-			return part.deletions
-		}))
-		statsByFile.SetStat(filePath, "commits_count", len(lo.UniqBy(commitParts, func(part *partOfCommit) string {
-			return part.commit
-		})))
-		statsByFile.SetStat(filePath, "authors_count", len(lo.UniqBy(commitParts, func(part *partOfCommit) string {
-			return part.author
-		})))
+func setComponent(results *core.Results, commitParts []*partOfCommit) {
+	for _, part := range commitParts {
+		part.component = results.FileToComponent[part.file]
 	}
 }
 
-func repositoryToCommitParts(repository *git.Repository) ([]*partOfCommit, error) {
-	var commitParts []*partOfCommit
-	iter, _ := repository.Log(&git.LogOptions{
-		Order: git.LogOrderCommitterTime,
-		PathFilter: func(s string) bool {
-			return !strings.Contains(s, ".json")
-		},
-	})
-	err := iter.ForEach(func(commit *object.Commit) error {
-		stats, err := commit.Stats()
-		if err != nil {
-			return err
+func gitCommitToPartOfCommit(commit *rawCommit) []*partOfCommit {
+	return lo.Map(commit.Files, func(file *rawPartOfCommit, _ int) *partOfCommit {
+		return &partOfCommit{
+			component:   "",
+			commit:      commit.Hash,
+			time:        commit.Time,
+			file:        file.Path,
+			author:      commit.AuthorName,
+			authorEmail: commit.AuthorEmail,
+			message:     commit.Message,
+			additions:   file.Additions,
+			deletions:   file.Deletions,
 		}
-
-		for _, stat := range stats {
-			commitParts = append(commitParts, &partOfCommit{
-				commit:      commit.Hash.String(),
-				time:        commit.Author.When,
-				file:        stat.Name,
-				author:      commit.Author.Name,
-				authorEmail: commit.Author.Email,
-				message:     commit.Message,
-				additions:   stat.Addition,
-				deletions:   stat.Deletion,
-			})
-		}
-		return nil
 	})
+}
 
-	if err != nil {
-		return nil, err
+func setStatsTotal(basedOn time.Time, statGroup file.StatsGroup, group map[string][]*partOfCommit) {
+	for filePath, _ := range statGroup {
+		commitParts := group[filePath]
+
+		stats := getCommitStats(basedOn, commitParts)
+		statGroup.SetStat(filePath, AdditionCount, stats.additionCount)
+		statGroup.SetStat(filePath, DeletionCount, stats.deletionCount)
+		statGroup.SetStat(filePath, CommitCount, stats.commitCount)
+		statGroup.SetStat(filePath, AuthorCount, stats.uniqueAuthorCount)
+		statGroup.SetStat(filePath, AgeInDays, stats.oldestCommitAgeInDays)
 	}
+}
 
-	return commitParts, nil
+func setStatsLastXDays(basedOn time.Time, days int, statGroup file.StatsGroup, group map[string][]*partOfCommit) {
+	for filePath, _ := range group {
+		commitParts := group[filePath]
+
+		stats := getCommitStats(basedOn, commitParts)
+		statGroup.SetStat(filePath, toDayStat(AdditionCount, days), stats.additionCount)
+		statGroup.SetStat(filePath, toDayStat(DeletionCount, days), stats.deletionCount)
+		statGroup.SetStat(filePath, toDayStat(CommitCount, days), stats.commitCount)
+		statGroup.SetStat(filePath, toDayStat(AuthorCount, days), stats.uniqueAuthorCount)
+	}
 }
