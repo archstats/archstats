@@ -2,6 +2,7 @@ package git
 
 import (
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/extensions/git/commits"
 	"github.com/samber/lo"
 )
 
@@ -23,19 +24,19 @@ func (e *extension) commitViewFactory(*core.Results) *core.View {
 		Rows: rows,
 	}
 }
-func partsOfCommitToRows(parts []*partOfCommit) []*core.Row {
-	return lo.Map(parts, func(part *partOfCommit, _ int) *core.Row {
+func partsOfCommitToRows(parts []*commits.PartOfCommit) []*core.Row {
+	return lo.Map(parts, func(part *commits.PartOfCommit, _ int) *core.Row {
 		return &core.Row{
 			Data: map[string]interface{}{
-				File:                part.file,
-				Component:           part.component,
-				CommitHash:          part.commit,
-				CommitTime:          part.time,
-				AuthorName:          part.author,
-				AuthorEmail:         part.authorEmail,
-				CommitMessage:       part.message,
-				CommitFileAdditions: part.additions,
-				CommitFileDeletions: part.deletions,
+				File:                part.File,
+				Component:           part.Component,
+				CommitHash:          part.Commit,
+				CommitTime:          part.Time,
+				AuthorName:          part.Author,
+				AuthorEmail:         part.AuthorEmail,
+				CommitMessage:       part.Message,
+				CommitFileAdditions: part.Additions,
+				CommitFileDeletions: part.Deletions,
 			},
 		}
 	})

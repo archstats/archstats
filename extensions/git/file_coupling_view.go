@@ -2,18 +2,18 @@ package git
 
 import (
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/extensions/git/commits"
 	"github.com/samber/lo"
 )
 
 func (e *extension) fileCouplingViewFactory(results *core.Results) *core.View {
 	files := lo.Keys(results.FileToComponent)
 
-	totals := getSharedCommitPairsFor(files, e.commitParts, true)
+	totals := commits.GetCommitsInCommonForFilePairs(files, e.splittedCommits.SplitByCommitHash())
+	dayBucketSharedCommitCounts := map[int]map[string]commits.CommitHashes{}
 
-	partsByDayBucket := e.commitPartsByDayBucket
-	dayBucketSharedCommitCounts := map[int]map[string]int{}
-	for days, commits := range partsByDayBucket {
-		dayBucketSharedCommitCounts[days] = getSharedCommitPairsFor(files, commits, true)
+	for days, splittedCommits := range e.splittedCommits.DayBuckets() {
+		dayBucketSharedCommitCounts[days] = commits.GetCommitsInCommonForFilePairs(files, splittedCommits.SplitByCommitHash())
 	}
 
 	rows := sharedCommitsToRows(files, totals, dayBucketSharedCommitCounts)

@@ -2,13 +2,14 @@ package git
 
 import (
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/extensions/git/commits"
 	"github.com/samber/lo"
 	"strconv"
 	"time"
 )
 
 func (e *extension) authorViewFactory(*core.Results) *core.View {
-	commitPartsByAuthor := splitByAuthor(e.commitParts)
+	commitPartsByAuthor := e.splittedCommits.SplitByAuthor()
 	columns := []*core.Column{
 		core.StringColumn(AuthorName),
 		core.StringColumn(AuthorEmail),
@@ -41,29 +42,29 @@ func (e *extension) authorViewFactory(*core.Results) *core.View {
 	}
 }
 
-func getAuthorRowStats(basedOn time.Time, author string, commitParts []*partOfCommit, buckets []int) *core.Row {
+func getAuthorRowStats(basedOn time.Time, author string, commitParts []*commits.PartOfCommit, buckets []int) *core.Row {
 
 	rowData := map[string]interface{}{}
 
-	allStats := getCommitStats(basedOn, commitParts)
+	allStats := commits.GetStats(basedOn, commitParts)
 	rowData[AuthorName] = author
-	rowData[AuthorEmail] = commitParts[0].authorEmail
+	rowData[AuthorEmail] = commitParts[0].AuthorEmail
 
-	rowData[AdditionCount] = allStats.additionCount
-	rowData[DeletionCount] = allStats.deletionCount
-	rowData[CommitCount] = allStats.commitCount
-	rowData[UniqueFileChangeCount] = allStats.uniqueFileChangeCount
-	rowData[UniqueComponentChangeCount] = allStats.uniqueComponentChangeCount
+	rowData[AdditionCount] = allStats.AdditionCount
+	rowData[DeletionCount] = allStats.DeletionCount
+	rowData[CommitCount] = allStats.CommitCount
+	rowData[UniqueFileChangeCount] = allStats.UniqueFileChangeCount
+	rowData[UniqueComponentChangeCount] = allStats.UniqueComponentChangeCount
 
-	bucketsMap := splitCommitsIntoBucketsOfDays(commitParts[0].time, commitParts, buckets)
+	bucketsMap := commits.SplitCommitsIntoBucketsOfDays(commitParts[0].Time, commitParts, buckets)
 	for days, bucket := range bucketsMap {
-		stats := getCommitStats(basedOn, bucket)
+		stats := commits.GetStats(basedOn, bucket)
 
-		rowData[toDayStat(AdditionCount, days)] = stats.additionCount
-		rowData[toDayStat(DeletionCount, days)] = stats.deletionCount
-		rowData[toDayStat(CommitCount, days)] = stats.commitCount
-		rowData[toDayStat(UniqueFileChangeCount, days)] = stats.uniqueFileChangeCount
-		rowData[toDayStat(UniqueComponentChangeCount, days)] = stats.uniqueComponentChangeCount
+		rowData[toDayStat(AdditionCount, days)] = stats.AdditionCount
+		rowData[toDayStat(DeletionCount, days)] = stats.DeletionCount
+		rowData[toDayStat(CommitCount, days)] = stats.CommitCount
+		rowData[toDayStat(UniqueFileChangeCount, days)] = stats.UniqueFileChangeCount
+		rowData[toDayStat(UniqueComponentChangeCount, days)] = stats.UniqueComponentChangeCount
 	}
 
 	return &core.Row{
