@@ -22,14 +22,18 @@ func TestSharedCommits_Files(t *testing.T) {
 	commits = append(commits, createSharedCommitBetweenFiles("10", "z", "y", "e")...)
 
 	splittedCommits := lo.GroupBy(commits, func(commit *PartOfCommit) string {
-		return commit.Commit
+		return commit.File
+	})
+
+	mappedCommits := lo.MapValues(splittedCommits, func(parts []*PartOfCommit, _ string) CommitHashes {
+		return getUniqueHashes(parts)
 	})
 
 	// Special cases:
 	// f should not have any shared commits with anything else, because it is not in any of the commits
 	// e should have no shared commits with anything else, because it is only in one commit that has no other files in the list
 	// d should have one shared commit with b, because they are both in commit 9
-	sharedCommits := GetCommitsInCommonForFilePairs([]string{"a", "b", "c", "d", "e", "f"}, splittedCommits)
+	sharedCommits := GetCommitsInCommon([]string{"a", "b", "c", "d", "e", "f"}, mappedCommits)
 
 	assert.Len(t, sharedCommits, 4)
 
@@ -63,14 +67,18 @@ func TestSharedCommits_Components(t *testing.T) {
 	commits = append(commits, createSharedCommitBetweenComponents("10", "z", "y", "e")...)
 
 	splittedCommits := lo.GroupBy(commits, func(commit *PartOfCommit) string {
-		return commit.Commit
+		return commit.Component
+	})
+
+	mappedCommits := lo.MapValues(splittedCommits, func(parts []*PartOfCommit, _ string) CommitHashes {
+		return getUniqueHashes(parts)
 	})
 
 	// Special cases:
 	// f should not have any shared commits with anything else, because it is not in any of the commits
 	// e should have no shared commits with anything else, because it is only in one commit that has no other components in the list
 	// d should have one shared commit with b, because they are both in commit 9
-	sharedCommits := GetCommitsInCommonForComponentPairs([]string{"a", "b", "c", "d", "e", "f"}, splittedCommits)
+	sharedCommits := GetCommitsInCommon([]string{"a", "b", "c", "d", "e", "f"}, mappedCommits)
 
 	assert.Len(t, sharedCommits, 4)
 

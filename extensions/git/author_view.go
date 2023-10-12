@@ -56,7 +56,8 @@ func getAuthorRowStats(basedOn time.Time, author string, commitParts []*commits.
 	rowData[UniqueFileChangeCount] = allStats.UniqueFileChangeCount
 	rowData[UniqueComponentChangeCount] = allStats.UniqueComponentChangeCount
 
-	bucketsMap := commits.SplitCommitsIntoBucketsOfDays(commitParts[0].Time, commitParts, buckets)
+	/// TODO: this is a bit of a hack, but it works for now
+	bucketsMap := commits.SplitCommitsIntoBucketsOfDays(basedOn, commitParts, buckets)
 	for days, bucket := range bucketsMap {
 		stats := commits.GetStats(basedOn, bucket)
 
@@ -73,5 +74,5 @@ func getAuthorRowStats(basedOn time.Time, author string, commitParts []*commits.
 }
 
 func toDayStat(stat string, days int) string {
-	return stat + ":" + strconv.Itoa(days) + "_days"
+	return stat + ":last_" + strconv.Itoa(days) + "_days"
 }

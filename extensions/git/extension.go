@@ -12,28 +12,33 @@ import (
 )
 
 const (
-	AuthorCount                = "author_count"
-	AgeInDays                  = "age_in_days"
-	File                       = "file"
-	Component                  = "component"
-	CommitHash                 = "commit_hash"
-	CommitTime                 = "commit_time"
-	AuthorName                 = "author_name"
-	AuthorEmail                = "author_email"
-	CommitMessage              = "commit_message"
-	CommitFileAdditions        = "file_additions"
-	CommitFileDeletions        = "file_deletions"
-	CommitCount                = "commit_count"
-	AdditionCount              = "addition_count"
-	DeletionCount              = "deletion_count"
-	UniqueFileChangeCount      = "unique_file_change_count"
-	UniqueComponentChangeCount = "unique_component_change_count"
+	AuthorCount                 = "author_count"
+	AgeInDays                   = "age_in_days"
+	File                        = "file"
+	Component                   = "component"
+	CommitHash                  = "commit_hash"
+	CommitTime                  = "commit_time"
+	AuthorName                  = "author_name"
+	AuthorEmail                 = "author_email"
+	CommitMessage               = "commit_message"
+	CommitFileAdditions         = "file_additions"
+	CommitFileDeletions         = "file_deletions"
+	CommitCount                 = "commit_count"
+	AdditionCount               = "addition_count"
+	DeletionCount               = "deletion_count"
+	UniqueFileChangeCount       = "unique_file_change_count"
+	UniqueComponentChangeCount  = "unique_component_change_count"
+	Pair1                       = "pair_1"
+	Pair2                       = "pair_2"
+	SharedCommitCount           = "shared_commit_count"
+	PercentageOfAllCommitsPair1 = "percentage_of_all_commits_pair_1"
+	PercentageOfAllCommitsPair2 = "percentage_of_all_commits_pair_2"
 )
 
 // TODO
 // TESTS.............. you're better than this, Ryan.
 //
-// Per file and author combination:
+// Per file/component and author combination:
 // Number of additions
 // Number of deletions
 // Number of commits
@@ -42,7 +47,7 @@ func Extension() core.Extension {
 	return &extension{
 		DayBuckets:                           []int{30, 90, 180},
 		GenerateCommitView:                   true,
-		GenerateFileLogicalCouplingView:      true,
+		GenerateFileLogicalCouplingView:      false, // Generates a lot of data
 		GenerateComponentLogicalCouplingView: true,
 		GitAfter:                             "",
 		GitSince:                             "",
@@ -85,19 +90,19 @@ func (e *extension) Init(settings core.Analyzer) error {
 		CreateViewFunc: e.authorViewFactory,
 	})
 
-	//if e.GenerateComponentLogicalCouplingView {
-	//	settings.RegisterView(&core.ViewFactory{
-	//		Name:           "git_component_logical_coupling",
-	//		CreateViewFunc: e.componentCouplingViewFactory,
-	//	})
-	//}
-	//
-	//if e.GenerateFileLogicalCouplingView {
-	//	settings.RegisterView(&core.ViewFactory{
-	//		Name:           "git_file_logical_coupling",
-	//		CreateViewFunc: e.fileCouplingViewFactory,
-	//	})
-	//}
+	if e.GenerateComponentLogicalCouplingView {
+		settings.RegisterView(&core.ViewFactory{
+			Name:           "git_component_logical_coupling",
+			CreateViewFunc: e.componentCouplingViewFactory,
+		})
+	}
+
+	if e.GenerateFileLogicalCouplingView {
+		settings.RegisterView(&core.ViewFactory{
+			Name:           "git_file_logical_coupling",
+			CreateViewFunc: e.fileCouplingViewFactory,
+		})
+	}
 
 	if e.GenerateCommitView {
 		settings.RegisterView(&core.ViewFactory{
@@ -120,7 +125,6 @@ func (e *extension) Init(settings core.Analyzer) error {
 
 // TODO add definitions after API is stable
 func (e *extension) definitions() []*definitions.Definition {
-
 	return []*definitions.Definition{}
 }
 
@@ -190,20 +194,31 @@ func setStatsLastXDays(basedOn time.Time, days int, statGroup file.StatsGroup, g
 
 func sharedCommitColumns(dayBuckets []int) []*core.Column {
 	columns := []*core.Column{
-		core.StringColumn("from"),
-		core.StringColumn("to"),
-		core.IntColumn("shared_commit_count"),
+		core.StringColumn(Pair1),
+		core.StringColumn(Pair2),
+		core.IntColumn(SharedCommitCount),
+		core.FloatColumn(PercentageOfAllCommitsPair1),
+		core.FloatColumn(PercentageOfAllCommitsPair2),
 	}
 
 	for _, days := range dayBuckets {
-		columns = append(columns, core.IntColumn(toDayStat("shared_commit_count", days)))
+		columns = append(columns, core.IntColumn(toDayStat(SharedCommitCount, days)))
+		columns = append(columns, core.FloatColumn(toDayStat(PercentageOfAllCommitsPair1, days)))
+		columns = append(columns, core.FloatColumn(toDayStat(PercentageOfAllCommitsPair2, days)))
 	}
 	return columns
 }
 
 // Takes total shared commit counts and shared commit counts per day bucket and returns rows.
-func sharedCommitsToRows(componentsOrFiles []string, totals map[string]commits.CommitHashes, totalsPerDayBucket map[int]map[string]commits.CommitHashes) []*core.Row {
+func sharedCommitsToRows(
+	componentsOrFiles []string,
+	pairToCommitsInCommon map[string]commits.CommitHashes,
+	pairToCommitsInCommonPerDayBucket map[int]map[string]commits.CommitHashes,
+	componentOrFileToAllCommits map[string]commits.CommitHashes,
+	componentOrFileToAllCommitsPerDayBucket map[int]map[string]commits.CommitHashes,
+) []*core.Row {
 	var rows []*core.Row
+
 	for _, component1 := range componentsOrFiles {
 		for _, component2 := range componentsOrFiles {
 			if component1 == component2 {
@@ -214,33 +229,43 @@ func sharedCommitsToRows(componentsOrFiles []string, totals map[string]commits.C
 			slices.Sort(combined)
 			key := strings.Join(combined, ":")
 
-			row1 := &core.Row{
-				Data: map[string]interface{}{
-					"from": component1,
-					"to":   component2,
-				},
-			}
-			row2 := &core.Row{
-				Data: map[string]interface{}{
-					"from": component2,
-					"to":   component1,
-				},
-			}
-
-			if total, hasTotal := totals[key]; hasTotal {
-				row1.Data["shared_commit_count"] = total
-				row2.Data["shared_commit_count"] = total
-			}
-
-			for days, sharedCommitCount := range totalsPerDayBucket {
-				if count, hasCount := sharedCommitCount[key]; hasCount {
-					row1.Data[toDayStat("shared_commit_count", days)] = count
-					row2.Data[toDayStat("shared_commit_count", days)] = count
+			pairsPerDayBucketMapped := lo.MapValues(pairToCommitsInCommonPerDayBucket, func(sharedCommitCount map[string]commits.CommitHashes, _ int) commits.CommitHashes {
+				if _, hasKey := sharedCommitCount[key]; !hasKey {
+					return sharedCommitCount[key]
 				}
-			}
+				return commits.CommitHashes{}
+			})
 
-			rows = append(rows, row1, row2)
+			row1 := toRow(component1, component2, pairToCommitsInCommon[key], pairsPerDayBucketMapped, componentOrFileToAllCommits, componentOrFileToAllCommitsPerDayBucket)
+
+			rows = append(rows, row1)
 		}
 	}
 	return rows
+}
+
+func toRow(
+	component1, component2 string,
+	commitsInCommon commits.CommitHashes,
+	commitsInCommonPerDayBucket map[int]commits.CommitHashes,
+	componentOrFileToAllCommits map[string]commits.CommitHashes,
+	componentOrFileToAllCommitsPerDayBucket map[int]map[string]commits.CommitHashes,
+) *core.Row {
+	row1 := &core.Row{
+		Data: map[string]interface{}{
+			Pair1: component1,
+			Pair2: component2,
+		},
+	}
+	row1.Data[SharedCommitCount] = len(commitsInCommon)
+	row1.Data[PercentageOfAllCommitsPair1] = float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component1])) * 100.0
+	row1.Data[PercentageOfAllCommitsPair2] = float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component2])) * 100.0
+
+	for days, commitsInCommon := range commitsInCommonPerDayBucket {
+		row1.Data[toDayStat(SharedCommitCount, days)] = len(commitsInCommon)
+		row1.Data[toDayStat(PercentageOfAllCommitsPair1, days)] = float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component1])) * 100.0
+		row1.Data[toDayStat(PercentageOfAllCommitsPair2, days)] = float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component2])) * 100.0
+	}
+
+	return row1
 }

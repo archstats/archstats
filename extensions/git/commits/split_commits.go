@@ -30,7 +30,9 @@ type Splitted struct {
 	commitPartsByCommit    CommitPartMap
 	commitPartsByAuthor    CommitPartMap
 
-	dayBuckets map[int]*Splitted
+	fileToCommitHashes      map[string]CommitHashes
+	componentToCommitHashes map[string]CommitHashes
+	dayBuckets              map[int]*Splitted
 }
 
 func (ms *Splitted) SplitByFile() CommitPartMap {
@@ -61,6 +63,20 @@ func (ms *Splitted) SplitByAuthor() CommitPartMap {
 	return ms.commitPartsByAuthor
 }
 
+func (ms *Splitted) FileToCommitHashes() map[string]CommitHashes {
+	if ms.fileToCommitHashes == nil {
+		ms.splitAll()
+	}
+	return ms.fileToCommitHashes
+}
+
+func (ms *Splitted) ComponentToCommitHashes() map[string]CommitHashes {
+	if ms.componentToCommitHashes == nil {
+		ms.splitAll()
+	}
+	return ms.componentToCommitHashes
+}
+
 // DayBuckets may return nil if the commits were not split by day buckets.
 // This is the case if this set of Splitted commits were already split into day buckets.
 func (ms *Splitted) DayBuckets() map[int]*Splitted {
@@ -89,6 +105,20 @@ func (ms *Splitted) splitAll() {
 	ms.commitPartsByComponent = allGroups["component"]
 	ms.commitPartsByCommit = allGroups["commit"]
 	ms.commitPartsByAuthor = allGroups["author"]
+
+	ms.fileToCommitHashes = lo.MapValues(ms.commitPartsByFile, func(parts []*PartOfCommit, _ string) CommitHashes {
+		return getUniqueHashes(parts)
+	})
+
+	ms.componentToCommitHashes = lo.MapValues(ms.commitPartsByComponent, func(parts []*PartOfCommit, _ string) CommitHashes {
+		return getUniqueHashes(parts)
+	})
+}
+
+func getUniqueHashes(parts []*PartOfCommit) CommitHashes {
+	return lo.Uniq(lo.Map(parts, func(part *PartOfCommit, _ int) string {
+		return part.Commit
+	}))
 }
 
 // SplitCommitsIntoBucketsOfDays commits into buckets based on the number of days between the commit and the time

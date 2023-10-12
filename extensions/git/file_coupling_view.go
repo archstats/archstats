@@ -9,14 +9,17 @@ import (
 func (e *extension) fileCouplingViewFactory(results *core.Results) *core.View {
 	files := lo.Keys(results.FileToComponent)
 
-	totals := commits.GetCommitsInCommonForFilePairs(files, e.splittedCommits.SplitByCommitHash())
+	sharedCommits := commits.GetCommitsInCommon(files, e.splittedCommits.FileToCommitHashes())
 	dayBucketSharedCommitCounts := map[int]map[string]commits.CommitHashes{}
 
 	for days, splittedCommits := range e.splittedCommits.DayBuckets() {
-		dayBucketSharedCommitCounts[days] = commits.GetCommitsInCommonForFilePairs(files, splittedCommits.SplitByCommitHash())
+		dayBucketSharedCommitCounts[days] = commits.GetCommitsInCommon(files, splittedCommits.FileToCommitHashes())
 	}
 
-	rows := sharedCommitsToRows(files, totals, dayBucketSharedCommitCounts)
+	mappedDayBuckets := lo.MapValues(e.splittedCommits.DayBuckets(), func(splitted *commits.Splitted, _ int) map[string]commits.CommitHashes {
+		return splitted.FileToCommitHashes()
+	})
+	rows := sharedCommitsToRows(files, sharedCommits, dayBucketSharedCommitCounts, e.splittedCommits.FileToCommitHashes(), mappedDayBuckets)
 
 	return &core.View{
 		Columns: sharedCommitColumns(e.DayBuckets),

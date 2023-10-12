@@ -1,3 +1,29 @@
+# Architectural Characteristics
+
+To accompany Archstats functional goal of creating actionable insights for codebases, the following architectural
+characteristics are chosen to drive decision making:
+
+- Extensibility - The ability to extend the system with new functionality. To support this characteristic, Archstats is
+  designed to be modular and pluggable, through a microkernel style architecture.
+- Interoperability - The ability to work with other systems. To support this characteristic, Archstats CLI & Archstats UI is designed to
+  support a variety of input and output formats, such as: JSON, CSV, SQLite, etc.
+- User-friendliness - Archstats is designed to make software architecture as approachable as possible. To support this
+  characteristic, Archstats is designed to be easy & pleasant to use.
+
+
+# Domain Model
+
+## Views
+
+Views are the primary data outputs of Archstats. They are the results of analyzing a codebase.
+
+Views consist of Columns and Rows, which are used to display data in a tabular format.
+
+## Definitions
+
+Every column in a view has a definition. A definition is used to provide semantic meaning to the column. Definitions are
+used by Archstats to provide a consistent user-friendly experience across Archstats CLI & Archstats UI.
+
 ## Snippets
 
 Snippets are the smallest units of code that can be analyzed in Archstats. They are references to the _architecturally
