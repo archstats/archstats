@@ -40,9 +40,3 @@ extensions:
     - (using|using static) (?P<component_import>.*);
     - (abstract class|interface|trait) (?P<abstract_type>\w+)
     - (class|interface|trait) (?P<type>\w+)
-
-  lines:
-    only_stats: true
-    file_glob: "**/*"
-    patterns:
-    - .*(?P<line_count>\n)
