@@ -92,14 +92,14 @@ func (e *extension) Init(settings core.Analyzer) error {
 
 	if e.GenerateComponentLogicalCouplingView {
 		settings.RegisterView(&core.ViewFactory{
-			Name:           "git_component_logical_coupling",
+			Name:           "git_component_shared_commits",
 			CreateViewFunc: e.componentCouplingViewFactory,
 		})
 	}
 
 	if e.GenerateFileLogicalCouplingView {
 		settings.RegisterView(&core.ViewFactory{
-			Name:           "git_file_logical_coupling",
+			Name:           "git_file_shared_commits",
 			CreateViewFunc: e.fileCouplingViewFactory,
 		})
 	}
