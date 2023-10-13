@@ -30,7 +30,10 @@ func Cmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			reportId, _ := cmd.Flags().GetString(FlagReportId)
-			results, _ := common.Analyze(cmd)
+			results, err := common.Analyze(cmd)
+			if err != nil {
+				return err
+			}
 			var reportDate time.Time
 
 			reportDate = time.Now()
@@ -54,7 +57,7 @@ func Cmd() *cobra.Command {
 			viewSlice := lo.MapToSlice(allViews, func(viewName string, view *core.View) *core.View {
 				return view
 			})
-			err := SaveToDB(&SqlOptions{
+			err = SaveToDB(&SqlOptions{
 				DatabaseName: dbPath,
 				ReportId:     reportId,
 				ScanTime:     reportDate,

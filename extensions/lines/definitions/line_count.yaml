@@ -1,0 +1,4 @@
+id: line_count
+name: Line Count
+short: The number of lines counted in the file or component
+long: The number of lines counted in the file or component. This metric simply counts '\n' characters in the file or component.

@@ -6,6 +6,7 @@ import (
 	"github.com/archstats/archstats/extensions/cycles"
 	"github.com/archstats/archstats/extensions/git"
 	"github.com/archstats/archstats/extensions/indentations"
+	"github.com/archstats/archstats/extensions/lines"
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/archstats/archstats/extensions/required"
 	"github.com/samber/lo"
@@ -61,6 +62,9 @@ func defaultExtensions() []core.Extension {
 
 func optionalExtension(in string) (core.Extension, error) {
 	switch in {
+	case "lines":
+		return &lines.Extension{}, nil
+
 	case "git":
 		return git.Extension(), nil
 	case "cycles":

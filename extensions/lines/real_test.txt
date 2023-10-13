@@ -1,0 +1,7 @@
+this
+file
+has
+8
+lines
+of
+text (including extra empty line at the end)
