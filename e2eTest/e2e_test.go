@@ -36,7 +36,7 @@ const TestDataPath = "./temp_testdata"
 //}
 
 func Test_SimpleComponents_AfferentEfferentCoupling(t *testing.T) {
-	simpleComponentsTest(t, "components", "name,file_count,afferent_couplings,efferent_couplings", []Component{
+	simpleComponentsTest(t, "components", "name,file_count,afferent_coupling_count,efferent_coupling_count", []Component{
 		component("a", 2, 1, 2),
 		component("b", 1, 2, 1),
 		component("c", 1, 2, 1),
@@ -106,8 +106,8 @@ func component(name string, fileCount, afferentCouplings, efferentCouplings int)
 type Component struct {
 	Name              string `csv:"NAME"`
 	FileCount         int    `csv:"FILE_COUNT"`
-	AfferentCouplings int    `csv:"AFFERENT_COUPLINGS,omitempty"`
-	EfferentCouplings int    `csv:"EFFERENT_COUPLINGS,omitempty"`
+	AfferentCouplings int    `csv:"AFFERENT_COUPLING_COUNT,omitempty"`
+	EfferentCouplings int    `csv:"EFFERENT_COUPLING_COUNT,omitempty"`
 }
 
 func directConnection(from, to, file string, referenceCount int) ComponentConnectionDirect {
