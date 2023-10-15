@@ -2,6 +2,7 @@ package commits
 
 import (
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	"strings"
 )
 
@@ -17,6 +18,7 @@ func GetCommitsInCommon(filesOrComponents []string, componentOrFileToCommits map
 
 	seen := map[string]bool{}
 	for _, pair := range pairs {
+		slices.Sort(pair)
 
 		key := strings.Join(pair, ":")
 
