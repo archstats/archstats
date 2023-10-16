@@ -50,7 +50,7 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 
 	files, err := fileSystem.ReadDir(dirAbsolutePath)
 	if err != nil {
-		panic(err)
+		return fileDescriptions
 	}
 	ignoreCtx.addIgnoreLines(fileSystem, dirAbsolutePath, files)
 
