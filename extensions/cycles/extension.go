@@ -13,12 +13,12 @@ type extension struct {
 
 func (v *extension) Init(settings core.Analyzer) error {
 	settings.RegisterView(&core.ViewFactory{
-		Name:           "all_component_cycles",
+		Name:           "component_cycles_elementary",
 		CreateViewFunc: allComponentCyclesView,
 	})
 
 	settings.RegisterView(&core.ViewFactory{
-		Name:           "largest_component_cycle",
+		Name:           "component_cycles_largest",
 		CreateViewFunc: largestComponentCycleView,
 	})
 	return nil
