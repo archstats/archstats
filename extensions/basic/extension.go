@@ -77,5 +77,10 @@ func (v *extension) Init(settings core.Analyzer) error {
 		CreateViewFunc: stronglyConnectedComponentGroupsView,
 	})
 
+	settings.RegisterView(&core.ViewFactory{
+		Name:           "shortest_component_cycles",
+		CreateViewFunc: shortestComponentCyclesView,
+	})
+
 	return nil
 }
