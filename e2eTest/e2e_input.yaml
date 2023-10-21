@@ -2,7 +2,7 @@ cases:
   - name: Java components should have proper coupling amounts
     repo: https://github.com/RyanSusana/elepy.git
     commit: b1eeb16ab45a670ab76a1db816c7adf68a88aa44
-    options: view components -e java -c name,efferent_couplings,afferent_couplings --sorted-by name
+    options: view components -e java -c name,efferent_coupling_count,afferent_coupling_count --sorted-by name
     expectedOutputFile: e2e_output/elepy_coupling_amounts.table
     ignore: |
       *.*
@@ -24,7 +24,7 @@ cases:
 #  - name: Java components should have proper component metrics
 #    repo: https://github.com/RyanSusana/elepy.git
 #    commit: b1eeb16ab45a670ab76a1db816c7adf68a88aa44
-#    options: components --extension java -c name,distance_main_sequence,abstractness,instability,efferent_couplings,afferent_couplings
+#    options: components --extension java -c name,distance_main_sequence,abstractness,instability,efferent_coupling_count,afferent_coupling_count
 #    expectedOutputFile: e2e_output/elepy_components.table
 #    ignore: |
 #      *.*
@@ -35,7 +35,7 @@ cases:
 #  - name: C# components should have proper component metrics
 #    repo: https://github.com/dotnet-presentations/aspnetcore-for-beginners.git
 #    commit: 21080fe5ac644fef753ee32addadf55885596861
-#    options: components --extension csharp -c name,distance_main_sequence,abstractness,instability,efferent_couplings,afferent_couplings,file_count
+#    options: components --extension csharp -c name,distance_main_sequence,abstractness,instability,efferent_coupling_count,afferent_coupling_count,file_count
 #    expectedOutputFile: e2e_output/csharp_example_components.table
 #    ignore: |
 #      *.*

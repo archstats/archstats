@@ -47,7 +47,7 @@ archstats --help
 Here's a simple example. It gets a count of all functions, per component, in the project.
 
 ```shell
-archstats path/to/project view components --snippet "function (?P<functions>.*)\(.*\)" -e php -c name,abstractness,instability,functions,efferent_couplings --sorted-by abstractness
+archstats -f path/to/project view components --snippet "function (?P<functions>.*)\(.*\)" -e php -c name,abstractness,instability,functions,efferent_coupling_count --sorted-by abstractness
 ```
 
 This might output something like this:
@@ -109,23 +109,23 @@ directories according to the [.gitignore format](https://git-scm.com/docs/gitign
 ### In my PHP project, I want to count how many statements there are in each component/namespace.
 
 ```shell
-archstats path/to/project view components --extension php --snippet "(?P<statements>.*;)" --sorted-by statements
+archstats -f path/to/project view components --extension php --snippet "(?P<statements>.*;)" --sorted-by statements
 ```
 
 ### In my PHP project, I want to know how many functions are in each file.
 
 ```shell
-archstats path/to/project view files --extension php --snippet "function (?P<functions>.*)\(.*\)" --sorted-by functions
+archstats -f path/to/project view files --extension php --snippet "function (?P<functions>.*)\(.*\)" --sorted-by functions
 ```
 
 ### In my PHP project, I want to see the connections (afferent/efferent couplings) between components.
 
 ```shell
-archstats path/to/project view component-connections --extension php
+archstats -f path/to/project view component-connections --extension php
 ```
 
 ### In my PHP project, I want to recursively count the number of Laravel routes per directory
 
 ```shell
-archstats path/to/project view directories-recursive --extension php --snippet "(?P<routes>Route::(.*))" --sorted-by routes
+archstats -f path/to/project view directories-recursive --extension php --snippet "(?P<routes>Route::(.*))" --sorted-by routes
 ```

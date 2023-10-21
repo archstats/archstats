@@ -83,7 +83,7 @@ func simpleComponentsTest[T any](t *testing.T, view string, columns string, expe
 	//cmd.Reset()
 	cmd.Execute(output, bytes.NewBufferString(""), []core.Extension{
 		ext,
-	}, []string{"-c", columns, "-o", "csv", "-f", "simple_components", "view", view}) //"-c", "name,afferent_couplings,efferent_couplings",
+	}, []string{"-c", columns, "-o", "csv", "-f", "simple_components", "view", view}) //"-c", "name,afferent_coupling_count,efferent_coupling_count",
 
 	var actualOutput []T
 	err := csvutil.Unmarshal(output.Bytes(), &actualOutput)

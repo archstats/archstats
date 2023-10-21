@@ -1,4 +1,4 @@
-id: afferent_couplings
+id: afferent_coupling_count
 name: Afferent Couplings
 short: |
   Afferent coupling is a measure of how much other software packages depend on a package. A higher afferent coupling score means that the package is more tightly coupled to other packages and more likely to affect other packages if it is changed.

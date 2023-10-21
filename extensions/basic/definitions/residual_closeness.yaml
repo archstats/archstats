@@ -1,0 +1,9 @@
+id: residual_closeness
+name: Residual Closeness
+short: |
+  Residual closeness is a measure of how close a component is to other components in the system.
+long: |
+  Residual closeness is a measure of how close a component is to other components in the system. 
+  
+  
+  Residual closeness, in the context of graph centrality theory applied to a set of software components, is a measure of how easily information or influence can flow through a network of interconnected software components, with a particular focus on the components' relative positions within the network.
