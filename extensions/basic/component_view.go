@@ -29,44 +29,6 @@ const (
 
 func componentView(results *core.Results) *core.View {
 	view := genericView(getDistinctColumnsFrom(results.StatsByComponent), results.StatsByComponent)
-
-	graph := results.ComponentGraph
-	allShortestPaths := path.DijkstraAllPaths(graph)
-	betweennessIndex := network.Betweenness(graph)
-	pageRankIndex := network.PageRank(results.ComponentGraph, 0.85, 0.00001)
-	hubAuthorityHITSIndex := network.HITS(results.ComponentGraph, 0.00001)
-
-	harmonicCentralityIndex := network.Harmonic(results.ComponentGraph, allShortestPaths)
-	farnessCentralityIndex := network.Farness(results.ComponentGraph, allShortestPaths)
-	residualClosenessIndex := network.Residual(results.ComponentGraph, allShortestPaths)
-
-	for _, row := range view.Rows {
-		componentName := row.Data["name"].(string)
-		componentId := graph.ComponentToId(componentName)
-
-		afferentCouplings, efferentCouplings := countUniqueFilesInConnections(results.ConnectionsTo[componentName]), countUniqueFilesInConnections(results.ConnectionsFrom[componentName])
-		abstractness := convertToFloat(row.Data["abstractness"])
-		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
-		distanceMainSequence := math.Abs(nanToZero(abstractness) + nanToZero(instability) - 1)
-
-		row.Data[Dependents] = len(lo.UniqBy(results.ConnectionsTo[componentName], func(item *component.Connection) string {
-			return item.From
-		}))
-		row.Data[Dependencies] = len(lo.UniqBy(results.ConnectionsTo[componentName], func(item *component.Connection) string {
-			return item.To
-		}))
-		row.Data[AfferentCouplings] = afferentCouplings
-		row.Data[EfferentCouplings] = efferentCouplings
-		row.Data[Instability] = nanToZero(instability)
-		row.Data[DistanceMainSequence] = nanToZero(distanceMainSequence)
-		row.Data[Betweenness] = betweennessIndex[componentId]
-		row.Data[PageRank] = pageRankIndex[componentId]
-		row.Data[HubScore] = hubAuthorityHITSIndex[componentId].Hub
-		row.Data[AuthorityScore] = hubAuthorityHITSIndex[componentId].Authority
-		row.Data[HarmonicCentrality] = harmonicCentralityIndex[componentId]
-		row.Data[FarnessCentrality] = farnessCentralityIndex[componentId]
-		row.Data[ResidualCloseness] = residualClosenessIndex[componentId]
-	}
 	view.Columns = append(view.Columns,
 		core.IntColumn(Dependents),
 		core.IntColumn(Dependencies),
@@ -82,6 +44,49 @@ func componentView(results *core.Results) *core.View {
 		core.FloatColumn(FarnessCentrality),
 		core.FloatColumn(ResidualCloseness),
 	)
+
+	graph := results.ComponentGraph
+
+	if len(graph.Components) == 0 {
+		return view
+	}
+
+	allShortestPaths := path.DijkstraAllPaths(graph)
+	betweennessIndex := network.Betweenness(graph)
+	pageRankIndex := network.PageRank(results.ComponentGraph, 0.85, 0.00001)
+	hubAuthorityHITSIndex := network.HITS(results.ComponentGraph, 0.00001)
+
+	harmonicCentralityIndex := network.Harmonic(results.ComponentGraph, allShortestPaths)
+	farnessCentralityIndex := network.Farness(results.ComponentGraph, allShortestPaths)
+	residualClosenessIndex := network.Residual(results.ComponentGraph, allShortestPaths)
+
+	for _, row := range view.Rows {
+		componentName := row.Data[Name].(string)
+		componentId := graph.ComponentToId(componentName)
+
+		afferentCouplings, efferentCouplings := countUniqueFilesInConnections(results.ConnectionsTo[componentName]), countUniqueFilesInConnections(results.ConnectionsFrom[componentName])
+		abstractness := convertToFloat(row.Data[Abstractness])
+		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
+		distanceMainSequence := math.Abs(nanToZero(abstractness) + nanToZero(instability) - 1)
+
+		row.Data[Dependents] = len(lo.UniqBy(results.ConnectionsTo[componentName], func(item *component.Connection) string {
+			return item.From
+		}))
+		row.Data[Dependencies] = len(lo.UniqBy(results.ConnectionsFrom[componentName], func(item *component.Connection) string {
+			return item.To
+		}))
+		row.Data[AfferentCouplings] = afferentCouplings
+		row.Data[EfferentCouplings] = efferentCouplings
+		row.Data[Instability] = nanToZero(instability)
+		row.Data[DistanceMainSequence] = nanToZero(distanceMainSequence)
+		row.Data[Betweenness] = betweennessIndex[componentId]
+		row.Data[PageRank] = pageRankIndex[componentId]
+		row.Data[HubScore] = hubAuthorityHITSIndex[componentId].Hub
+		row.Data[AuthorityScore] = hubAuthorityHITSIndex[componentId].Authority
+		row.Data[HarmonicCentrality] = harmonicCentralityIndex[componentId]
+		row.Data[FarnessCentrality] = farnessCentralityIndex[componentId]
+		row.Data[ResidualCloseness] = residualClosenessIndex[componentId]
+	}
 
 	return view
 }
