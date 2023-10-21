@@ -3,7 +3,82 @@ package component
 import (
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/topo"
 )
+
+// Graph is a directed graph that can contain cycles.
+// It is a wrapper around gonum's graph.Directed interface.
+type Graph struct {
+	Components []string
+
+	Connections     []*Connection
+	ConnectionsTo   map[string][]*Connection
+	ConnectionsFrom map[string][]*Connection
+
+	idMapping  map[string]int64
+	components map[int64]*componentNode
+	edgesFrom  map[int64][]*componentEdge
+	edgesTo    map[int64][]*componentEdge
+
+	shortestCycles              map[string]Cycle
+	stronglyConnectedComponents [][]string
+}
+
+func (g *Graph) typeAssertion() graph.Directed {
+	return g
+}
+
+// ShortestCycles returns a map of the shortest cycles in the graph.
+// Implements: https://link.springer.com/chapter/10.1007/978-3-642-21952-8_19
+func (g *Graph) ShortestCycles() map[string]Cycle {
+	if g.shortestCycles == nil {
+		g.shortestCycles = shortestCycles(g)
+	}
+	return g.shortestCycles
+}
+
+// StronglyConnectedComponents returns a map of the strongly connected components in the graph.
+// Implements: https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+func (g *Graph) StronglyConnectedComponents() [][]string {
+	if g.stronglyConnectedComponents == nil {
+		groups := topo.TarjanSCC(g)
+
+		g.stronglyConnectedComponents = lo.Map(groups, func(group []graph.Node, _ int) []string {
+			return lo.Map(group, func(item graph.Node, _ int) string {
+				return g.IdToComponent(item.ID())
+			})
+		})
+	}
+	return g.stronglyConnectedComponents
+}
+
+// DirectPredecessorsOf returns the direct predecessors of a component.
+func (g *Graph) DirectPredecessorsOf(component string) []string {
+	return lo.Keys(getDirectSidedRelative(component, g.ConnectionsTo, func(connection *Connection) string {
+		return connection.From
+	}))
+}
+
+// DirectSuccessorOf returns the direct successors of a component.
+func (g *Graph) DirectSuccessorOf(component string) []string {
+	return lo.Keys(getDirectSidedRelative(component, g.ConnectionsFrom, func(connection *Connection) string {
+		return connection.To
+	}))
+}
+
+// AllPredecessorsOf returns all predecessors of a component. Including indirect ones.
+func (g *Graph) AllPredecessorsOf(component string) []string {
+	return getSidedRelative(component, g.ConnectionsTo, func(connection *Connection) string {
+		return connection.From
+	})
+}
+
+// AllSuccessorsOf returns all successors of a component. Including indirect ones.
+func (g *Graph) AllSuccessorsOf(component string) []string {
+	return getSidedRelative(component, g.ConnectionsFrom, func(connection *Connection) string {
+		return connection.To
+	})
+}
 
 func CreateGraph(connections []*Connection) *Graph {
 	components := map[string]struct{}{}
@@ -26,6 +101,13 @@ func CreateGraph(connections []*Connection) *Graph {
 		curId++
 	}
 
+	componentConnectionsByFrom := lo.GroupBy(connections, func(connection *Connection) string {
+		return connection.From
+	})
+	componentConnectionsByTo := lo.GroupBy(connections, func(connection *Connection) string {
+		return connection.To
+	})
+
 	edgesFrom := make(map[int64][]*componentEdge, len(connectionsFromToUnique))
 	edgesTo := make(map[int64][]*componentEdge, len(connectionsFromToUnique))
 	for _, connection := range connectionsFromToUnique {
@@ -44,10 +126,14 @@ func CreateGraph(connections []*Connection) *Graph {
 	}
 
 	return &Graph{
-		idMapping:  idMapping,
-		components: allComponents,
-		edgesFrom:  edgesFrom,
-		edgesTo:    edgesTo,
+		Components:      lo.Keys(components),
+		Connections:     connections,
+		ConnectionsFrom: componentConnectionsByFrom,
+		ConnectionsTo:   componentConnectionsByTo,
+		idMapping:       idMapping,
+		components:      allComponents,
+		edgesFrom:       edgesFrom,
+		edgesTo:         edgesTo,
 	}
 }
 
@@ -111,51 +197,44 @@ func (c *componentEdge) ReversedEdge() graph.Edge {
 	}
 }
 
-type Graph struct {
-	idMapping  map[string]int64
-	components map[int64]*componentNode
-	edgesFrom  map[int64][]*componentEdge
-	edgesTo    map[int64][]*componentEdge
+func (g *Graph) IdToComponent(id int64) string {
+	return g.components[id].name
+}
+func (g *Graph) ComponentToId(name string) int64 {
+	return g.idMapping[name]
 }
 
-func (c *Graph) IdToComponent(id int64) string {
-	return c.components[id].name
+func (g *Graph) ComponentToNode(name string) graph.Node {
+	return g.components[g.ComponentToId(name)]
 }
-func (c *Graph) ComponentToId(name string) int64 {
-	return c.idMapping[name]
-}
-
-func (c *Graph) ComponentToNode(name string) graph.Node {
-	return c.components[c.ComponentToId(name)]
-}
-func (c *Graph) Node(id int64) graph.Node {
-	return c.components[id]
+func (g *Graph) Node(id int64) graph.Node {
+	return g.components[id]
 }
 
-func (c *Graph) Nodes() graph.Nodes {
-	nodes := make([]graph.Node, 0, len(c.components))
-	for _, node := range c.components {
+func (g *Graph) Nodes() graph.Nodes {
+	nodes := make([]graph.Node, 0, len(g.components))
+	for _, node := range g.components {
 		nodes = append(nodes, node)
 	}
 	return nodeListOf(nodes)
 }
 
-func (c *Graph) From(id int64) graph.Nodes {
-	nodes := lo.Map(c.edgesFrom[id], func(before *componentEdge, _ int) graph.Node {
+func (g *Graph) From(id int64) graph.Nodes {
+	nodes := lo.Map(g.edgesFrom[id], func(before *componentEdge, _ int) graph.Node {
 		return before.To()
 	})
 	return nodeListOf(nodes)
 }
 
-func (c *Graph) To(id int64) graph.Nodes {
-	nodes := lo.Map(c.edgesTo[id], func(before *componentEdge, _ int) graph.Node {
+func (g *Graph) To(id int64) graph.Nodes {
+	nodes := lo.Map(g.edgesTo[id], func(before *componentEdge, _ int) graph.Node {
 		return before.From()
 	})
 	return nodeListOf(nodes)
 }
 
-func (c *Graph) Edge(xid, yid int64) graph.Edge {
-	xEdges := c.edgesFrom[xid]
+func (g *Graph) Edge(xid, yid int64) graph.Edge {
+	xEdges := g.edgesFrom[xid]
 
 	for _, edge := range xEdges {
 		if edge.to.id == yid {
@@ -165,12 +244,12 @@ func (c *Graph) Edge(xid, yid int64) graph.Edge {
 	return nil
 }
 
-func (c *Graph) HasEdgeFromTo(xid, yid int64) bool {
-	return c.Edge(xid, yid) != nil
+func (g *Graph) HasEdgeFromTo(xid, yid int64) bool {
+	return g.Edge(xid, yid) != nil
 }
 
-func (c *Graph) HasEdgeBetween(xid, yid int64) bool {
-	return c.Edge(xid, yid) != nil || c.Edge(yid, xid) != nil
+func (g *Graph) HasEdgeBetween(xid, yid int64) bool {
+	return g.Edge(xid, yid) != nil || g.Edge(yid, xid) != nil
 }
 
 func nodeListOf(nodes []graph.Node) graph.Nodes {
