@@ -95,6 +95,10 @@ func (e *extension) Init(settings core.Analyzer) error {
 			Name:           "git_component_shared_commits",
 			CreateViewFunc: e.componentCouplingViewFactory,
 		})
+		settings.RegisterView(&core.ViewFactory{
+			Name:           "git_component_cycles_shortest_shared_commits",
+			CreateViewFunc: e.shortestCycleViewFactory,
+		})
 	}
 
 	if e.GenerateFileLogicalCouplingView {
@@ -102,6 +106,7 @@ func (e *extension) Init(settings core.Analyzer) error {
 			Name:           "git_file_shared_commits",
 			CreateViewFunc: e.fileCouplingViewFactory,
 		})
+
 	}
 
 	if e.GenerateCommitView {

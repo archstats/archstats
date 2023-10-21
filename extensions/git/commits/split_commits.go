@@ -35,6 +35,10 @@ type Splitted struct {
 	dayBuckets              map[int]*Splitted
 }
 
+func (ms *Splitted) CommitParts() []*PartOfCommit {
+	return ms.commitParts
+}
+
 func (ms *Splitted) SplitByFile() CommitPartMap {
 	if ms.commitPartsByFile == nil {
 		ms.splitAll()

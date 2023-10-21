@@ -33,7 +33,7 @@ func TestSharedCommits_Files(t *testing.T) {
 	// f should not have any shared commits with anything else, because it is not in any of the commits
 	// e should have no shared commits with anything else, because it is only in one commit that has no other files in the list
 	// d should have one shared commit with b, because they are both in commit 9
-	sharedCommits := GetCommitsInCommon([]string{"a", "b", "c", "d", "e", "f"}, mappedCommits)
+	sharedCommits := PairsToCommitsInCommon([]string{"a", "b", "c", "d", "e", "f"}, mappedCommits)
 
 	assert.Len(t, sharedCommits, 4)
 
@@ -78,7 +78,7 @@ func TestSharedCommits_Components(t *testing.T) {
 	// f should not have any shared commits with anything else, because it is not in any of the commits
 	// e should have no shared commits with anything else, because it is only in one commit that has no other components in the list
 	// d should have one shared commit with b, because they are both in commit 9
-	sharedCommits := GetCommitsInCommon([]string{"a", "b", "c", "d", "e", "f"}, mappedCommits)
+	sharedCommits := PairsToCommitsInCommon([]string{"a", "b", "c", "d", "e", "f"}, mappedCommits)
 
 	assert.Len(t, sharedCommits, 4)
 

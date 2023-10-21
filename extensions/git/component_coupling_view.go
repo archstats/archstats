@@ -9,11 +9,11 @@ import (
 func (e *extension) componentCouplingViewFactory(results *core.Results) *core.View {
 	components := lo.Keys(results.ComponentToFiles)
 
-	sharedCommits := commits.GetCommitsInCommon(components, e.splittedCommits.ComponentToCommitHashes())
+	sharedCommits := commits.PairsToCommitsInCommon(components, e.splittedCommits.ComponentToCommitHashes())
 	dayBucketSharedCommitCounts := map[int]map[string]commits.CommitHashes{}
 
 	for days, split := range e.splittedCommits.DayBuckets() {
-		dayBucketSharedCommitCounts[days] = commits.GetCommitsInCommon(components, split.ComponentToCommitHashes())
+		dayBucketSharedCommitCounts[days] = commits.PairsToCommitsInCommon(components, split.ComponentToCommitHashes())
 	}
 
 	e.splittedCommits.ComponentToCommitHashes()
