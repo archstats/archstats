@@ -18,7 +18,7 @@ func shortestComponentCyclesView(results *core.Results) *core.View {
 				Data: map[string]interface{}{
 					"component":  cmpnt,
 					"cycle_nr":   cycleNr,
-					"cycle_size": len(cycle),
+					"cycle_size": len(cycle) - 1,
 					"cycle":      cycleKey,
 				},
 			})
