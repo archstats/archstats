@@ -57,14 +57,14 @@ func Analyze(command *cobra.Command) (*core.Results, error) {
 }
 
 func defaultExtensions() []core.Extension {
-	return []core.Extension{required.Extension(), basic.Extension()}
+	return []core.Extension{required.Extension(), basic.Extension(), &lines.Extension{}}
 }
 
 func optionalExtension(in string) (core.Extension, error) {
 	switch in {
+	// Lines is already included by default, this is for backwards compatibility
 	case "lines":
-		return &lines.Extension{}, nil
-
+		return &emptyExtension{}, nil
 	case "git":
 		return git.Extension(), nil
 	case "cycles":
@@ -77,3 +77,8 @@ func optionalExtension(in string) (core.Extension, error) {
 		return regex.BuiltInRegexExtension(in)
 	}
 }
+
+type emptyExtension struct {
+}
+
+func (e *emptyExtension) Init(settings core.Analyzer) error { return nil }
