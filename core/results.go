@@ -40,8 +40,9 @@ type Results struct {
 
 	Views []*View
 
-	views       map[string]*ViewFactory
-	definitions map[string]*definitions2.Definition
+	views         map[string]*ViewFactory
+	definitions   map[string]*definitions2.Definition
+	renderedViews map[string]*View
 }
 
 func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*file.Results) *Results {
@@ -66,12 +67,6 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		allSnippetGroups["ByComponent"], allSnippetGroups["ByType"], allSnippetGroups["ByFile"], allSnippetGroups["ByDirectory"]
 
 	componentConnections := component.GetConnections(snippetsByType, snippetsByComponent)
-	componentConnectionsByFrom := lo.GroupBy(componentConnections, func(connection *component.Connection) string {
-		return connection.From
-	})
-	componentConnectionsByTo := lo.GroupBy(componentConnections, func(connection *component.Connection) string {
-		return connection.To
-	})
 
 	componentToFiles := lo.MapValues(snippetsByComponent, func(snippets []*file.Snippet, _ string) []string {
 		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
@@ -132,6 +127,7 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	fileToDirectory := lo.MapValues(statsByFile, func(snippets *file.Stats, file string) string {
 		return file[:strings.LastIndex(file, "/")]
 	})
+	graph := component.CreateGraph(componentConnections)
 	return &Results{
 		RootDirectory: rootPath,
 
@@ -146,21 +142,25 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		SnippetsByFile:      snippetsByFile,
 		SnippetsByType:      snippetsByType,
 
-		Connections:     componentConnections,
-		ConnectionsFrom: componentConnectionsByFrom,
-		ConnectionsTo:   componentConnectionsByTo,
+		ComponentGraph:  graph,
+		Connections:     graph.Connections,
+		ConnectionsFrom: graph.ConnectionsFrom,
+		ConnectionsTo:   graph.ConnectionsTo,
 
 		FileToComponent:  fileToComponent,
 		FileToDirectory:  fileToDirectory,
 		ComponentToFiles: componentToFiles,
 		DirectoryToFiles: directoryToFiles,
-		ComponentGraph:   component.CreateGraph(componentConnections),
 
-		views:       settings.views,
-		definitions: settings.definitions,
+		views:         settings.views,
+		definitions:   settings.definitions,
+		renderedViews: make(map[string]*View),
 	}
 }
 func (r *Results) RenderView(viewName string) (*View, error) {
+	if view, ok := r.renderedViews[viewName]; ok {
+		return view, nil
+	}
 	if viewFactory, ok := r.views[viewName]; ok {
 		view := viewFactory.CreateViewFunc(r)
 		view.Name = viewName
