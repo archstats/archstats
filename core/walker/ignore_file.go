@@ -4,7 +4,7 @@ import (
 	"bufio"
 	ignore "github.com/sabhiram/go-gitignore"
 	"io/fs"
-	"path/filepath"
+	filepath "path"
 
 	//"os"
 	"strings"
@@ -40,7 +40,7 @@ func getIgnoreLinesInDir(fileSystem fs.FS, path string, entries []fs.DirEntry) [
 
 func getIgnoreLinesInFile(fileSystem fs.FS, path string, fileInfo fs.DirEntry) []string {
 	var globs []string
-	fullPath := filepath.Clean(path + string(filepath.Separator) + fileInfo.Name())
+	fullPath := filepath.Clean(path + "/" + fileInfo.Name())
 	file, err := fileSystem.Open(fullPath)
 	if err != nil {
 		panic(err)

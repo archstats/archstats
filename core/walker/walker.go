@@ -4,7 +4,7 @@ import (
 	"github.com/archstats/archstats/core/file"
 	"io/fs"
 	"os"
-	"path/filepath"
+	filepath "path"
 	"sync"
 )
 
@@ -43,7 +43,7 @@ func GetAllFiles(dirAbsolutePath string) []PathToFile {
 }
 
 func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []PathToFile {
-	separator := string(filepath.Separator)
+	separator := "/"
 
 	dirAbsolutePath = filepath.Clean(dirAbsolutePath)
 	var fileDescriptions []PathToFile
