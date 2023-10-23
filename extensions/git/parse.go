@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/samber/lo"
 	"os/exec"
+	filepath "path"
 	"strconv"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 
 	// Run 'git log' command
 	cmd := exec.Command("git",
-		"-C", path,
+		"-C", filepath.Clean(path),
 		"log", "--all", "--numstat", "--no-renames", "--pretty=format:[-archstatscommit-]%h--%at--%an--%ae--%s--")
 	output, err := cmd.Output()
 	if err != nil {
