@@ -116,7 +116,7 @@ func (e *extension) Init(settings core.Analyzer) error {
 		})
 	}
 
-	rawCommits, err := e.parseGitLog(settings.RootPath())
+	rawCommits, err := parseGitLog(settings.RootPath())
 	if err != nil {
 		return err
 	}

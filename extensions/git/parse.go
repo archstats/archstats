@@ -25,7 +25,7 @@ type rawPartOfCommit struct {
 	Path      string
 }
 
-func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
+func parseGitLog(path string) ([]*rawCommit, error) {
 	// Check if the Git command exists
 	if !gitCommandExists() {
 		return nil, fmt.Errorf("git command not found")
@@ -37,7 +37,7 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 		"log", "--all", "--numstat", "--no-renames", "--pretty=format:[-archstatscommit-]%h--%at--%an--%ae--%s--")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to run git log command: %s", err)
 	}
 	outputString := string(output)
 	return parseGitLogString(outputString), nil
