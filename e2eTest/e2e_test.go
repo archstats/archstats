@@ -2,38 +2,15 @@ package e2eTest
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/archstats/archstats/cmd"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/jszwec/csvutil"
 	"github.com/stretchr/testify/assert"
-	"log"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 )
-
-const TestDataPath = "./temp_testdata"
-
-// TODO: revisit this test
-//func Test_E2E_Extensions(t *testing.T) {
-//
-//	os.Mkdir(TestDataPath, 0755)
-//	//defer os.RemoveAll(TestDataPath) TODO: Should not remove all in the case of mutation testing
-//
-//	file, _ := os.ReadFile("e2e_input.yaml")
-//
-//	config := &Config{}
-//	yaml.Unmarshal(file, config)
-//
-//	for _, theCase := range config.Cases {
-//		testCase(t, theCase)
-//	}
-//}
 
 func Test_SimpleComponents_AfferentEfferentCoupling(t *testing.T) {
 	simpleComponentsTest(t, "components", "name,file_count,afferent_coupling_count,efferent_coupling_count", []Component{
@@ -73,8 +50,8 @@ func simpleComponentsTest[T any](t *testing.T, view string, columns string, expe
 		OnlyStats: false,
 		Glob:      nil,
 		Patterns: []*regexp.Regexp{
-			regexp.MustCompile(`component (?P<component_declaration>.*)`),
-			regexp.MustCompile(`depends on (?P<component_import>.*)`),
+			regexp.MustCompile(`component (?P<component_declaration>[a-z]+)`),
+			regexp.MustCompile(`depends on (?P<component_import>[a-z]+)`),
 		},
 	}
 
@@ -112,9 +89,10 @@ type Component struct {
 
 func directConnection(from, to, file string, referenceCount int) ComponentConnectionDirect {
 	return ComponentConnectionDirect{
-		From:           from,
-		To:             to,
-		File:           file,
+		From: from,
+		To:   to,
+		// TODO, windows... but we need a better solution for this
+		File:           strings.ReplaceAll(file, "\\", "/"),
 		ReferenceCount: referenceCount,
 	}
 }
@@ -140,70 +118,4 @@ type ComponentConnectionIndirect struct {
 	To                 string `csv:"TO"`
 	ShortestPathLength int    `csv:"SHORTEST_PATH_LENGTH"`
 	ShortestPath       string `csv:"SHORTEST_PATH"`
-}
-
-func testCase(t *testing.T, theCase Case) {
-	log.Println("Testing case:", theCase.Name)
-
-	repoDirName := filepath.Clean(strings.ReplaceAll(fmt.Sprintf("%s/%s", TestDataPath, theCase.Repo[strings.LastIndex(theCase.Repo, "/"):]), ".git", ""))
-	if _, err := os.Stat(repoDirName); os.IsNotExist(err) {
-		log.Println("Cloning repo:", theCase.Repo)
-		err := exec.Command("git", "clone", theCase.Repo, repoDirName).Run()
-		if err != nil {
-			assert.Fail(t, "Failed to clone repo: {}", theCase.Repo)
-		}
-	} else {
-		log.Println("Repo already exists, skipping clone...")
-	}
-
-	err := exec.Command("git", "-C", repoDirName, "reset", "--hard", theCase.Commit).Run()
-	if err != nil {
-		assert.Fail(t, "Failed to reset repo (%s) to commit '%s'", theCase.Repo, theCase.Commit)
-	}
-
-	err = os.WriteFile(fmt.Sprintf("%s/%s", repoDirName, ".archstatsignore"), []byte(theCase.Ignore), 0644)
-	defer os.Remove(fmt.Sprintf("%s/%s", repoDirName, ".archstatsignore"))
-	if err != nil {
-		assert.Fail(t, "Failed to write .archstatsignore file")
-	}
-	allArgs := append([]string{"-f", repoDirName}, strings.Fields(theCase.OptionArgs)...)
-
-	output := bytes.NewBufferString("")
-	err = cmd.Execute(output, bytes.NewBufferString(""), nil, allArgs)
-
-	if err != nil {
-		assert.Fail(t, "Failed to run archstats: %s", err)
-	}
-
-	expectedOutputBytes, err := os.ReadFile(theCase.ExpectedOutputFile)
-	if err != nil {
-		assert.Fail(t, "Failed to read expected output file: %s", theCase.ExpectedOutputFile)
-	}
-
-	expectedOutput := strings.TrimSpace(string(expectedOutputBytes))
-	actualOutput := output.String()
-	var passed bool
-	passed = assert.Equal(t, expectedOutput, actualOutput, "Actual output does not match expected output")
-
-	if passed {
-		log.Println("Case passed:", theCase.Name)
-		log.Println()
-	} else {
-		log.Printf("\n\nExpected output `archstats %s`):\n%s\n", strings.Join(allArgs, " "), expectedOutput)
-		log.Println("\n" + expectedOutput)
-		log.Printf("\n\nActual output for `archstats %s`):\n%s\n", strings.Join(allArgs, " "), actualOutput)
-	}
-}
-
-type Config struct {
-	Cases []Case `yaml:"cases"`
-}
-
-type Case struct {
-	Name               string `yaml:"name"`
-	Repo               string `yaml:"repo"`
-	Commit             string `yaml:"commit"`
-	OptionArgs         string `yaml:"options"`
-	Ignore             string `yaml:"ignore"`
-	ExpectedOutputFile string `yaml:"expectedOutputFile"`
 }
