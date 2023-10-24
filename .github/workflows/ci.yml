@@ -6,10 +6,13 @@ on:
   pull_request:
     branches: [ "main" ]
 
-jobs:
 
-  build:
-    runs-on: ubuntu-latest
+jobs:
+  supported-platforms:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
 
