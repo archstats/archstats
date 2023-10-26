@@ -30,7 +30,8 @@ jobs:
             goos: windows
     steps:
     - uses: actions/checkout@v3
-    - run:  apt-get install gcc-multilib  && apt-get install gcc-mingw-w64
+    - run: sudo apt-get install gcc-multilib
+    - run: sudo apt-get install gcc-mingw-w64
     - uses: wangyoucao577/go-release-action@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
