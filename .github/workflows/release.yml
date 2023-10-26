@@ -1,22 +1,23 @@
-#on:
-#  release:
-#    types: [published]
-#
-
+name: Release Archstats
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
+  release:
+    types: [published]
 
 permissions:
     contents: write
     packages: write
 
 jobs:
-  releases-matrix:
+  get-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+  releases:
     uses: ./.github/workflows/build.yml
+    needs:
+      - get-version
     strategy:
       fail-fast: false
       matrix:
@@ -31,6 +32,6 @@ jobs:
     with:
       goarch: ${{ matrix.goarch }}
       goos: ${{ matrix.goos }}
-      package-name: ${{ needs.get-product-version.outputs.pkg-name }}
-      product-version: ${{ needs.get-product-version.outputs.product-version }}
+      package-name: archstats
+      product-version: ${{ env.RELEASE_VERSION }}
       runson: ${{ matrix.runson }}

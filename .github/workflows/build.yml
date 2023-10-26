@@ -26,7 +26,7 @@ on:
 jobs:
   build:
     runs-on: ${{ inputs.runson }}
-    name: Archstats ${{ inputs.goos }} ${{ inputs.goarch }} v${{ inputs.product-version }}
+    name: ${{ inputs.goos }} ${{ inputs.goarch }} v${{ inputs.product-version }}
     steps:
       - uses: actions/checkout@v3.5.3
       - uses: actions/setup-go@v4.0.1
