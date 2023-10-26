@@ -36,33 +36,25 @@ jobs:
       - if: ${{inputs.goos == 'windows' && inputs.goarch == '386'}}
         run: |-
           sudo apt-get install gcc-mingw-w64
-          export CC=i586-mingw32-gcc
+          echo "CC=i586-mingw32-gcc" >> $GITHUB_ENV
 
       - if: ${{inputs.goos == 'windows' && inputs.goarch == 'amd64'}}
         run: |-
           sudo apt-get install gcc-multilib
           sudo apt-get install gcc-mingw-w64
-          export CC=x86_64-w64-mingw32-gcc
+          echo "CC=x86_64-w64-mingw32-gcc" >> $GITHUB_ENV
 
 
       - name: Determine artifact basename
-        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}_${{ inputs.product-version }}_${{ inputs.goos }}_${{ inputs.goarch }}.zip" >> $GITHUB_ENV
+        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}_${{ inputs.goos }}_${{ inputs.goarch }}.zip" >> $GITHUB_ENV
       - name: Build Archstats
         env:
           GOOS: ${{ inputs.goos }}
           GOARCH: ${{ inputs.goarch }}
           ACTIONSOS: ${{ inputs.runson }}
+          CC: ${{ env.CC }}
           CGO_ENABLED: 1
-        uses: hashicorp/actions-go-build@v0.1.7
-        with:
-          bin_name: ${{ inputs.bin-name }}
-          product_name: ${{ inputs.product-name }}
-          product_version: ${{ inputs.product-version }}
-          go_version: 1.21
-          os: ${{ inputs.goos }}
-          arch: ${{ inputs.goarch }}
-          reproducible: nope
-          instructions: |-
+        run: |-
             mkdir dist out
             set -x
             go build -o dist/ .
