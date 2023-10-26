@@ -35,13 +35,14 @@ jobs:
 
       - if: ${{inputs.goos == 'windows' && inputs.goarch == '386'}}
         run: |-
-          sudo apt install mingw-w64-i686-toolchain
+          sudo apt install mingw-w64-tools
           CC=i586-mingw32-gcc
 
       - if: ${{inputs.goos == 'windows' && inputs.goarch == 'amd64'}}
         run: |-
-          sudo apt install mingw-w64-x86-64-toolchain
+          sudo apt install mingw-w64-tools
           CC=x86_64-w64-mingw32-gcc
+
       - if: ${{inputs.goos == 'linux' && inputs.goarch == 'arm'}}
         run: |-
           sudo apt install gcc-arm-linux-gnueabi

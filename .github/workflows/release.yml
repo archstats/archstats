@@ -23,7 +23,6 @@ jobs:
        include:
          - { goos: "linux", goarch: "386", runson: "ubuntu-latest"}
          - { goos: "linux", goarch: "amd64", runson: "ubuntu-latest"}
-         - { goos: "linux", goarch: "arm", runson: "ubuntu-latest"}
          - { goos: "linux", goarch: "arm64", runson: "ubuntu-latest"}
          - { goos: "windows", goarch: "386", runson: "ubuntu-latest"}
          - { goos: "windows", goarch: "amd64", runson: "ubuntu-latest"}
