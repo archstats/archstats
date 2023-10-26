@@ -1,0 +1,62 @@
+---
+name: build_archstats
+
+on:
+  workflow_call:
+    inputs:
+      goos:
+        required: true
+        type: string
+      goarch:
+        required: true
+        type: string
+      package-name:
+        type: string
+        default: archstats
+      bin-name:
+        type: string
+        default: archstats
+      product-version:
+        type: string
+        required: true
+      runson:
+        type: string
+        required: true
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runson }}
+    name: Archstats ${{ inputs.goos }} ${{ inputs.goarch }} v${{ inputs.product-version }}
+    steps:
+      - uses: actions/checkout@v3.5.3
+      - uses: actions/setup-go@v4.0.1
+        with:
+          go-version: 1.21
+      - name: Determine artifact basename
+        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}_${{ inputs.product-version }}_${{ inputs.goos }}_${{ inputs.goarch }}.zip" >> $GITHUB_ENV
+      - name: Build Archstats
+        env:
+          GOOS: ${{ inputs.goos }}
+          GOARCH: ${{ inputs.goarch }}
+          ACTIONSOS: ${{ inputs.runson }}
+          CGO_ENABLED: 1
+        uses: hashicorp/actions-go-build@v0.1.7
+        with:
+          bin_name: ${{ inputs.bin-name }}
+          product_name: ${{ inputs.product-name }}
+          product_version: ${{ inputs.product-version }}
+          go_version: 1.21
+          os: ${{ inputs.goos }}
+          arch: ${{ inputs.goarch }}
+          reproducible: nope
+          instructions: |-
+            mkdir dist out
+            set -x
+            go build -o dist/ .
+            zip -r -j out/${{ env.ARTIFACT_BASENAME }} dist/
+      - uses: actions/upload-artifact@v3.1.2
+        with:
+          name: ${{ env.ARTIFACT_BASENAME }}
+          path: out/${{ env.ARTIFACT_BASENAME }}
+          if-no-files-found: error
+

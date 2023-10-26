@@ -16,27 +16,30 @@ permissions:
 
 jobs:
   releases-matrix:
-    name: Release Go Binary
-    runs-on: ubuntu-latest
+    uses: ./build.yml
     strategy:
+      fail-fast: false
       matrix:
-        # build and publish in parallel: linux/386, linux/amd64, linux/arm64, windows/386, windows/amd64, darwin/amd64, darwin/arm64
-        goos: [linux, windows, darwin]
-        goarch: [ amd64 ]
-        exclude:
-#          - goarch: "386"
-#            goos: darwin
-          - goarch: arm64
-            goos: windows
-    steps:
-    - uses: actions/checkout@v3
-    - uses: wangyoucao577/go-release-action@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: ${{ matrix.goos }}
-        goarch: ${{ matrix.goarch }}
-        pre_command: export CGO_ENABLED=1 && sudo apt install gcc-multilib && sudo apt install gcc-mingw-w64
-        goversion: "https://go.dev/dl/go1.21.3.linux-amd64.tar.gz"
-        project_path: "."
-        binary_name: "archstats"
-        extra_files: LICENSE README.md
+       include:
+         - { goos: "freebsd", goarch: "386", runson: "ubuntu-latest"}
+         - { goos: "freebsd", goarch: "amd64", runson: "ubuntu-latest"}
+         - { goos: "freebsd", goarch: "arm", runson: "ubuntu-latest"}
+         - { goos: "linux", goarch: "386", runson: "ubuntu-latest"}
+         - { goos: "linux", goarch: "amd64", runson: "ubuntu-latest"}
+         - { goos: "linux", goarch: "arm", runson: "ubuntu-latest"}
+         - { goos: "linux", goarch: "arm64", runson: "ubuntu-latest"}
+         - { goos: "openbsd", goarch: "386", runson: "ubuntu-latest"}
+         - { goos: "openbsd", goarch: "amd64", runson: "ubuntu-latest"}
+         - { goos: "solaris", goarch: "amd64", runson: "ubuntu-latest"}
+         - { goos: "windows", goarch: "386", runson: "ubuntu-latest"}
+         - { goos: "windows", goarch: "amd64", runson: "ubuntu-latest"}
+         - { goos: "darwin", goarch: "amd64", runson: "macos-latest"}
+         - { goos: "darwin", goarch: "arm64", runson: "macos-latest" }
+    with:
+      goarch: ${{ matrix.goarch }}
+      goos: ${{ matrix.goos }}
+      go-version: ${{ needs.get-go-version.outputs.go-version }}
+      package-name: ${{ needs.get-product-version.outputs.pkg-name }}
+      product-version: ${{ needs.get-product-version.outputs.product-version }}
+      cgo-enabled: ${{ matrix.cgo-enabled }}
+      runson: ${{ matrix.runson }}
