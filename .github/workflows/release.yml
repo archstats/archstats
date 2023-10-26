@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   releases-matrix:
-    uses: ./build.yml
+    uses: ./.github/workflows/build.yml
     strategy:
       fail-fast: false
       matrix:
