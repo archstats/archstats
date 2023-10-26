@@ -22,7 +22,7 @@ jobs:
       matrix:
         # build and publish in parallel: linux/386, linux/amd64, linux/arm64, windows/386, windows/amd64, darwin/amd64, darwin/arm64
         goos: [linux, windows, darwin]
-        goarch: [ amd64, arm64]
+        goarch: [ amd64 ]
         exclude:
 #          - goarch: "386"
 #            goos: darwin
@@ -31,8 +31,12 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: sudo apt-get install gcc-multilib
-    - run: sudo apt-get install gcc-mingw-w64
-    - run: sudo apt-get install clang
+    - run: sudo apt-get install clang && export CC=clang
+      if: ${{ matrix.goos == 'darwin' }}
+    - run: sudo apt-get install gcc-mingw-w64 && export CC=x86_64-w64-mingw32-gcc
+      if: ${{ matrix.goos == 'windows' }}
+    - run: export CC=gcc
+      if: ${{ matrix.goos == 'linux' }}
     - uses: wangyoucao577/go-release-action@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
