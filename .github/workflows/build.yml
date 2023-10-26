@@ -32,7 +32,9 @@ jobs:
       - uses: actions/setup-go@v4.0.1
         with:
           go-version: 1.21
-      - run: |-
+
+      - if: ${{inputs.goos != 'darwin' }}
+        run: |-
           sudo apt-get install gcc-multilib
 
       - if: ${{inputs.goos == 'windows' }}
@@ -49,11 +51,12 @@ jobs:
 
       - if: ${{inputs.goos == 'linux' && inputs.goarch == 'arm64'}}
         run: |-
+            sudo apt-get install gcc-aarch64-linux-gnu
             echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - if: ${{inputs.goos == 'linux' && inputs.goarch == '386'}}
         run: |-
-            echo "CC=i686-linux-gnu-gcc" >> $GITHUB_ENV
+            echo "CC=gcc" >> $GITHUB_ENV
 
 
       - name: Determine artifact basename
