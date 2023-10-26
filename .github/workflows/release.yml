@@ -38,8 +38,6 @@ jobs:
     with:
       goarch: ${{ matrix.goarch }}
       goos: ${{ matrix.goos }}
-      go-version: ${{ needs.get-go-version.outputs.go-version }}
       package-name: ${{ needs.get-product-version.outputs.pkg-name }}
       product-version: ${{ needs.get-product-version.outputs.product-version }}
-      cgo-enabled: ${{ matrix.cgo-enabled }}
       runson: ${{ matrix.runson }}
