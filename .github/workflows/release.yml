@@ -18,6 +18,7 @@ jobs:
         run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
   releases:
+    name: ${{ matrix.goos }} ${{ matrix.goarch }} ${{ needs.get-version.outputs.version }}
     uses: ./.github/workflows/build.yml
     needs:
       - get-version
