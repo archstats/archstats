@@ -30,19 +30,12 @@ jobs:
             goos: windows
     steps:
     - uses: actions/checkout@v3
-    - run: sudo apt-get install gcc-multilib
-    - run: export CC=gcc
-      if: ${{ matrix.goos == 'darwin' }}
-    - run: sudo apt-get install gcc-mingw-w64 && export CC=x86_64-w64-mingw32-gcc
-      if: ${{ matrix.goos == 'windows' }}
-    - run: export CC=gcc
-      if: ${{ matrix.goos == 'linux' }}
     - uses: wangyoucao577/go-release-action@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
-        pre_command: export CGO_ENABLED=1
+        pre_command: export CGO_ENABLED=1 && sudo apt install gcc-multilib && sudo apt install gcc-mingw-w64
         goversion: "https://go.dev/dl/go1.21.3.linux-amd64.tar.gz"
         project_path: "."
         binary_name: "archstats"
