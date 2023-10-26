@@ -36,12 +36,13 @@ jobs:
       - if: ${{inputs.goos == 'windows' && inputs.goarch == '386'}}
         run: |-
           sudo apt-get install gcc-mingw-w64
-          CC=i586-mingw32-gcc
+          export CC=i586-mingw32-gcc
 
       - if: ${{inputs.goos == 'windows' && inputs.goarch == 'amd64'}}
         run: |-
+          sudo apt-get install gcc-multilib
           sudo apt-get install gcc-mingw-w64
-          CC=x86_64-w64-mingw32-gcc
+          export CC=x86_64-w64-mingw32-gcc
 
 
       - name: Determine artifact basename
