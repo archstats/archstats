@@ -10,9 +10,12 @@ permissions:
 jobs:
   get-version:
     runs-on: ubuntu-latest
+    outputs:
+        version: ${{ steps.get-version.outputs.version }}
     steps:
-      - name: Get version
-        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - id: get-version
+        name: Get version
+        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
   releases:
     uses: ./.github/workflows/build.yml
@@ -33,5 +36,5 @@ jobs:
       goarch: ${{ matrix.goarch }}
       goos: ${{ matrix.goos }}
       package-name: archstats
-      product-version: ${{ env.RELEASE_VERSION }}
+      product-version: ${{ needs.get-version.outputs.version }}
       runson: ${{ matrix.runson }}
