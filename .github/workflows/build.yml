@@ -32,6 +32,21 @@ jobs:
       - uses: actions/setup-go@v4.0.1
         with:
           go-version: 1.21
+
+      - if: ${{inputs.goos == 'windows' && inputs.goarch == '386'}}
+        run: |-
+          sudo apt install mingw-w64-i686-toolchain
+          CC=i586-mingw32-gcc
+
+      - if: ${{inputs.goos == 'windows' && inputs.goarch == 'amd64'}}
+        run: |-
+          sudo apt install mingw-w64-x86-64-toolchain
+          CC=x86_64-w64-mingw32-gcc
+      - if: ${{inputs.goos == 'linux' && inputs.goarch == 'arm'}}
+        run: |-
+          sudo apt install gcc-arm-linux-gnueabi
+          CC=aarch64-linux-gnu-gcc
+
       - name: Determine artifact basename
         run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}_${{ inputs.product-version }}_${{ inputs.goos }}_${{ inputs.goarch }}.zip" >> $GITHUB_ENV
       - name: Build Archstats
