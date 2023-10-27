@@ -1,21 +1,30 @@
 name: Release Archstats
 on:
   release:
-    types: [published]
+    types: [ published ]
 
 permissions:
-    contents: write
-    packages: write
+  contents: write
+  packages: write
 
 jobs:
   get-version:
     runs-on: ubuntu-latest
     outputs:
-        version: ${{ steps.get-version.outputs.version }}
+      version: ${{ steps.get-version.outputs.version }}
+      release: ${{ steps.get-version.outputs.release }}
     steps:
       - id: get-version
         name: Get version
         run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+      - id: get-release
+        name: Get release
+        run: |-
+          RELEASE_ID=curl --location 'https://api.github.com/repos/archstats/archstats/releases/tags/v0.1.3' \
+          --header 'X-GitHub-Api-Version: 2022-11-28' \
+          --header 'Authorization: Bearer {{ secrets.GITHUB_TOKEN }}' | jq -r '.id'
+          
+          echo "release=${RELEASE_ID}" >> $GITHUB_OUTPUT
 
   releases:
     name: ${{ matrix.goos }} ${{ matrix.goarch }} ${{ needs.get-version.outputs.version }}
@@ -25,17 +34,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-       include:
-         - { goos: "linux", goarch: "386", runson: "ubuntu-latest"}
-         - { goos: "linux", goarch: "amd64", runson: "ubuntu-latest"}
-         - { goos: "linux", goarch: "arm64", runson: "ubuntu-latest"}
-         - { goos: "windows", goarch: "386", runson: "ubuntu-latest"}
-         - { goos: "windows", goarch: "amd64", runson: "ubuntu-latest"}
-         - { goos: "darwin", goarch: "amd64", runson: "macos-latest"}
-         - { goos: "darwin", goarch: "arm64", runson: "macos-latest" }
+        include:
+          - { goos: "linux", goarch: "386", runson: "ubuntu-latest" }
+          - { goos: "linux", goarch: "amd64", runson: "ubuntu-latest" }
+          - { goos: "linux", goarch: "arm64", runson: "ubuntu-latest" }
+          - { goos: "windows", goarch: "386", runson: "ubuntu-latest" }
+          - { goos: "windows", goarch: "amd64", runson: "ubuntu-latest" }
+          - { goos: "darwin", goarch: "amd64", runson: "macos-latest" }
+          - { goos: "darwin", goarch: "arm64", runson: "macos-latest" }
     with:
       goarch: ${{ matrix.goarch }}
       goos: ${{ matrix.goos }}
       package-name: archstats
-      product-version: ${{ needs.get-version.outputs.version }}
+      version: ${{ needs.get-version.outputs.version }}
+      release: ${{ needs.get-version.outputs.release }}
       runson: ${{ matrix.runson }}

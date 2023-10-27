@@ -16,17 +16,20 @@ on:
       bin-name:
         type: string
         default: archstats
-      product-version:
+      version:
         type: string
         required: true
       runson:
         type: string
         required: true
+      release:
+          type: string
+          required: true
 
 jobs:
   build:
     runs-on: ${{ inputs.runson }}
-    name: ${{ inputs.goos }} ${{ inputs.goarch }} ${{ inputs.product-version }}
+    name: ${{ inputs.goos }} ${{ inputs.goarch }} ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v3.5.3
       - uses: actions/setup-go@v4.0.1
@@ -60,7 +63,7 @@ jobs:
 
 
       - name: Determine artifact basename
-        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}_${{inputs.product-version}}_${{ inputs.goos }}_${{ inputs.goarch }}.zip" >> $GITHUB_ENV
+        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}_${{inputs.version}}_${{ inputs.goos }}_${{ inputs.goarch }}.zip" >> $GITHUB_ENV
       - name: Build Archstats
         env:
           GOOS: ${{ inputs.goos }}
@@ -79,12 +82,14 @@ jobs:
           path: out/${{ env.ARTIFACT_BASENAME }}
           if-no-files-found: error
       - run: |-
+          set -x
+          
           curl -L \
           -X POST \
           -H "Accept: application/vnd.github+json" \
           -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           -H "Content-Type: application/octet-stream" \
-          "https://uploads.github.com/repos/archstats/archstats/releases/${{ inputs.product-version }}/assets?name=${{ env.ARTIFACT_BASENAME }}" \
+          "https://uploads.github.com/repos/archstats/archstats/releases/${{ inputs.release }}/assets?name=${{ env.ARTIFACT_BASENAME }}" \
           --data-binary "@out/${{ env.ARTIFACT_BASENAME }}"
 
