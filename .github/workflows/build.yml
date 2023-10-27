@@ -75,8 +75,8 @@ jobs:
           mkdir dist out
           set -x
           go build -o dist/ .
-          md5sum dist/${{ inputs.bin-name }} > dist/${{ inputs.bin-name }}.md5
           tar -czvf out/${{ env.ARTIFACT_BASENAME }} dist/${{ inputs.bin-name }}
+          md5sum out/${{ env.ARTIFACT_BASENAME }} > out/${{ env.ARTIFACT_BASENAME }}.md5
       - uses: actions/upload-artifact@v3.1.2
         with:
           name: ${{ env.ARTIFACT_BASENAME }}
