@@ -81,9 +81,8 @@ jobs:
           name: ${{ env.ARTIFACT_BASENAME }}
           path: out/${{ env.ARTIFACT_BASENAME }}
           if-no-files-found: error
-      - run: |-          
-          curl -v --location 'https://uploads.github.com/repos/archstats/archstats/releases/${{ inputs.release }}/assets?name=${{ env.ARTIFACT_BASENAME }}' \
-          --header 'Content-Type: application/octet-stream' \
-          --header 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
-          --data '@out/${{ env.ARTIFACT_BASENAME }}'
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |-
+          gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_BASENAME }} --repo archstats/archstats --clobber
 
