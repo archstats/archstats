@@ -61,7 +61,6 @@ jobs:
         run: |-
           echo "CC=gcc" >> $GITHUB_ENV
 
-
       - name: Determine artifact basename
         run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}-${{inputs.version}}-${{ inputs.goos }}-${{ inputs.goarch }}.tar.gz" >> $GITHUB_ENV
       - name: Build Archstats
@@ -76,22 +75,15 @@ jobs:
           set -x
           go build -o dist/ .
           tar -czvf out/${{ env.ARTIFACT_BASENAME }} dist/${{ inputs.bin-name }}
-          md5sum out/${{ env.ARTIFACT_BASENAME }} > out/${{ env.ARTIFACT_BASENAME }}.md5
       - uses: actions/upload-artifact@v3.1.2
         with:
           name: ${{ env.ARTIFACT_BASENAME }}
           path: out/${{ env.ARTIFACT_BASENAME }}
           if-no-files-found: error
-      - uses: actions/upload-artifact@v3.1.2
-        with:
-          name: ${{ env.ARTIFACT_BASENAME }}.md5
-          path: out/${{ env.ARTIFACT_BASENAME }}.md5
-          if-no-files-found: error
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |-
           gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_BASENAME }} --repo archstats/archstats --clobber
-          gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_BASENAME }}.md5 --repo archstats/archstats --clobber
           
         
 
