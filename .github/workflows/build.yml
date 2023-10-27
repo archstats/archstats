@@ -23,8 +23,8 @@ on:
         type: string
         required: true
       release:
-          type: string
-          required: true
+        type: string
+        required: true
 
 jobs:
   build:
@@ -50,20 +50,20 @@ jobs:
 
       - if: ${{inputs.goos == 'windows' && inputs.goarch == '386'}}
         run: |-
-            echo "CC=i686-w64-mingw32-gcc" >> $GITHUB_ENV
+          echo "CC=i686-w64-mingw32-gcc" >> $GITHUB_ENV
 
       - if: ${{inputs.goos == 'linux' && inputs.goarch == 'arm64'}}
         run: |-
-            sudo apt-get install gcc-aarch64-linux-gnu
-            echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          sudo apt-get install gcc-aarch64-linux-gnu
+          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - if: ${{inputs.goos == 'linux' && inputs.goarch == '386'}}
         run: |-
-            echo "CC=gcc" >> $GITHUB_ENV
+          echo "CC=gcc" >> $GITHUB_ENV
 
 
       - name: Determine artifact basename
-        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}_${{inputs.version}}_${{ inputs.goos }}_${{ inputs.goarch }}.zip" >> $GITHUB_ENV
+        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}-${{inputs.version}}-${{ inputs.goos }}_${{ inputs.goarch }}.tar.gz" >> $GITHUB_ENV
       - name: Build Archstats
         env:
           GOOS: ${{ inputs.goos }}
@@ -72,17 +72,26 @@ jobs:
           CC: ${{ env.CC }}
           CGO_ENABLED: 1
         run: |-
-            mkdir dist out
-            set -x
-            go build -o dist/ .
-            zip -r -j out/${{ env.ARTIFACT_BASENAME }} dist/
+          mkdir dist out
+          set -x
+          go build -o dist/ .
+          md5sum dist/${{ inputs.bin-name }} > dist/${{ inputs.bin-name }}.md5
+          tar -czvf out/${{ env.ARTIFACT_BASENAME }} dist/${{ inputs.bin-name }}
       - uses: actions/upload-artifact@v3.1.2
         with:
           name: ${{ env.ARTIFACT_BASENAME }}
           path: out/${{ env.ARTIFACT_BASENAME }}
           if-no-files-found: error
+      - uses: actions/upload-artifact@v3.1.2
+        with:
+          name: ${{ env.ARTIFACT_BASENAME }}.md5
+          path: out/${{ env.ARTIFACT_BASENAME }}.md5
+          if-no-files-found: error
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |-
           gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_BASENAME }} --repo archstats/archstats --clobber
+          gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_BASENAME }}.md5 --repo archstats/archstats --clobber
+          
+        
 
