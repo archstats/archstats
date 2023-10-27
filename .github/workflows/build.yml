@@ -63,7 +63,7 @@ jobs:
 
 
       - name: Determine artifact basename
-        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}-${{inputs.version}}-${{ inputs.goos }}_${{ inputs.goarch }}.tar.gz" >> $GITHUB_ENV
+        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}-${{inputs.version}}-${{ inputs.goos }}-${{ inputs.goarch }}.tar.gz" >> $GITHUB_ENV
       - name: Build Archstats
         env:
           GOOS: ${{ inputs.goos }}
