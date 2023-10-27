@@ -82,10 +82,9 @@ jobs:
           path: out/${{ env.ARTIFACT_BASENAME }}
           if-no-files-found: error
       - run: |-
-          set -e
           echo "uploading to: https://uploads.github.com/repos/archstats/archstats/releases/${{ inputs.release }}/assets?name=${{ env.ARTIFACT_BASENAME }}"
           
-          curl --location 'https://uploads.github.com/repos/archstats/archstats/releases/${{ inputs.release }}/assets?name=${{ env.ARTIFACT_BASENAME }}' \
+          curl -v --location 'https://uploads.github.com/repos/archstats/archstats/releases/${{ inputs.release }}/assets?name=${{ env.ARTIFACT_BASENAME }}' \
           --header 'Content-Type: application/octet-stream' \
           --header 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
           --data '@out/${{ env.ARTIFACT_BASENAME }}'
