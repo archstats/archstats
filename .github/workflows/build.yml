@@ -62,7 +62,7 @@ jobs:
           echo "CC=gcc" >> $GITHUB_ENV
 
       - name: Determine artifact basename
-        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}-${{inputs.version}}-${{ inputs.goos }}-${{ inputs.goarch }}.tar.gz" >> $GITHUB_ENV
+        run: echo "ARTIFACT_BASENAME=${{ inputs.package-name }}-${{inputs.version}}-${{ inputs.goos }}-${{ inputs.goarch }}" >> $GITHUB_ENV
       - name: Build Archstats
         env:
           GOOS: ${{ inputs.goos }}
@@ -74,16 +74,29 @@ jobs:
           mkdir dist out
           set -x
           go build -o dist/ .
-          tar -czvf out/${{ env.ARTIFACT_BASENAME }} dist/${{ inputs.bin-name }}
+
+      - if: ${{ inputs.goos != 'windows' }}
+        name: Create artifact (Tarball)
+        run: |-
+          tar -czf out/${{ env.ARTIFACT_BASENAME }}.tar.gz dist/${{ inputs.bin-name }}
+          echo "ARTIFACT_PACKAGE=${{ env.ARTIFACT_BASENAME }}.tar.gz" >> $GITHUB_ENV
+
+      - if: ${{ inputs.goos == 'windows' }}
+        name: Create artifact (Zip)
+        run: |-
+            zip out/${{ env.ARTIFACT_BASENAME }}.zip dist/${{ inputs.bin-name }}.exe
+            echo "ARTIFACT_PACKAGE=${{ env.ARTIFACT_BASENAME }}.zip" >> $GITHUB_ENV
+
       - uses: actions/upload-artifact@v3.1.2
         with:
-          name: ${{ env.ARTIFACT_BASENAME }}
-          path: out/${{ env.ARTIFACT_BASENAME }}
+          name: ${{ env.ARTIFACT_PACKAGE }}
+          path: out/${{ env.ARTIFACT_PACKAGE }}
           if-no-files-found: error
+
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |-
-          gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_BASENAME }} --repo archstats/archstats --clobber
+          gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_PACKAGE }} --repo archstats/archstats --clobber
           
         
 
