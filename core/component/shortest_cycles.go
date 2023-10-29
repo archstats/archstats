@@ -54,6 +54,7 @@ func shortestCycles(theGraph *Graph) map[string]Cycle {
 	}
 
 	return lo.MapEntries(allShortestCycles, func(key string, value Cycle) (string, Cycle) {
+		// add first element to the end to make it a cycle
 		value = append(value, value[0])
 		newKey := strings.Join(value, " -> ")
 
