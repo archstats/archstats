@@ -93,10 +93,10 @@ jobs:
           path: out/${{ env.ARTIFACT_PACKAGE }}
           if-no-files-found: error
 
-      - env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |-
-          gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_PACKAGE }} --repo archstats/archstats --clobber
-          
+#      - env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        run: |-
+#          gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_PACKAGE }} --repo archstats/archstats --clobber
+#
         
 

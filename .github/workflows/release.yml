@@ -1,8 +1,12 @@
 name: Release Archstats
+#on:
+#  release:
+#    types: [ published ]
 on:
-  release:
-    types: [ published ]
-
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 permissions:
   contents: write
   packages: write
@@ -40,8 +44,8 @@ jobs:
           - { goos: "linux", goarch: "arm64", runson: "ubuntu-latest" }
           - { goos: "windows", goarch: "386", runson: "ubuntu-latest" }
           - { goos: "windows", goarch: "amd64", runson: "ubuntu-latest" }
-          - { goos: "darwin", goarch: "amd64", runson: "macos-latest" }
-          - { goos: "darwin", goarch: "arm64", runson: "macos-latest" }
+          - { goos: "darwin", goarch: "amd64", runson: "ubuntu-latest" }
+          - { goos: "darwin", goarch: "arm64", runson: "ubuntu-latest" }
     with:
       goarch: ${{ matrix.goarch }}
       goos: ${{ matrix.goos }}
