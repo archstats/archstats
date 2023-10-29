@@ -114,10 +114,10 @@ jobs:
       - run: |-
           mkdir -p ${{ env.PACKAGE_DIR }}
 
-      - uses: actions/download-artifact@master
+      - uses: actions/download-artifact@v3
         with:
           name: ${{ env.PACKAGE_NAME }}
-          path: ${{ env.PACKAGE_PATH }}
+          path: ${{ env.PACKAGE_DIR }}
 
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
