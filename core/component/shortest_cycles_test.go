@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func Test(t *testing.T) {
+func TestNormalize(t *testing.T) {
 	tests := []struct {
 		cycle, expected string
 	}{
