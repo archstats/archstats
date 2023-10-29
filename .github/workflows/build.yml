@@ -27,9 +27,13 @@ on:
         required: true
 
 jobs:
-  build:
+  build-upload-binaries:
     runs-on: ${{ inputs.runson }}
     name: ${{ inputs.goos }} ${{ inputs.goarch }} ${{ inputs.version }}
+    outputs:
+      binary_name: ${{ steps.set-outputs.outputs.binary_name }}
+      binary_path: ${{ steps.set-outputs.outputs.binary_path }}
+      binary_dir: ${{ steps.set-outputs.outputs.binary_dir }}
     steps:
       - uses: actions/checkout@v3.5.3
       - uses: actions/setup-go@v4.0.1
@@ -84,8 +88,8 @@ jobs:
       - if: ${{ inputs.goos == 'windows' }}
         name: Create artifact (Zip)
         run: |-
-            zip out/${{ env.ARTIFACT_BASENAME }}.zip dist/${{ inputs.bin-name }}.exe
-            echo "ARTIFACT_PACKAGE=${{ env.ARTIFACT_BASENAME }}.zip" >> $GITHUB_ENV
+          zip out/${{ env.ARTIFACT_BASENAME }}.zip dist/${{ inputs.bin-name }}.exe
+          echo "ARTIFACT_PACKAGE=${{ env.ARTIFACT_BASENAME }}.zip" >> $GITHUB_ENV
 
       - uses: actions/upload-artifact@v3.1.2
         with:
@@ -93,10 +97,34 @@ jobs:
           path: out/${{ env.ARTIFACT_PACKAGE }}
           if-no-files-found: error
 
-#      - env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        run: |-
-#          gh release upload ${{ inputs.version }} out/${{ env.ARTIFACT_PACKAGE }} --repo archstats/archstats --clobber
-#
+      - id: set-outputs
+        run: |-
+          echo "binary_name=${{ env.ARTIFACT_BASENAME }}" >> $GITHUB_OUTPUT
+          echo "binary_path=out/${{ env.ARTIFACT_PACKAGE }}" >> $GITHUB_OUTPUT
+          echo "binary_dir=out" >> $GITHUB_OUTPUT
+
+  upload-to-release:
+    needs: build-upload-binaries
+    runs-on: ubuntu-latest
+    env:
+      BINARY_DIR: ${{ needs.build-upload-binaries.outputs.binary_dir }}
+      BINARY_NAME: ${{ needs.build-upload-binaries.outputs.binary_name }}
+      BINARY_PATH: ${{ needs.build-upload-binaries.outputs.binary_path }}
+    steps:
+      - run: |-
+          mkdir -p ${{ env.BINARY_DIR }}
+
+      - uses: actions/download-artifact@master
+        with:
+          name: ${{ env.BINARY_NAME }}
+          path: ${{ env.BINARY_PATH }}
+
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |-
+          md5sum ${{ env.BINARY_PATH }} > ${{ env.BINARY_PATH }}.md5
+          gh release upload ${{ inputs.version }} ${{ env.BINARY_PATH }} --repo archstats/archstats --clobber
+          gh release upload ${{ inputs.version }} ${{ env.BINARY_PATH }}.md5 --repo archstats/archstats --clobber
+          
         
 
