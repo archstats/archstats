@@ -4,6 +4,7 @@ import (
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/topo"
+	"slices"
 	"strings"
 )
 
@@ -72,7 +73,7 @@ func shortestCyclesOfSCC(components []string, connections []*Connection) map[str
 
 	for _, node := range components {
 
-		cyclesForNode := getShortCyclesForNode(node, connectionsTo, connectionsFrom)
+		cyclesForNode := getShortCyclesForNode(node, connectionsTo, connectionsFrom, connections)
 
 		for key, cycle := range cyclesForNode {
 			cycles[key] = cycle
@@ -82,14 +83,17 @@ func shortestCyclesOfSCC(components []string, connections []*Connection) map[str
 	return cycles
 }
 
-func getShortCyclesForNode(node string, connectionsTo map[string][]*Connection, connectionsFrom map[string][]*Connection) map[string]Cycle {
+func getShortCyclesForNode(node string, connectionsTo map[string][]*Connection, connectionsFrom map[string][]*Connection, all []*Connection) map[string]Cycle {
+
 	cycles := make(map[string]Cycle)
 	visitedNodes := make(map[string]bool)
+
 	ancestors := getDirectSidedRelative(node, connectionsTo, func(connection *Connection) string {
 		return connection.From
 	})
-	var currentPath []string
 	queue := []string{node}
+
+	parentMap := make(map[string]string)
 
 	// BFS stops when every ancestor has been found
 	for len(ancestors) > 0 {
@@ -102,20 +106,26 @@ func getShortCyclesForNode(node string, connectionsTo map[string][]*Connection, 
 			dependency := dependencyConnection.To
 			currentNode := dependencyConnection.From
 			_, isVisited := visitedNodes[dependency]
+			visitedNodes[firstElementInQueue] = true
+
 			inQueue := lo.Contains(queue, dependency)
 
 			if !isVisited && !inQueue {
-				if len(currentPath) == 0 || currentPath[len(currentPath)-1] != currentNode {
-					currentPath = append(currentPath, currentNode)
-				}
+				parentMap[dependency] = currentNode
 				queue = append(queue, dependency)
 			}
 			_, isDirectAncestorOfOriginalNode := ancestors[dependency]
 			// Cycle found
 			if isDirectAncestorOfOriginalNode {
-				var cycleToAdd Cycle
-				cycleToAdd = append(cycleToAdd, currentPath...)
-				cycleToAdd = append(cycleToAdd, dependency)
+				// build cycle by backtracking parents
+				var cycleToAdd []string
+				i := dependency
+				for i != "" {
+					cycleToAdd = append(cycleToAdd, i)
+					i = parentMap[i]
+				}
+				// reverse, because backtracking.... (I spent 4 hours wondering if I just forgot how to do BFS)
+				slices.Reverse(cycleToAdd)
 
 				cycleToAdd = normalizeCycle(cycleToAdd)
 
@@ -126,8 +136,6 @@ func getShortCyclesForNode(node string, connectionsTo map[string][]*Connection, 
 				delete(ancestors, dependency)
 			}
 		}
-
-		visitedNodes[firstElementInQueue] = true
 	}
 
 	return cycles
@@ -144,4 +152,17 @@ func normalizeCycle(nodes Cycle) Cycle {
 	}
 	// Rotate the list so that the smallest string is first.
 	return append(nodes[minIndex:], nodes[:minIndex]...)
+}
+
+func splitIntoPairs(strs []string) [][]string {
+	pairs := make([][]string, len(strs)-1)
+	for i := 0; i < len(strs); i++ {
+		if i == len(strs)-1 {
+			continue
+		} else {
+			pair := []string{strs[i], strs[i+1]}
+			pairs[i] = pair
+		}
+	}
+	return pairs
 }
