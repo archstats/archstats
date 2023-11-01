@@ -23,7 +23,8 @@ func (s StatsGroup) SetStat(key, stat string, value interface{}) {
 func SnippetsToStats(snippets []*Snippet) []*StatRecord {
 	stats := make(map[string]int)
 	for _, snippet := range snippets {
-		stats[snippet.Type]++
+		statName := snippet.Type
+		stats[statName]++
 	}
 
 	return lo.MapToSlice(stats, func(key string, value int) *StatRecord {

@@ -22,7 +22,7 @@ func TestFileInput(t *testing.T) {
 	})
 
 	assert.Len(t, results.Stats, 1)
-	assert.Equal(t, results.Stats[0].StatType, "line_count")
+	assert.Equal(t, results.Stats[0].StatType, LineCount)
 	assert.Equal(t, results.Stats[0].Value, 8)
 }
 

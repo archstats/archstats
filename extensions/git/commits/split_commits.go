@@ -136,6 +136,10 @@ func getUniqueHashes(parts []*PartOfCommit) CommitHashes {
 func SplitCommitsIntoBucketsOfDays(time time.Time, commitParts []*PartOfCommit, bucketDays []int) map[int][]*PartOfCommit {
 	slices.Sort(bucketDays)
 
+	if len(bucketDays) == 0 {
+		return map[int][]*PartOfCommit{}
+	}
+
 	buckets := map[int][]*PartOfCommit{}
 
 	for _, bucket := range bucketDays {

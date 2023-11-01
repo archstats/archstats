@@ -9,6 +9,8 @@ import (
 	"github.com/archstats/archstats/core/file"
 )
 
+const LineCount = "complexity:lines"
+
 type Extension struct {
 }
 
@@ -45,7 +47,7 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	return &file.Results{
 		Stats: []*file.StatRecord{
 			{
-				StatType: "line_count",
+				StatType: LineCount,
 				Value:    lineCount,
 			},
 		},

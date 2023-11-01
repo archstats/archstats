@@ -1,11 +1,11 @@
 package file
 
 const (
-	ComponentDeclaration = "component_declaration"
-	ComponentImport      = "component_import"
-	AbstractType         = "abstract_type"
-	Type                 = "type"
-	FileCount            = "file_count"
+	ComponentDeclaration = "modularity:component:declarations"
+	ComponentImport      = "modularity:component:imports"
+	AbstractType         = "modularity:types:abstract"
+	Type                 = "modularity:types:total"
+	FileCount            = "complexity:files"
 )
 
 // A Snippet is a piece of text that is extracted from a file.

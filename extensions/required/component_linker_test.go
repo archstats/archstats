@@ -27,39 +27,39 @@ package required
 //		// Package/ComponentToNode declarations
 //		{
 //			File:  "src/main/java/mainPackage/testFile1.java",
-//			Type:  "component_declaration",
+//			Type:  "component:declaration",
 //			Value: "mainPackage",
 //		},
 //		{
 //			File:  "src/main/java/mainPackage/subpackage1/testFile2.java",
-//			Type:  "component_declaration",
+//			Type:  "component:declaration",
 //			Value: "mainPackage.subpackage1",
 //		},
 //		{
 //			File:  "src/main/java/mainPackage/subpackage2/testFile3.java",
-//			Type:  "component_declaration",
+//			Type:  "component:declaration",
 //			Value: "mainPackage.subpackage2",
 //		},
 //
 //		// Package/ComponentToNode imports
 //		{
 //			File:  "src/main/java/mainPackage/testFile1.java",
-//			Type:  "component_import",
+//			Type:  "component:import",
 //			Value: "mainPackage.subpackage1",
 //		},
 //		{
 //			File:  "src/main/java/mainPackage/testFile1.java",
-//			Type:  "component_import",
+//			Type:  "component:import",
 //			Value: "someRandomPackage.thatsNotInCodebase",
 //		},
 //		{
 //			File:  "src/main/java/mainPackage/testFile1.java",
-//			Type:  "component_import",
+//			Type:  "component:import",
 //			Value: "mainPackage.subpackage2",
 //		},
 //		{
 //			File:  "src/main/java/mainPackage/subpackage1/testFile2.java",
-//			Type:  "component_import",
+//			Type:  "component:import",
 //			Value: "mainPackage.subpackage2",
 //		},
 //	}

@@ -40,6 +40,10 @@ jobs:
         with:
           go-version: 1.21
 
+      - name: Set Version
+        run: |-
+          echo "${{ inputs.version }}" > version/VERSION
+
       - if: ${{inputs.goos != 'darwin' }}
         run: |-
           sudo apt-get install gcc-multilib

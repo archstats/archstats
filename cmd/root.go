@@ -6,14 +6,16 @@ import (
 	"github.com/archstats/archstats/cmd/export"
 	"github.com/archstats/archstats/cmd/view"
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/version"
 	"github.com/spf13/cobra"
 	"io"
 )
 
 func Cmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "archstats",
-		Short: "archstats is a command line tool for generating software architectural insights",
+		Use:     "archstats",
+		Short:   "archstats is a command line tool for generating software architectural insights",
+		Version: version.Version(),
 
 		PreRun: func(cmd *cobra.Command, args []string) {
 		},

@@ -2,6 +2,7 @@ package basic
 
 import (
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/version"
 )
 
 const (
@@ -22,6 +23,10 @@ func summaryView(results *core.Results) *core.View {
 	}
 
 	extraRows := []core.RowData{
+		{
+			NameColumn:  "version",
+			ValueColumn: version.Version(),
+		},
 		{
 			NameColumn:  "component_count",
 			ValueColumn: len(results.StatsByComponent),

@@ -1,4 +1,4 @@
-id: abstractness
+id: modularity:abstractness
 name: Abstractness
 short: |
   The abstractness of a component is measured by the ratio of the number of abstract types (e.g. abstract classes or interfaces)

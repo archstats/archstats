@@ -12,25 +12,27 @@ import (
 )
 
 const (
-	AuthorCount                 = "author_count"
-	AgeInDays                   = "age_in_days"
-	File                        = "file"
-	Component                   = "component"
-	CommitHash                  = "commit_hash"
-	CommitTime                  = "commit_time"
-	AuthorName                  = "author_name"
-	AuthorEmail                 = "author_email"
-	CommitMessage               = "commit_message"
-	CommitFileAdditions         = "file_additions"
-	CommitFileDeletions         = "file_deletions"
-	CommitCount                 = "commit_count"
-	AdditionCount               = "addition_count"
-	DeletionCount               = "deletion_count"
-	UniqueFileChangeCount       = "unique_file_change_count"
-	UniqueComponentChangeCount  = "unique_component_change_count"
+	AuthorCount                = "git:authors"
+	AgeInDays                  = "git:age_in_days"
+	AdditionCount              = "git:additions"
+	DeletionCount              = "git:deletions"
+	UniqueFileChangeCount      = "git:unique_file_changes"
+	UniqueComponentChangeCount = "git:unique_component_changes"
+	CommitCount                = "git:commits"
+
+	File                = "file"
+	Component           = "component"
+	CommitHash          = "commit_hash"
+	CommitTime          = "commit_time"
+	AuthorName          = "author_name"
+	AuthorEmail         = "author_email"
+	CommitMessage       = "commit_message"
+	CommitFileAdditions = "file_additions"
+	CommitFileDeletions = "file_deletions"
+
 	Pair1                       = "pair_1"
 	Pair2                       = "pair_2"
-	SharedCommitCount           = "shared_commit_count"
+	SharedCommitCount           = "shared_commits"
 	PercentageOfAllCommitsPair1 = "percentage_of_all_commits_pair_1"
 	PercentageOfAllCommitsPair2 = "percentage_of_all_commits_pair_2"
 )
@@ -45,7 +47,7 @@ const (
 
 func Extension() core.Extension {
 	return &extension{
-		DayBuckets:                           []int{30, 90, 180},
+		DayBuckets:                           []int{90, 180},
 		GenerateCommitView:                   true,
 		GenerateFileLogicalCouplingView:      false, // Generates a lot of data
 		GenerateComponentLogicalCouplingView: true,
@@ -175,12 +177,12 @@ func setStatsTotal(basedOn time.Time, statGroup file.StatsGroup, group map[strin
 		commitParts := group[filePath]
 
 		stats := commits.GetStats(basedOn, commitParts)
-		statGroup.SetStat(filePath, AdditionCount, stats.AdditionCount)
-		statGroup.SetStat(filePath, DeletionCount, stats.DeletionCount)
-		statGroup.SetStat(filePath, CommitCount, stats.CommitCount)
-		statGroup.SetStat(filePath, AuthorCount, stats.UniqueAuthorCount)
 		statGroup.SetStat(filePath, AgeInDays, stats.OldestCommitAgeInDays)
-		statGroup.SetStat(filePath, UniqueFileChangeCount, stats.UniqueFileChangeCount)
+		statGroup.SetStat(filePath, toTotalStat(AdditionCount), stats.AdditionCount)
+		statGroup.SetStat(filePath, toTotalStat(DeletionCount), stats.DeletionCount)
+		statGroup.SetStat(filePath, toTotalStat(CommitCount), stats.CommitCount)
+		statGroup.SetStat(filePath, toTotalStat(AuthorCount), stats.UniqueAuthorCount)
+		statGroup.SetStat(filePath, toTotalStat(UniqueFileChangeCount), stats.UniqueFileChangeCount)
 	}
 }
 

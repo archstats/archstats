@@ -3,40 +3,40 @@ extensions:
   scala:
     file_glob: "**/*.scala"
     patterns:
-    - package (?P<component_declaration>[a-z0-9_.]*)
-    - import (?P<component_import>[a-z0-9_.]*)\.[A-Z]
-    - ((abstract.*class)|trait).*(?P<abstract_type>\w+)
-    - (class|trait).*(?P<type>\w+)
-    - object (?P<type>\w+)
+    - package (?P<modularity__component__declarations>[a-z0-9_.]*)
+    - import (?P<modularity__component__imports>[a-z0-9_.]*)\.[A-Z]
+    - ((abstract.*class)|trait).*(?P<modularity__types__abstract>\w+)
+    - (class|trait).*(?P<modularity__types__total>\w+)
+    - object (?P<modularity__types__total>\w+)
 
   java:
     file_glob: "**/*.java"
     patterns:
-    - package (?P<component_declaration>.*);
-    - import (?P<component_import>.*)\.\w+;
-    - ((abstract.*class)|interface).*(?P<abstract_type>\w+)
-    - (class|interface).*(?P<type>\w+)
+    - package (?P<modularity__component__declarations>.*);
+    - import (?P<modularity__component__imports>.*)\.\w+;
+    - ((abstract.*class)|interface).*(?P<modularity__types__abstract>\w+)
+    - (class|interface).*(?P<modularity__types__total>\w+)
 
   kotlin:
     file_glob: "**/*.kt"
     patterns:
-    - package (?P<component_declaration>.*)
-    - import (?P<component_import>.*)\.\w+\n
-    - ((abstract.*class)|interface).*(?P<abstract_type>\w+)
-    - (class|interface).*(?P<type>\w+)
+    - package (?P<modularity__component__declarations>.*)
+    - import (?P<modularity__component__imports>.*)\.\w+\n
+    - ((abstract.*class)|interface).*(?P<modularity__types__abstract>\w+)
+    - (class|interface).*(?P<modularity__types__total>\w+)
 
   php:
     file_glob: "**/*.php"
     patterns:
-    - namespace (?P<component_declaration>.*);
-    - (use|import) (?P<component_import>.*)\\.*;
-    - (abstract class|interface|trait) (?P<abstract_type>\w+)
-    - (class|interface|trait) (?P<type>\\w+)
+    - namespace (?P<modularity__component__declarations>.*);
+    - (use|import) (?P<modularity__component__imports>.*)\\.*;
+    - (abstract class|interface|trait) (?P<modularity__types__abstract>\w+)
+    - (class|interface|trait) (?P<modularity__types__total>\\w+)
 
   csharp:
     file_glob: "**/*.cs"
     patterns:
-    - namespace (?P<component_declaration>.*);
-    - (using|using static) (?P<component_import>.*);
-    - (abstract class|interface|trait) (?P<abstract_type>\w+)
-    - (class|interface|trait) (?P<type>\w+)
+    - namespace (?P<modularity__component__declarations>.*);
+    - (using|using static) (?P<modularity__component__imports>.*);
+    - (abstract class|interface|trait) (?P<modularity__types__abstract>\w+)
+    - (class|interface|trait) (?P<modularity__types__total>\w+)

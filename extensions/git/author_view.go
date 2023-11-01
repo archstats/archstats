@@ -13,11 +13,11 @@ func (e *extension) authorViewFactory(*core.Results) *core.View {
 	columns := []*core.Column{
 		core.StringColumn(AuthorName),
 		core.StringColumn(AuthorEmail),
-		core.IntColumn(CommitCount),
-		core.IntColumn(AdditionCount),
-		core.IntColumn(DeletionCount),
-		core.IntColumn(UniqueFileChangeCount),
-		core.IntColumn(UniqueComponentChangeCount),
+		core.IntColumn(toTotalStat(CommitCount)),
+		core.IntColumn(toTotalStat(AdditionCount)),
+		core.IntColumn(toTotalStat(DeletionCount)),
+		core.IntColumn(toTotalStat(UniqueFileChangeCount)),
+		core.IntColumn(toTotalStat(UniqueComponentChangeCount)),
 	}
 
 	dayBucketColumns := lo.FlatMap(e.DayBuckets, func(days int, _ int) []*core.Column {
@@ -50,11 +50,11 @@ func getAuthorRowStats(basedOn time.Time, author string, commitParts []*commits.
 	rowData[AuthorName] = author
 	rowData[AuthorEmail] = commitParts[0].AuthorEmail
 
-	rowData[AdditionCount] = allStats.AdditionCount
-	rowData[DeletionCount] = allStats.DeletionCount
-	rowData[CommitCount] = allStats.CommitCount
-	rowData[UniqueFileChangeCount] = allStats.UniqueFileChangeCount
-	rowData[UniqueComponentChangeCount] = allStats.UniqueComponentChangeCount
+	rowData[toTotalStat(AdditionCount)] = allStats.AdditionCount
+	rowData[toTotalStat(DeletionCount)] = allStats.DeletionCount
+	rowData[toTotalStat(CommitCount)] = allStats.CommitCount
+	rowData[toTotalStat(UniqueFileChangeCount)] = allStats.UniqueFileChangeCount
+	rowData[toTotalStat(UniqueComponentChangeCount)] = allStats.UniqueComponentChangeCount
 
 	/// TODO: this is a bit of a hack, but it works for now
 	bucketsMap := commits.SplitCommitsIntoBucketsOfDays(basedOn, commitParts, buckets)
@@ -75,4 +75,8 @@ func getAuthorRowStats(basedOn time.Time, author string, commitParts []*commits.
 
 func toDayStat(stat string, days int) string {
 	return stat + ":last_" + strconv.Itoa(days) + "_days"
+}
+
+func toTotalStat(stat string) string {
+	return stat + ":total"
 }

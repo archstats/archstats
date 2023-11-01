@@ -13,7 +13,7 @@ import (
 )
 
 func Test_SimpleComponents_AfferentEfferentCoupling(t *testing.T) {
-	simpleComponentsTest(t, "components", "name,file_count,afferent_coupling_count,efferent_coupling_count", []Component{
+	simpleComponentsTest(t, "components", "name,complexity:files,modularity:coupling:afferent,modularity:coupling:efferent", []Component{
 		component("a", 2, 1, 2),
 		component("b", 1, 2, 1),
 		component("c", 1, 2, 1),
@@ -50,20 +50,25 @@ func simpleComponentsTest[T any](t *testing.T, view string, columns string, expe
 		OnlyStats: false,
 		Glob:      nil,
 		Patterns: []*regexp.Regexp{
-			regexp.MustCompile(`component (?P<component_declaration>[a-z]+)`),
-			regexp.MustCompile(`depends on (?P<component_import>[a-z]+)`),
+			regexp.MustCompile(`component (?P<modularity__component__declarations>[a-z]+)`),
+			regexp.MustCompile(`depends on (?P<modularity__component__imports>[a-z]+)`),
 		},
 	}
 
 	output := bytes.NewBufferString("")
 
 	//cmd.Reset()
-	cmd.Execute(output, bytes.NewBufferString(""), []core.Extension{
+	err := cmd.Execute(output, bytes.NewBufferString(""), []core.Extension{
 		ext,
-	}, []string{"-c", columns, "-o", "csv", "-f", "simple_components", "view", view}) //"-c", "name,afferent_coupling_count,efferent_coupling_count",
+	}, []string{"-o", "csv", "-f", "simple_components", "view", view})
+	if err != nil {
+		t.Error(err)
+		return
+	} //"-c", "name,coupling:afferent:count,coupling:efferent:count",
 
 	var actualOutput []T
-	err := csvutil.Unmarshal(output.Bytes(), &actualOutput)
+	stringOutput := string(output.Bytes())
+	err = csvutil.Unmarshal([]byte(stringOutput), &actualOutput)
 
 	if err != nil {
 		assert.Fail(t, "Failed to unmarshal output: %s", err)
@@ -82,9 +87,9 @@ func component(name string, fileCount, afferentCouplings, efferentCouplings int)
 
 type Component struct {
 	Name              string `csv:"NAME"`
-	FileCount         int    `csv:"FILE_COUNT"`
-	AfferentCouplings int    `csv:"AFFERENT_COUPLING_COUNT,omitempty"`
-	EfferentCouplings int    `csv:"EFFERENT_COUPLING_COUNT,omitempty"`
+	FileCount         int    `csv:"COMPLEXITY:FILES"`
+	AfferentCouplings int    `csv:"MODULARITY:COUPLING:AFFERENT,omitempty"`
+	EfferentCouplings int    `csv:"MODULARITY:COUPLING:EFFERENT,omitempty"`
 }
 
 func directConnection(from, to, file string, referenceCount int) ComponentConnectionDirect {

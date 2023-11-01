@@ -5,6 +5,7 @@ import (
 	"github.com/archstats/archstats/core/file"
 	"github.com/gobwas/glob"
 	"regexp"
+	"strings"
 )
 
 // Extension is a FileAnalyzer that uses regular expressions to find snippets.
@@ -41,7 +42,7 @@ func (s *Extension) AnalyzeFile(theFile file.File) *file.Results {
 				continue
 			}
 			theSnip := &file.Snippet{
-				Type: match.name,
+				Type: normalizeType(match.name),
 				File: theFile.Path(),
 				Begin: &file.Position{
 					Offset: match.begin,
@@ -65,6 +66,11 @@ func (s *Extension) AnalyzeFile(theFile file.File) *file.Results {
 			Stats:    file.SnippetsToStats(toReturn),
 		}
 	}
+}
+
+// Replace __ with, because regex doesn't allow : in group names
+func normalizeType(name string) string {
+	return strings.ReplaceAll(name, "__", ":")
 }
 
 func getMatches(regex *regexp.Regexp, content *string) []*subexpMatch {

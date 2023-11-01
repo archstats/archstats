@@ -1,4 +1,4 @@
-id: efferent_coupling_count
+id: coupling:efferent:count
 name: Efferent Couplings
 short: |
   Efferent coupling is a measure of how much a software package depends on other packages. 

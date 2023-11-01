@@ -47,7 +47,7 @@ archstats --help
 Here's a simple example. It gets a count of all functions, per component, in the project.
 
 ```shell
-archstats -f path/to/project view components --snippet "function (?P<functions>.*)\(.*\)" -e php -c name,abstractness,instability,functions,efferent_coupling_count --sorted-by abstractness
+archstats -f path/to/project view components --snippet "function (?P<functions>.*)\(.*\)" -e php -c name,abstractness,instability,functions,coupling:efferent:count --sorted-by abstractness
 ```
 
 This might output something like this:
