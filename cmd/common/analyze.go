@@ -19,6 +19,7 @@ const (
 	FlagWorkingDirectory = "working-dir"
 	FlagExtension        = "extension"
 	FlagSnippet          = "snippet"
+	FlagSet              = "set"
 )
 
 func Analyze(command *cobra.Command) (*core.Results, error) {

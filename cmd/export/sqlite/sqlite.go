@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	//FlagSqliteDb = "db"
-	FlagReportId = "report-id"
+	FlagViews        = "views"
+	FlagExcludeViews = "exclude-viewa"
+	FlagReportId     = "report-id"
 )
 
 func Cmd() *cobra.Command {
@@ -28,8 +29,12 @@ func Cmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var err error
 
-			reportId, _ := cmd.Flags().GetString(FlagReportId)
+			reportId, err := cmd.Flags().GetString(FlagReportId)
+			if err != nil {
+				return err
+			}
 			results, err := common.Analyze(cmd)
 			if err != nil {
 				return err
@@ -38,9 +43,19 @@ func Cmd() *cobra.Command {
 
 			reportDate = time.Now()
 
-			viewsToShow := lo.Map(results.GetViewFactories(), func(vf *core.ViewFactory, index int) string {
+			possibleViews := lo.Map(results.GetViewFactories(), func(vf *core.ViewFactory, index int) string {
 				return vf.Name
 			})
+			viewsRequested, err := cmd.Flags().GetStringSlice(FlagViews)
+			viewsExcluded, err := cmd.Flags().GetStringSlice(FlagExcludeViews)
+			if err != nil {
+				return err
+			}
+
+			viewsToShow, err := getViewsToShow(viewsRequested, viewsExcluded, possibleViews)
+			if err != nil {
+				return err
+			}
 
 			allViews := make(map[string]*core.View)
 
@@ -70,8 +85,45 @@ func Cmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String(FlagReportId, "", "The report id")
+	cmd.Flags().StringSlice(FlagViews, []string{}, "The views to export")
 
 	return cmd
+}
+
+func getViewsToShow(requested, excluded, possible []string) ([]string, error) {
+
+	requested = lo.Filter(requested, func(item string, index int) bool {
+		return item != ""
+	})
+	excluded = lo.Filter(excluded, func(item string, index int) bool {
+		return item != ""
+	})
+	possible = lo.Filter(possible, func(item string, index int) bool {
+		return item != ""
+	})
+	var toShow []string
+	if len(requested) > 0 {
+		leftover := lo.Without(requested, possible...)
+
+		if len(leftover) > 0 {
+			return nil, fmt.Errorf("unknown view(s): %s.\npossible views: %s", strings.Join(leftover, ", "), strings.Join(possible, ", "))
+		}
+		toShow = requested
+	} else {
+		toShow = possible
+	}
+
+	if len(excluded) == 0 {
+		return toShow, nil
+	}
+
+	leftover := lo.Without(excluded, possible...)
+
+	if len(leftover) > 0 {
+		return nil, fmt.Errorf("can't exclude unknown view(s): %s\n possible views: %s", strings.Join(leftover, ","), strings.Join(toShow, ","))
+	}
+
+	return lo.Without(toShow, excluded...), nil
 }
 
 type SqlOptions struct {

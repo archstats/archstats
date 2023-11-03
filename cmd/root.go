@@ -21,8 +21,10 @@ func Cmd() *cobra.Command {
 		},
 	}
 	cmd.PersistentFlags().StringSliceP(common.FlagExtension, "e", nil, "Archstat extension(s) to use")
-	cmd.PersistentFlags().StringSliceP(common.FlagSnippet, "s", nil, "Regular Expression to match snippet types. FlagSnippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'")
+	cmd.PersistentFlags().StringSlice(common.FlagSnippet, nil, "Regular Expression to match snippet types. FlagSnippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'")
 	cmd.PersistentFlags().StringP(common.FlagWorkingDirectory, "f", "", "Input directory")
+
+	cmd.PersistentFlags().StringToStringP(common.FlagSet, "s", nil, "Configuration for extensions")
 
 	cmd.AddCommand(view.Cmd())
 	cmd.AddCommand(export.Cmd())
