@@ -47,7 +47,7 @@ const (
 
 func Extension() core.Extension {
 	return &extension{
-		DayBuckets:                           []int{90, 180},
+		DayBuckets:                           []int{30, 90, 180},
 		GenerateCommitView:                   true,
 		GenerateFileLogicalCouplingView:      false, // Generates a lot of data
 		GenerateComponentLogicalCouplingView: true,
