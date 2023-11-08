@@ -36,6 +36,15 @@ go install github.com/archstats/archstats@latest
 Make sure that installed Go binaries are on your `PATH`. You can do so by running `go help install` and following the
 instructions.
 
+Archstats is also available as a binary for Windows, Linux and MacOS. You can download the latest release from the [releases page](https://github.com/archstats/archstats/releases).
+
+## MacOS Installation
+
+```shell
+LATEST=$(curl -s https://api.github.com/repos/archstats/archstats/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+curl -L "https://github.com/archstats/archstats/releases/download/$LATEST/archstats-$LATEST-darwin-amd64.tar.gz" | tar -xz -C /usr/local/bin
+```
+
 # Usage
 
 For instructions on how to use Archstats and the available options, run:
