@@ -39,7 +39,7 @@ instructions.
 Archstats is also available as a binary for Windows, Linux and MacOS. You can download the latest release from the [releases page](https://github.com/archstats/archstats/releases).
 
 ## MacOS Installation
-
+To install the latest release on MacOS, run the following command:
 ```shell
 LATEST=$(curl -s https://api.github.com/repos/archstats/archstats/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 curl -L "https://github.com/archstats/archstats/releases/download/$LATEST/archstats-$LATEST-darwin-amd64.tar.gz" | tar -xz -C /usr/local/bin
