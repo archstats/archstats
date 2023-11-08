@@ -86,7 +86,7 @@ jobs:
       - if: ${{ inputs.goos != 'windows' }}
         name: Create artifact (Tarball)
         run: |-
-          tar -czf out/${{ env.ARTIFACT_BASENAME }}.tar.gz dist/${{ inputs.bin-name }}
+          tar -czf out/${{ env.ARTIFACT_BASENAME }}.tar.gz -C dist ${{ inputs.bin-name }}
           echo "ARTIFACT_PACKAGE=${{ env.ARTIFACT_BASENAME }}.tar.gz" >> $GITHUB_ENV
 
       - if: ${{ inputs.goos == 'windows' }}
