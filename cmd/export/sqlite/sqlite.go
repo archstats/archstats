@@ -17,7 +17,7 @@ import (
 
 const (
 	FlagViews        = "views"
-	FlagExcludeViews = "exclude-viewa"
+	FlagExcludeViews = "exclude-views"
 	FlagReportId     = "report-id"
 )
 
@@ -86,6 +86,7 @@ func Cmd() *cobra.Command {
 	}
 	cmd.Flags().String(FlagReportId, "", "The report id")
 	cmd.Flags().StringSlice(FlagViews, []string{}, "The views to export")
+	cmd.Flags().StringSlice(FlagExcludeViews, []string{}, "The views to exclude from export")
 
 	return cmd
 }
