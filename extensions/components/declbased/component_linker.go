@@ -1,4 +1,4 @@
-package required
+package declbased
 
 import (
 	"github.com/archstats/archstats/core"
@@ -21,10 +21,10 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 		return fileResult.Snippets
 	})
 
-	setComponents(allSnippets)
+	SetDeclarationBasedComponents(allSnippets)
 }
 
-func setComponents(s []*file.Snippet) {
+func SetDeclarationBasedComponents(s []*file.Snippet) {
 	componentDeclarations := lo.Filter(s, func(snippet *file.Snippet, idx int) bool {
 		return snippet.Type == file.ComponentDeclaration
 	})

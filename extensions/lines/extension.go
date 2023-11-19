@@ -9,7 +9,7 @@ import (
 	"github.com/archstats/archstats/core/file"
 )
 
-const LineCount = "complexity:lines"
+const LineCount = "complexity__lines"
 
 type Extension struct {
 }

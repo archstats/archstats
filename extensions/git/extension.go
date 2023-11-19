@@ -12,13 +12,13 @@ import (
 )
 
 const (
-	AuthorCount                = "git:authors"
-	AgeInDays                  = "git:age_in_days"
-	AdditionCount              = "git:additions"
-	DeletionCount              = "git:deletions"
-	UniqueFileChangeCount      = "git:unique_file_changes"
-	UniqueComponentChangeCount = "git:unique_component_changes"
-	CommitCount                = "git:commits"
+	AuthorCount                = "git__authors"
+	AgeInDays                  = "git__age_in_days"
+	AdditionCount              = "git__additions"
+	DeletionCount              = "git__deletions"
+	UniqueFileChangeCount      = "git__unique_file_changes"
+	UniqueComponentChangeCount = "git__unique_component_changes"
+	CommitCount                = "git__commits"
 
 	File                = "file"
 	Component           = "component"

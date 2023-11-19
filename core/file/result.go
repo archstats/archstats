@@ -6,8 +6,9 @@ type StatRecord struct {
 }
 
 type Results struct {
-	// TODO can I avoid exposing this field?
-	Name     string
-	Stats    []*StatRecord
-	Snippets []*Snippet
+	Directory string
+	Component string
+	Name      string
+	Stats     []*StatRecord
+	Snippets  []*Snippet
 }

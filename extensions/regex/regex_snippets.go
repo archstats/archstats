@@ -5,7 +5,6 @@ import (
 	"github.com/archstats/archstats/core/file"
 	"github.com/gobwas/glob"
 	"regexp"
-	"strings"
 )
 
 // Extension is a FileAnalyzer that uses regular expressions to find snippets.
@@ -28,33 +27,9 @@ func (s *Extension) Init(a core.Analyzer) error {
 
 func (s *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	if s.Glob != nil && !s.Glob.Match(theFile.Path()) {
-		return &file.Results{}
+		return nil
 	}
-	var toReturn []*file.Snippet
-	stringContent := string(theFile.Content())
-
-	for _, pattern := range s.Patterns {
-		matches := getMatches(pattern, &stringContent)
-
-		for _, match := range matches {
-
-			if match.begin == -1 || match.end == -1 {
-				continue
-			}
-			theSnip := &file.Snippet{
-				Type: normalizeType(match.name),
-				File: theFile.Path(),
-				Begin: &file.Position{
-					Offset: match.begin,
-				},
-				End: &file.Position{
-					Offset: match.end,
-				},
-				Value: stringContent[match.begin:match.end],
-			}
-			toReturn = append(toReturn, theSnip)
-		}
-	}
+	toReturn := Analyze(theFile.Path(), theFile.Content(), s.Patterns)
 
 	if s.OnlyStats {
 		return &file.Results{
@@ -68,15 +43,38 @@ func (s *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	}
 }
 
-// Replace __ with, because regex doesn't allow : in group names
-func normalizeType(name string) string {
-	return strings.ReplaceAll(name, "__", ":")
+func Analyze(filePath string, content []byte, patterns []*regexp.Regexp) []*file.Snippet {
+	var toReturn []*file.Snippet
+
+	for _, pattern := range patterns {
+		matches := getMatches(pattern, content)
+
+		for _, match := range matches {
+
+			if match.begin == -1 || match.end == -1 {
+				continue
+			}
+			theSnip := &file.Snippet{
+				Type: match.name,
+				File: filePath,
+				Begin: &file.Position{
+					Offset: match.begin,
+				},
+				End: &file.Position{
+					Offset: match.end,
+				},
+				Value: string(content[match.begin:match.end]),
+			}
+			toReturn = append(toReturn, theSnip)
+		}
+	}
+	return toReturn
 }
 
-func getMatches(regex *regexp.Regexp, content *string) []*subexpMatch {
+func getMatches(regex *regexp.Regexp, content []byte) []*subexpMatch {
 	var toReturn []*subexpMatch
 
-	allMatches := regex.FindAllStringSubmatchIndex(*content, 1_000_000)
+	allMatches := regex.FindAllSubmatchIndex(content, 1_000_000)
 	names := regex.SubexpNames()
 	for _, match := range allMatches {
 

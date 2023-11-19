@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	Max   = "complexity:indentation:max"
-	Count = "complexity:indentation:count"
-	Avg   = "complexity:indentation:avg"
+	Max   = "complexity__indentation__max"
+	Count = "complexity__indentation__count"
+	Avg   = "complexity__indentation__avg"
 )
 
 func FourTabs() *Extension {

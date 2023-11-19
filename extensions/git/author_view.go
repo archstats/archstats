@@ -74,9 +74,9 @@ func getAuthorRowStats(basedOn time.Time, author string, commitParts []*commits.
 }
 
 func toDayStat(stat string, days int) string {
-	return stat + ":last_" + strconv.Itoa(days) + "_days"
+	return stat + "__last_" + strconv.Itoa(days) + "_days"
 }
 
 func toTotalStat(stat string) string {
-	return stat + ":total"
+	return stat + "__total"
 }

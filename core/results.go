@@ -46,7 +46,6 @@ type Results struct {
 }
 
 func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*file.Results) *Results {
-
 	rootPath, theAccumulator := settings.rootPath, settings.accumulator
 	allSnippets := lo.FlatMap(fileResults, func(fileResult *file.Results, idx int) []*file.Snippet {
 		return fileResult.Snippets
@@ -65,8 +64,6 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 
 	snippetsByComponent, snippetsByType, snippetsByFile, snippetsByDirectory :=
 		allSnippetGroups["ByComponent"], allSnippetGroups["ByType"], allSnippetGroups["ByFile"], allSnippetGroups["ByDirectory"]
-
-	componentConnections := component.GetConnections(snippetsByType, snippetsByComponent)
 
 	componentToFiles := lo.MapValues(snippetsByComponent, func(snippets []*file.Snippet, _ string) []string {
 		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
@@ -127,6 +124,7 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	fileToDirectory := lo.MapValues(statsByFile, func(snippets *file.Stats, file string) string {
 		return file[:strings.LastIndex(file, "/")]
 	})
+	componentConnections := component.GetConnections(snippetsByType, snippetsByComponent)
 	graph := component.CreateGraph(componentConnections)
 	return &Results{
 		RootDirectory: rootPath,
@@ -202,6 +200,7 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) []*file.Re
 		}
 		currentFileResults := mergeFileResults(currentFileResultsToMerge)
 		currentFileResults.Name = theFile.Path()
+		currentFileResults.Directory = theFile.Path()[:strings.LastIndex(theFile.Path(), "/")]
 		file.AddLineNumberAndCharInLineToSnippets(theFile.Content(), currentFileResults.Snippets)
 		lock.Lock()
 		allFileResults = append(allFileResults, currentFileResults)
@@ -213,6 +212,9 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) []*file.Re
 func mergeFileResults(results []*file.Results) *file.Results {
 	newResults := &file.Results{}
 	for _, otherResult := range results {
+		newResults.Component = otherResult.Component
+		newResults.Name = otherResult.Name
+		newResults.Directory = otherResult.Directory
 		newResults.Stats = append(newResults.Stats, otherResult.Stats...)
 		newResults.Snippets = append(newResults.Snippets, otherResult.Snippets...)
 	}

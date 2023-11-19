@@ -1,4 +1,4 @@
-package required
+package declbased
 
 import (
 	"github.com/archstats/archstats/core"

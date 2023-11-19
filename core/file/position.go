@@ -25,9 +25,9 @@ func AddLineNumberAndCharInLineToSnippets(theFile []byte, snippets []*Snippet) {
 	})
 	AddLineNumberAndCharInLineToPositions(theFile, allPositions)
 }
+
 func AddLineNumberAndCharInLineToPositions(theFile []byte, positions []*Position) {
 	lineNumber, charPosition := 1, 1
-
 	for i, b := range theFile {
 		if i == len(theFile)-1 {
 			// Reached the end of the byte slice, set remaining positions to end of file
@@ -40,7 +40,6 @@ func AddLineNumberAndCharInLineToPositions(theFile []byte, positions []*Position
 			}
 			break
 		}
-
 		for _, pos := range positions {
 			if pos.Line == 0 && i == pos.Offset {
 				// Found an offset from the list
@@ -48,7 +47,6 @@ func AddLineNumberAndCharInLineToPositions(theFile []byte, positions []*Position
 				pos.CharInLine = charPosition
 			}
 		}
-
 		charPosition++
 		if b == '\n' {
 			lineNumber++
