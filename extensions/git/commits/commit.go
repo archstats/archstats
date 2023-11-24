@@ -7,6 +7,7 @@ type PartOfCommit struct {
 	Commit      string
 	Time        time.Time
 	File        string
+	Directory   string
 	Author      string
 	AuthorEmail string
 	Message     string

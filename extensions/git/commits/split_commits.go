@@ -26,17 +26,26 @@ type Splitted struct {
 	commitParts []*PartOfCommit
 
 	commitPartsByFile      CommitPartMap
+	commitPartsByDirectory CommitPartMap
 	commitPartsByComponent CommitPartMap
 	commitPartsByCommit    CommitPartMap
 	commitPartsByAuthor    CommitPartMap
 
 	fileToCommitHashes      map[string]CommitHashes
+	directoryToCommitHashes map[string]CommitHashes
 	componentToCommitHashes map[string]CommitHashes
 	dayBuckets              map[int]*Splitted
 }
 
 func (ms *Splitted) CommitParts() []*PartOfCommit {
 	return ms.commitParts
+}
+
+func (ms *Splitted) SplitByDirectory() CommitPartMap {
+	if ms.commitPartsByDirectory == nil {
+		ms.splitAll()
+	}
+	return ms.commitPartsByDirectory
 }
 
 func (ms *Splitted) SplitByFile() CommitPartMap {
@@ -73,6 +82,12 @@ func (ms *Splitted) FileToCommitHashes() map[string]CommitHashes {
 	}
 	return ms.fileToCommitHashes
 }
+func (ms *Splitted) DirectoryToCommitHashes() map[string]CommitHashes {
+	if ms.directoryToCommitHashes == nil {
+		ms.splitAll()
+	}
+	return ms.directoryToCommitHashes
+}
 
 func (ms *Splitted) ComponentToCommitHashes() map[string]CommitHashes {
 	if ms.componentToCommitHashes == nil {
@@ -92,6 +107,9 @@ func (ms *Splitted) splitAll() {
 		"file": func(commit *PartOfCommit) string {
 			return commit.File
 		},
+		"directory": func(commit *PartOfCommit) string {
+			return commit.Directory
+		},
 		"component": func(commit *PartOfCommit) string {
 			return commit.Component
 		},
@@ -106,6 +124,7 @@ func (ms *Splitted) splitAll() {
 	allGroups := multiGroupBy(ms.commitParts, funcs)
 
 	ms.commitPartsByFile = allGroups["file"]
+	ms.commitPartsByDirectory = allGroups["directory"]
 	ms.commitPartsByComponent = allGroups["component"]
 	ms.commitPartsByCommit = allGroups["commit"]
 	ms.commitPartsByAuthor = allGroups["author"]
@@ -113,7 +132,9 @@ func (ms *Splitted) splitAll() {
 	ms.fileToCommitHashes = lo.MapValues(ms.commitPartsByFile, func(parts []*PartOfCommit, _ string) CommitHashes {
 		return getUniqueHashes(parts)
 	})
-
+	ms.directoryToCommitHashes = lo.MapValues(ms.commitPartsByDirectory, func(parts []*PartOfCommit, _ string) CommitHashes {
+		return getUniqueHashes(parts)
+	})
 	ms.componentToCommitHashes = lo.MapValues(ms.commitPartsByComponent, func(parts []*PartOfCommit, _ string) CommitHashes {
 		return getUniqueHashes(parts)
 	})

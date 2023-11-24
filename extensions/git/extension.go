@@ -49,7 +49,7 @@ func Extension() core.Extension {
 	return &extension{
 		DayBuckets:                           []int{30, 90, 180},
 		GenerateCommitView:                   true,
-		GenerateFileLogicalCouplingView:      false, // Generates a lot of data
+		GenerateFileLogicalCouplingView:      true, // Generates a lot of data
 		GenerateComponentLogicalCouplingView: true,
 		GitAfter:                             "",
 		GitSince:                             "",
@@ -101,14 +101,10 @@ func (e *extension) Init(settings core.Analyzer) error {
 			Name:           "git_component_cycles_shortest_shared_commits",
 			CreateViewFunc: e.shortestCycleViewFactory,
 		})
-	}
-
-	if e.GenerateFileLogicalCouplingView {
 		settings.RegisterView(&core.ViewFactory{
-			Name:           "git_file_shared_commits",
-			CreateViewFunc: e.fileCouplingViewFactory,
+			Name:           "git_directory_shared_commits",
+			CreateViewFunc: e.directoryCouplingViewFactory,
 		})
-
 	}
 
 	if e.GenerateCommitView {
@@ -141,11 +137,12 @@ func (e *extension) EditResults(results *core.Results) {
 	e.splittedCommits = commits.Split(e.BasedOn, e.DayBuckets, e.commitParts)
 
 	setStatsTotal(e.BasedOn, results.StatsByFile, e.splittedCommits.SplitByFile())
+	setStatsTotal(e.BasedOn, results.StatsByDirectory, e.splittedCommits.SplitByDirectory())
 	setStatsTotal(e.BasedOn, results.StatsByComponent, e.splittedCommits.SplitByComponent())
 
 	for days, split := range e.splittedCommits.DayBuckets() {
-
 		setStatsLastXDays(e.BasedOn, days, results.StatsByFile, split.SplitByFile())
+		setStatsLastXDays(e.BasedOn, days, results.StatsByDirectory, split.SplitByDirectory())
 		setStatsLastXDays(e.BasedOn, days, results.StatsByComponent, split.SplitByComponent())
 	}
 }
@@ -163,6 +160,7 @@ func gitCommitToPartOfCommit(rawCommit *rawCommit) []*commits.PartOfCommit {
 			Commit:      rawCommit.Hash,
 			Time:        rawCommit.Time,
 			File:        file.Path,
+			Directory:   getDir(file.Path),
 			Author:      rawCommit.AuthorName,
 			AuthorEmail: rawCommit.AuthorEmail,
 			Message:     rawCommit.Message,
@@ -170,6 +168,13 @@ func gitCommitToPartOfCommit(rawCommit *rawCommit) []*commits.PartOfCommit {
 			Deletions:   file.Deletions,
 		}
 	})
+}
+
+func getDir(path string) string {
+	if strings.Contains(path, "/") {
+		return path[:strings.LastIndex(path, "/")]
+	}
+	return ""
 }
 
 func setStatsTotal(basedOn time.Time, statGroup file.StatsGroup, group map[string][]*commits.PartOfCommit) {

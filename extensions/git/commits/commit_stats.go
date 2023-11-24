@@ -10,6 +10,7 @@ type CommitStats struct {
 	AdditionCount              int
 	DeletionCount              int
 	UniqueFileChangeCount      int
+	UniqueDirectoryChangeCount int
 	UniqueComponentChangeCount int
 	UniqueAuthorCount          int
 	OldestCommitAgeInDays      int
@@ -21,6 +22,7 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 	commits := make(map[string]bool, len(commitParts))
 	components := make(map[string]bool, len(commitParts))
 	files := make(map[string]bool, len(commitParts))
+	directories := make(map[string]bool, len(commitParts))
 	authors := make(map[string]bool, len(commitParts))
 
 	totalAdditionCount := 0
@@ -34,6 +36,7 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 		commits[part.Commit] = true
 		components[part.Component] = true
 		files[part.File] = true
+		directories[part.Directory] = true
 		authors[part.Author] = true
 
 		commitAge := dayDiff(basedOn, part.Time)
@@ -46,6 +49,7 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 		AdditionCount:              totalAdditionCount,
 		DeletionCount:              totalDeletionCount,
 		UniqueFileChangeCount:      len(files),
+		UniqueDirectoryChangeCount: len(directories),
 		UniqueComponentChangeCount: len(components),
 		UniqueAuthorCount:          len(authors),
 		OldestCommitAgeInDays:      oldestCommitAgeInDays,
