@@ -13,7 +13,7 @@ import (
 )
 
 func Test_SimpleComponents_AfferentEfferentCoupling(t *testing.T) {
-	simpleComponentsTest(t, "components", "name,complexity:files,modularity:coupling:afferent,modularity:coupling:efferent", []Component{
+	simpleComponentsTest(t, "components", "name,complexity:files,modularity__coupling__afferent,modularity__coupling__efferent", []Component{
 		component("a", 2, 1, 2),
 		component("b", 1, 2, 1),
 		component("c", 1, 2, 1),
@@ -87,9 +87,9 @@ func component(name string, fileCount, afferentCouplings, efferentCouplings int)
 
 type Component struct {
 	Name              string `csv:"NAME"`
-	FileCount         int    `csv:"COMPLEXITY:FILES"`
-	AfferentCouplings int    `csv:"MODULARITY:COUPLING:AFFERENT,omitempty"`
-	EfferentCouplings int    `csv:"MODULARITY:COUPLING:EFFERENT,omitempty"`
+	FileCount         int    `csv:"COMPLEXITY__FILES"`
+	AfferentCouplings int    `csv:"MODULARITY__COUPLING__AFFERENT,omitempty"`
+	EfferentCouplings int    `csv:"MODULARITY__COUPLING__EFFERENT,omitempty"`
 }
 
 func directConnection(from, to, file string, referenceCount int) ComponentConnectionDirect {
