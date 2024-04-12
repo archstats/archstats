@@ -104,7 +104,7 @@ Supported extensions are:
 - `csharp` - Adds support for C# namespaces as components.
 - `git` - Adds support for git log based views.
 - `cycles` - Adds support for cycle detection views. _Be wary, this can be computationally expensive for large
-  codebases._
+  codebases. Avoid using this extension_
 
 ## Ignoring files
 
