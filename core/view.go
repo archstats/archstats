@@ -1,9 +1,50 @@
 package core
 
+import (
+	"github.com/archstats/archstats/core/file"
+	"github.com/samber/lo"
+	"time"
+)
+
 type View struct {
 	Name    string
 	Columns []*Column
 	Rows    []*Row
+}
+
+func CreateViewFromRows(name string, rows []*Row) *View {
+	distinctColumns := make(map[string]*Column)
+	for _, row := range rows {
+		columns := getColumnsFromRow(row)
+		for _, column := range columns {
+			distinctColumns[column.Name] = column
+		}
+	}
+	return &View{
+		Name:    name,
+		Columns: lo.Values(distinctColumns),
+		Rows:    rows,
+	}
+}
+
+func getColumnsFromRow(row *Row) []*Column {
+	data := row.Data
+	columns := make([]*Column, 0, len(data))
+	for column, data := range data {
+		switch data.(type) {
+		case int:
+			columns = append(columns, IntColumn(column))
+		case float64:
+			columns = append(columns, FloatColumn(column))
+		case string:
+			columns = append(columns, StringColumn(column))
+		case file.Position:
+			columns = append(columns, PositionInFileColumn(column))
+		case time.Time:
+			columns = append(columns, DateColumn(column))
+		}
+	}
+	return columns
 }
 
 type ViewFactory struct {

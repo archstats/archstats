@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/gobwas/glob v0.2.3
+	github.com/jmoiron/sqlx v1.3.5
 	github.com/jszwec/csvutil v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/ryanuber/columnize v2.1.2+incompatible

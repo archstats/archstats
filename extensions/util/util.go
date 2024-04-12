@@ -1,10 +1,10 @@
-package basic
+package util
 
 import (
 	"math"
 )
 
-func nanToZero(value float64) float64 {
+func NanToZero(value float64) float64 {
 	if math.IsNaN(value) {
 		return 0
 	}

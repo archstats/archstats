@@ -1,16 +1,18 @@
-package basic
+package util
 
 import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
-	"math"
 	"sort"
 	"strings"
 )
 
-func genericView(allColumns []string, group file.StatsGroup) *core.View {
+const (
+	Name = "name"
+)
+
+func GenericView(allColumns []string, group file.StatsGroup) *core.View {
 	var toReturn []*core.Row
 	for groupItem, stats := range group {
 		if groupItem == "" {
@@ -18,16 +20,12 @@ func genericView(allColumns []string, group file.StatsGroup) *core.View {
 		}
 		data := statsToRowData(groupItem, stats)
 		ensureRowHasAllColumns(data, allColumns)
-		addAbstractness(data, stats)
 		toReturn = append(toReturn, &core.Row{
 			Data: data,
 		})
 	}
 
 	columnsToReturn := []*core.Column{core.StringColumn(Name)}
-	if slices.Contains(allColumns, file.AbstractType) {
-		columnsToReturn = append(columnsToReturn, core.FloatColumn(Abstractness))
-	}
 	for _, column := range allColumns {
 		columnsToReturn = append(columnsToReturn, core.IntColumn(column))
 	}
@@ -45,16 +43,6 @@ func ensureRowHasAllColumns(data map[string]interface{}, columns []string) {
 	}
 }
 
-func addAbstractness(data map[string]interface{}, theStats *file.Stats) {
-	stats := *theStats
-	if _, hasAbstractTypes := data[file.AbstractType]; hasAbstractTypes {
-		abstractTypes := toInt(stats[file.AbstractType])
-		types := toInt(stats[file.Type])
-		abstractness := math.Max(0, math.Min(1, float64(abstractTypes)/float64(types)))
-		data[Abstractness] = nanToZero(abstractness)
-	}
-}
-
 func statsToRowData(name string, statsRef *file.Stats) map[string]interface{} {
 	stats := *statsRef
 	toReturn := make(map[string]interface{}, len(stats)+1)
@@ -65,7 +53,7 @@ func statsToRowData(name string, statsRef *file.Stats) map[string]interface{} {
 	return toReturn
 }
 
-func getDistinctColumnsFrom(results file.StatsGroup) []string {
+func GetDistinctColumnsFrom(results file.StatsGroup) []string {
 
 	allStats := lo.MapToSlice(results, func(_ string, stats *file.Stats) *file.Stats {
 		return stats
@@ -88,7 +76,7 @@ func getDistinctColumnsFrom(results file.StatsGroup) []string {
 	return toReturn
 }
 
-func toInt(value interface{}) int {
+func ToInt(value interface{}) int {
 	if value == nil {
 		return 0
 	}

@@ -15,7 +15,7 @@ func TestFileInput(t *testing.T) {
 		return
 	}
 
-	analyzer := &Extension{}
+	analyzer := &extension{}
 
 	results := analyzer.AnalyzeFile(&fakeFile{
 		content: content,

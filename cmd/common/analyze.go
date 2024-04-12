@@ -3,8 +3,9 @@ package common
 import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/extensions/basic"
+	"github.com/archstats/archstats/extensions/components"
+	"github.com/archstats/archstats/extensions/components/cycles"
 	"github.com/archstats/archstats/extensions/components/declbased"
-	"github.com/archstats/archstats/extensions/cycles"
 	"github.com/archstats/archstats/extensions/git"
 	"github.com/archstats/archstats/extensions/indentations"
 	"github.com/archstats/archstats/extensions/lines"
@@ -58,7 +59,7 @@ func Analyze(command *cobra.Command) (*core.Results, error) {
 }
 
 func defaultExtensions() []core.Extension {
-	return []core.Extension{declbased.Extension(), basic.Extension(), &lines.Extension{}}
+	return []core.Extension{declbased.Extension(), components.Extension(), basic.Extension(), lines.Extension()}
 }
 
 func optionalExtension(in string) (core.Extension, error) {

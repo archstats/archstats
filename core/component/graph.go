@@ -80,19 +80,23 @@ func (g *Graph) AllSuccessorsOf(component string) []string {
 	})
 }
 
-func CreateGraph(connections []*Connection) *Graph {
-	components := map[string]struct{}{}
-	for _, connection := range connections {
-		components[connection.From] = struct{}{}
-		components[connection.To] = struct{}{}
+func CreateGraph(componentNames []string, connections []*Connection) *Graph {
+	componentIndex := map[string]bool{}
+
+	for _, name := range componentNames {
+		componentIndex[name] = true
 	}
-	amountOfComponents := len(components)
+	for _, connection := range connections {
+		componentIndex[connection.From] = true
+		componentIndex[connection.To] = true
+	}
+	amountOfComponents := len(componentIndex)
 	idMapping := make(map[string]int64, amountOfComponents)
 	allComponents := make(map[int64]*componentNode, amountOfComponents)
 	connectionsFromToUnique := getConnectionsWithCount(connections)
 
 	var curId int64
-	for componentName := range components {
+	for componentName := range componentIndex {
 		idMapping[componentName] = curId
 		allComponents[curId] = &componentNode{
 			id:   curId,
@@ -126,7 +130,7 @@ func CreateGraph(connections []*Connection) *Graph {
 	}
 
 	return &Graph{
-		Components:      lo.Keys(components),
+		Components:      lo.Keys(componentIndex),
 		Connections:     connections,
 		ConnectionsFrom: componentConnectionsByFrom,
 		ConnectionsTo:   componentConnectionsByTo,
@@ -250,6 +254,10 @@ func (g *Graph) HasEdgeFromTo(xid, yid int64) bool {
 
 func (g *Graph) HasEdgeBetween(xid, yid int64) bool {
 	return g.Edge(xid, yid) != nil || g.Edge(yid, xid) != nil
+}
+
+func (g *Graph) NoConnections() bool {
+	return g.Connections == nil
 }
 
 func nodeListOf(nodes []graph.Node) graph.Nodes {

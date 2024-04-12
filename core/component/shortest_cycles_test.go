@@ -48,7 +48,7 @@ func TestShortestCycles(t *testing.T) {
 		"PH -> PG",
 	}
 
-	theGraph := CreateGraph(connectionStringsToConnections(input))
+	theGraph := CreateGraph(nil, connectionStringsToConnections(input))
 	actualCycles := shortestCycles(theGraph)
 
 	expectedCycles := []string{
@@ -74,7 +74,7 @@ var mockito string
 func TestGraph_ShortestCycles(t *testing.T) {
 	mockitoLines := strings.Split(mockito, "\n")
 
-	theGraph := CreateGraph(connectionStringsToConnections(mockitoLines))
+	theGraph := CreateGraph(nil, connectionStringsToConnections(mockitoLines))
 
 	cycles := theGraph.ShortestCycles()
 

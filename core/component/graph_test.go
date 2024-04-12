@@ -16,7 +16,7 @@ var elepyConnections string
 func TestElepy(t *testing.T) {
 	input := connectionStringsToConnections(strings.Split(elepyConnections, "\n"))
 
-	theGraph := CreateGraph(input)
+	theGraph := CreateGraph(nil, input)
 	cycles := topo.DirectedCyclesIn(theGraph)
 
 	sort.Slice(cycles, func(i, j int) bool {
@@ -32,7 +32,7 @@ func TestGraphCreation(t *testing.T) {
 		"D -> A",
 	})
 
-	theGraph := CreateGraph(input)
+	theGraph := CreateGraph(nil, input)
 
 	shouldBeC := theGraph.To(theGraph.ComponentToId("A"))
 	shouldBeC.Next()

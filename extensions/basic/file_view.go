@@ -3,11 +3,12 @@ package basic
 import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/extensions/util"
 	"github.com/samber/lo"
 )
 
 func fileView(results *core.Results) *core.View {
-	view := genericView(getDistinctColumnsFrom(results.StatsByFile), results.StatsByFile)
+	view := util.GenericView(util.GetDistinctColumnsFrom(results.StatsByFile), results.StatsByFile)
 
 	view.Columns = append(view.Columns, []*core.Column{core.StringColumn("directory"), core.StringColumn("component")}...)
 	for _, row := range view.Rows {

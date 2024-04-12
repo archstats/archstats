@@ -1,10 +1,10 @@
-package basic
+package components
 
 import (
 	"github.com/archstats/archstats/core"
 )
 
-func shortestComponentCyclesView(results *core.Results) *core.View {
+func ShortestCyclesView(results *core.Results) *core.View {
 	theGraph := results.ComponentGraph
 
 	cycles := theGraph.ShortestCycles()

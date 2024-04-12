@@ -22,7 +22,7 @@ func TestKotlin(t *testing.T) {
 	expectedImports := []string{
 		"io.javalin.http.servlet",
 		"io.javalin.http.staticfiles",
-		"io.javalin.util",
+		"io.javalin.repo",
 		"java.net",
 		"x.x.x.x.x.x.x.x",
 	}

@@ -1,4 +1,4 @@
-package basic
+package components
 
 import (
 	"github.com/archstats/archstats/core"
@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func componentConnectionsFurthestView(results *core.Results) *core.View {
+func ConnectionsFurthestView(results *core.Results) *core.View {
 	theGraph := results.ComponentGraph
 
 	allPaths := path.DijkstraAllPaths(theGraph)

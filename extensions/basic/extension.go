@@ -38,11 +38,6 @@ func (v *extension) Init(settings core.Analyzer) error {
 	})
 
 	settings.RegisterView(&core.ViewFactory{
-		Name:           "components",
-		CreateViewFunc: componentView,
-	})
-
-	settings.RegisterView(&core.ViewFactory{
 		Name:           "files",
 		CreateViewFunc: fileView,
 	})
@@ -55,31 +50,6 @@ func (v *extension) Init(settings core.Analyzer) error {
 	settings.RegisterView(&core.ViewFactory{
 		Name:           "snippets",
 		CreateViewFunc: snippetsView,
-	})
-
-	settings.RegisterView(&core.ViewFactory{
-		Name:           "component_connections_direct",
-		CreateViewFunc: componentConnectionsView,
-	})
-
-	settings.RegisterView(&core.ViewFactory{
-		Name:           "component_connections_indirect",
-		CreateViewFunc: componentConnectionsIndirectView,
-	})
-
-	settings.RegisterView(&core.ViewFactory{
-		Name:           "component_connections_furthest",
-		CreateViewFunc: componentConnectionsFurthestView,
-	})
-
-	settings.RegisterView(&core.ViewFactory{
-		Name:           "component_strongly_connected_groups",
-		CreateViewFunc: stronglyConnectedComponentGroupsView,
-	})
-
-	settings.RegisterView(&core.ViewFactory{
-		Name:           "component_cycles_shortest",
-		CreateViewFunc: shortestComponentCyclesView,
 	})
 
 	return nil

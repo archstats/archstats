@@ -1,4 +1,4 @@
-package basic
+package components
 
 import (
 	"github.com/archstats/archstats/core"
@@ -6,7 +6,7 @@ import (
 	"github.com/samber/lo"
 )
 
-func componentConnectionsView(results *core.Results) *core.View {
+func ConnectionsView(results *core.Results) *core.View {
 	groupedConnections := lo.GroupBy(results.Connections, func(connection *component.Connection) string {
 		return connection.From + ":" + connection.File + " -> " + connection.To
 	})

@@ -125,7 +125,7 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		return file[:strings.LastIndex(file, "/")]
 	})
 	componentConnections := component.GetConnections(snippetsByType, snippetsByComponent)
-	graph := component.CreateGraph(componentConnections)
+	graph := component.CreateGraph(lo.Keys(snippetsByComponent), componentConnections)
 	return &Results{
 		RootDirectory: rootPath,
 

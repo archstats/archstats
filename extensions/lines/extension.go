@@ -11,13 +11,17 @@ import (
 
 const LineCount = "complexity__lines"
 
-type Extension struct {
+func Extension() core.Extension {
+	return &extension{}
+}
+
+type extension struct {
 }
 
 //go:embed definitions/**
 var defs embed.FS
 
-func (i *Extension) Init(settings core.Analyzer) error {
+func (i *extension) Init(settings core.Analyzer) error {
 	defs, err := definitions.LoadYamlFiles(defs)
 
 	if err != nil {
@@ -30,7 +34,7 @@ func (i *Extension) Init(settings core.Analyzer) error {
 	settings.RegisterFileAnalyzer(i)
 	return nil
 }
-func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
+func (i *extension) AnalyzeFile(theFile file.File) *file.Results {
 	bytesReader := bytes.NewReader(theFile.Content())
 
 	fileReader := bufio.NewReader(bytesReader)
@@ -54,6 +58,6 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	}
 }
 
-func (i *Extension) typeAssertions() (core.Extension, core.FileAnalyzer) {
+func (i *extension) typeAssertions() (core.Extension, core.FileAnalyzer) {
 	return i, i
 }
