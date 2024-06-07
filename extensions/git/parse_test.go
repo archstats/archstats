@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestBoMama(t *testing.T) {
+func TestBasicGitParsing(t *testing.T) {
 	//remove temp_testdata
 	defer os.RemoveAll(filepath.Clean("./temp_testdata/"))
 
