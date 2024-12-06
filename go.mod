@@ -1,6 +1,6 @@
 module github.com/archstats/archstats
 
-go 1.21
+go 1.22
 
 require (
 	github.com/gobwas/glob v0.2.3
@@ -10,9 +10,9 @@ require (
 	github.com/ryanuber/columnize v2.1.2+incompatible
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/samber/lo v1.38.1
-	github.com/smacker/go-tree-sitter v0.0.0-20230720070738-0d0a9f78d8f8
+	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82
 	github.com/spf13/cobra v1.7.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	gonum.org/v1/gonum v0.14.0
 	gopkg.in/yaml.v3 v3.0.1

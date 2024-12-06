@@ -14,6 +14,10 @@ type Connection struct {
 	End   *file.Position
 }
 
+func (c *Connection) String() string {
+	return c.From + " -> " + c.To + " in " + c.File + " [ " + c.Begin.String() + " - " + c.End.String() + " ]"
+}
+
 func GetConnections(snippetsByType file.SnippetGroup, snippetsByComponent file.SnippetGroup) []*Connection {
 	var toReturn []*Connection
 	from := snippetsByType[file.ComponentImport]

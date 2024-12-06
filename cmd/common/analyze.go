@@ -10,6 +10,8 @@ import (
 	"github.com/archstats/archstats/extensions/indentations"
 	"github.com/archstats/archstats/extensions/lines"
 	"github.com/archstats/archstats/extensions/regex"
+	"github.com/archstats/archstats/extensions/treesitter/csharp"
+	"github.com/archstats/archstats/extensions/treesitter/java"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"path/filepath"
@@ -75,6 +77,11 @@ func optionalExtension(in string) (core.Extension, error) {
 		return indentations.FourTabs(), nil
 	case "indentations-2":
 		return indentations.TwoTabs(), nil
+	case "java":
+		return &java.Extension{}, nil
+	case "csharp":
+		return &csharp.Extension{}, nil
+
 	default:
 		return regex.BuiltInRegexExtension(in)
 	}

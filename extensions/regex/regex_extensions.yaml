@@ -9,14 +9,6 @@ extensions:
     - (class|trait).*(?P<modularity__types__total>\w+)
     - object (?P<modularity__types__total>\w+)
 
-  java:
-    file_glob: "**/*.java"
-    patterns:
-    - package (?P<modularity__component__declarations>.*);
-    - import (?P<modularity__component__imports>.*)\.\w+;
-    - ((abstract.*class)|interface).*(?P<modularity__types__abstract>\w+)
-    - (class|interface).*(?P<modularity__types__total>\w+)
-
   kotlin:
     file_glob: "**/*.kt"
     patterns:
@@ -32,11 +24,3 @@ extensions:
     - (use|import) (?P<modularity__component__imports>.*)\\.*;
     - (abstract class|interface|trait) (?P<modularity__types__abstract>\w+)
     - (class|interface|trait) (?P<modularity__types__total>\\w+)
-
-  csharp:
-    file_glob: "**/*.cs"
-    patterns:
-    - namespace (?P<modularity__component__declarations>.*);
-    - (using|using static) (?P<modularity__component__imports>.*);
-    - (abstract class|interface|trait) (?P<modularity__types__abstract>\w+)
-    - (class|interface|trait) (?P<modularity__types__total>\w+)

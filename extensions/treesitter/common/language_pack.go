@@ -111,12 +111,19 @@ func execQuery(filePath string, query *sitter.Query, ctx *sitter.Tree, content [
 		if !ok {
 			break
 		}
+
+		m = cursor.FilterPredicates(m, content)
 		for _, capture := range m.Captures {
+			snippetType := query.CaptureNameForId(capture.Index)
+
+			if strings.HasPrefix(snippetType, "_") {
+				continue
+			}
 			startByte := capture.Node.StartByte()
 			endByte := capture.Node.EndByte()
 			snippets = append(snippets, &file.Snippet{
 				File:  filePath,
-				Type:  query.CaptureNameForId(capture.Index),
+				Type:  snippetType,
 				Value: capture.Node.Content(content),
 				Begin: pointToPosition(startByte, capture.Node.StartPoint()),
 				End:   pointToPosition(endByte, capture.Node.EndPoint()),
@@ -129,8 +136,10 @@ func execQuery(filePath string, query *sitter.Query, ctx *sitter.Tree, content [
 
 func pointToPosition(offset uint32, position sitter.Point) *file.Position {
 	return &file.Position{
-		Offset:     int(offset),
-		Line:       int(position.Row),
-		CharInLine: int(position.Column),
+		Offset: int(offset),
+
+		// Tree-sitter uses 0-based indexing, so we add 1 to the row and column.
+		Line:       int(position.Row) + 1,
+		CharInLine: int(position.Column) + 1,
 	}
 }
