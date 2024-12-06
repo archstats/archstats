@@ -3,7 +3,8 @@ package java
 import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/extensions/treesitter/common"
-	"github.com/smacker/go-tree-sitter/java"
+	tree_sitter "github.com/tree-sitter/go-tree-sitter"
+	java "github.com/tree-sitter/tree-sitter-java/bindings/go"
 )
 
 type Extension struct {
@@ -15,9 +16,12 @@ func (e *Extension) Init(settings core.Analyzer) error {
 }
 
 func createJavaLanguagePack() *common.LanguagePack {
+
+	language := tree_sitter.NewLanguage(java.Language())
+
 	lp := &common.LanguagePackTemplate{
 		FileGlob: "**.java",
-		Language: java.GetLanguage(),
+		Language: language,
 		Queries: []string{
 			`(package_declaration  (scoped_identifier) @modularity__component__declarations)`,
 			`
@@ -32,26 +36,26 @@ func createJavaLanguagePack() *common.LanguagePack {
 			`
 (
   ((import_declaration 
-    ((scoped_identifier scope: (scoped_identifier) @modularity__component__imports))) @import ) 
-    (#not-match? @import "(^import static)|[*]")
+    ((scoped_identifier scope: (scoped_identifier) @modularity__component__imports))) @_import ) 
+    (#not-match? @_import "(^import static)|[*]")
 )
 (
   ((import_declaration 
-    ((scoped_identifier) @modularity__component__imports) (asterisk)) @import)
-    (#not-match? @import "(^import static)")
-    (#match? @import "[*]")
+    ((scoped_identifier) @modularity__component__imports) (asterisk)) @_import)
+    (#not-match? @_import "(^import static)")
+    (#match? @_import "[*]")
 )
 (
   ((import_declaration
-    ((scoped_identifier scope: (scoped_identifier) @modularity__component__imports))) @import ) 
-      (#match? @import "(^import static)")
-      (#not-match? @import "[*]")
+    ((scoped_identifier scope: (scoped_identifier) @modularity__component__imports))) @_import ) 
+      (#match? @_import "(^import static)")
+      (#not-match? @_import "[*]")
 )
 (
   ((import_declaration
-      ((scoped_identifier) @modularity__component__imports) (asterisk)) @import)
-      (#match? @import "(^import static)")
-      (#match? @import "[*]")
+      ((scoped_identifier) @modularity__component__imports) (asterisk)) @_import)
+      (#match? @_import "(^import static)")
+      (#match? @_import "[*]")
 )
 `,
 		},

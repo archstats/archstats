@@ -4,7 +4,9 @@ import io.javalin.http.servlet.isLocalhost
 import io.javalin.http.staticfiles.Location
 import io.javalin.util.Util
 import java.net.URL
-import x.x.x.x.x.x.x.x.x
+import foo.bar.Class
+import foo.baz.*
+
 
 /**
  * This is just a glorified 404 handler.

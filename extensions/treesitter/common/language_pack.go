@@ -5,7 +5,7 @@ import (
 	"github.com/archstats/archstats/core/file"
 	"github.com/gobwas/glob"
 	"github.com/samber/lo"
-	sitter "github.com/smacker/go-tree-sitter"
+	sitter "github.com/tree-sitter/go-tree-sitter"
 	"strings"
 )
 
@@ -38,7 +38,7 @@ func PackFromTemplate(template *LanguagePackTemplate) (*LanguagePack, error) {
 	lp.FileGlob = g
 	var queries []*sitter.Query
 	for _, query := range template.Queries {
-		newQuery, err := sitter.NewQuery([]byte(query), lp.Language)
+		newQuery, err := sitter.NewQuery(lp.Language, query)
 		if err != nil {
 			return nil, err
 		}
@@ -89,11 +89,12 @@ func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Re
 
 func (lp *LanguagePack) analyzeFileContent(filePath string, content []byte) []*file.Snippet {
 	parser := sitter.NewParser()
-	parser.SetLanguage(lp.Language)
-	tree, err := parser.ParseCtx(context.Background(), nil, content)
+
+	err := parser.SetLanguage(lp.Language)
 	if err != nil {
 		panic(err)
 	}
+	tree := parser.ParseCtx(context.Background(), content, nil)
 	var snippetsToReturn []*file.Snippet
 	for _, qr := range lp.Queries {
 		snippets := execQuery(filePath, qr, tree, content)
@@ -105,28 +106,38 @@ func (lp *LanguagePack) analyzeFileContent(filePath string, content []byte) []*f
 func execQuery(filePath string, query *sitter.Query, ctx *sitter.Tree, content []byte) []*file.Snippet {
 	var snippets []*file.Snippet
 	cursor := sitter.NewQueryCursor()
-	cursor.Exec(query, ctx.RootNode())
+
+	matches := cursor.Matches(query, ctx.RootNode(), content)
+
+	captureNames := query.CaptureNames()
+
 	for {
-		m, ok := cursor.NextMatch()
-		if !ok {
+		m := matches.Next()
+		if m == nil {
 			break
 		}
 
-		m = cursor.FilterPredicates(m, content)
+		if !m.SatisfiesTextPredicate(query, nil, nil, content) {
+			continue
+		}
+
 		for _, capture := range m.Captures {
-			snippetType := query.CaptureNameForId(capture.Index)
+
+			node := capture.Node
+
+			snippetType := captureNames[capture.Index]
 
 			if strings.HasPrefix(snippetType, "_") {
 				continue
 			}
-			startByte := capture.Node.StartByte()
-			endByte := capture.Node.EndByte()
+			startByte := node.StartByte()
+			endByte := node.EndByte()
 			snippets = append(snippets, &file.Snippet{
 				File:  filePath,
 				Type:  snippetType,
-				Value: capture.Node.Content(content),
-				Begin: pointToPosition(startByte, capture.Node.StartPoint()),
-				End:   pointToPosition(endByte, capture.Node.EndPoint()),
+				Value: node.Utf8Text(content),
+				Begin: pointToPosition(startByte, node.StartPosition()),
+				End:   pointToPosition(endByte, node.EndPosition()),
 			})
 
 		}
@@ -134,7 +145,7 @@ func execQuery(filePath string, query *sitter.Query, ctx *sitter.Tree, content [
 	return snippets
 }
 
-func pointToPosition(offset uint32, position sitter.Point) *file.Position {
+func pointToPosition(offset uint, position sitter.Point) *file.Position {
 	return &file.Position{
 		Offset: int(offset),
 

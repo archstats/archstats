@@ -3,7 +3,8 @@ package csharp
 import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/extensions/treesitter/common"
-	"github.com/smacker/go-tree-sitter/csharp"
+	tree_sitter "github.com/tree-sitter/go-tree-sitter"
+	csharp "github.com/tree-sitter/tree-sitter-c-sharp/bindings/go"
 )
 
 type Extension struct {
@@ -14,15 +15,16 @@ func (e *Extension) Init(settings core.Analyzer) error {
 	return nil
 }
 func createCSharpLanguagePack() *common.LanguagePack {
+	language := tree_sitter.NewLanguage(csharp.Language())
 	lp := &common.LanguagePackTemplate{
 		FileGlob: "**.cs",
-		Language: csharp.GetLanguage(),
+		Language: language,
 		Queries: []string{
-			`(namespace_declaration 
+			`(namespace_declaration
 				 name: ([(qualified_name) (identifier)]) @modularity__component__declarations)`,
 			`
 ((interface_declaration name: (identifier) @modularity__types__abstract))
-((class_declaration (((modifier)@_mod ) (#match? @_mod "abstract" )) name: (identifier) @modularity__types__abstract)) 
+((class_declaration (((modifier)@_mod ) (#match? @_mod "abstract" )) name: (identifier) @modularity__types__abstract))
 `,
 			`
 ((class_declaration name: (identifier) @modularity__types__total))
