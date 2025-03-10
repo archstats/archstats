@@ -61,6 +61,9 @@ func MainView(results *core.Results) *core.View {
 		componentName := row.Data[util.Name].(string)
 		abstractness := calculateAbstractness(row)
 		componentInGraphMetrics := componentInGraphMetricsIndex[componentName]
+		if componentInGraphMetrics == nil {
+			continue
+		}
 		efferentCouplings, afferentCouplings := componentInGraphMetrics.EfferentCouplings, componentInGraphMetrics.AfferentCouplings
 		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
 		distanceMainSequence := math.Abs(util.NanToZero(abstractness) + util.NanToZero(instability) - 1)

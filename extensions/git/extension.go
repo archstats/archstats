@@ -114,13 +114,13 @@ func (e *extension) Init(settings core.Analyzer) error {
 		})
 	}
 
-	rawCommits, err := parseGitLog(settings.RootPath())
+	rawCommits, err := getGitCommitsFromAllReposConcurrently(settings.RootPath())
 	if err != nil {
 		return err
 	}
 
 	e.commitParts = lo.FlatMap(rawCommits, func(commit *rawCommit, index int) []*commits.PartOfCommit {
-		return gitCommitToPartOfCommit(commit)
+		return gitCommitToPartOfCommit(settings.RootPath(), commit)
 	})
 
 	return nil
@@ -153,13 +153,23 @@ func setComponent(results *core.Results, commitParts []*commits.PartOfCommit) {
 	}
 }
 
-func gitCommitToPartOfCommit(rawCommit *rawCommit) []*commits.PartOfCommit {
+func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.PartOfCommit {
 	return lo.Map(rawCommit.Files, func(file *rawPartOfCommit, _ int) *commits.PartOfCommit {
+		//substring length of root away from repo path
+		pathToRepo := strings.TrimPrefix(rawCommit.Repo, rootPath)
+		// remove leading slash
+		if strings.HasPrefix(pathToRepo, "/") {
+			pathToRepo = pathToRepo[1:]
+		}
+
+		//absolutePath := rootPath + "/" + rawCommit.Repo + "/" + file.Path
+
 		return &commits.PartOfCommit{
 			Component:   "",
+			Repo:        pathToRepo,
 			Commit:      rawCommit.Hash,
 			Time:        rawCommit.Time,
-			File:        file.Path,
+			File:        pathToRepo + "/" + file.Path,
 			Directory:   getDir(file.Path),
 			Author:      rawCommit.AuthorName,
 			AuthorEmail: rawCommit.AuthorEmail,

@@ -4,6 +4,7 @@ import "time"
 
 type PartOfCommit struct {
 	Component   string
+	Repo        string
 	Commit      string
 	Time        time.Time
 	File        string
