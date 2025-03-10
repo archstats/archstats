@@ -3,6 +3,7 @@ package components
 import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/component"
+	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph/network"
 	"gonum.org/v1/gonum/graph/path"
@@ -29,26 +30,41 @@ type ComponentInGraphMetrics struct {
 }
 
 func createComponentInGraphMetrics(graph *component.Graph) map[string]*ComponentInGraphMetrics {
+	log.Debug().Msgf("Creating graph metrics for %d components", len(graph.Components))
 	toReturn := make(map[string]*ComponentInGraphMetrics)
 	allShortestPaths := path.DijkstraAllPaths(graph)
+	log.Debug().Msgf("All shortest paths calculated")
 	cyclesPerComponent := cyclesPerComponent(graph.ShortestCycles())
+	log.Debug().Msgf("Cycles per component calculated")
 	betweennessIndex := network.Betweenness(graph)
-	pageRankIndex := network.PageRank(graph, 0.85, 0.00001)
+	log.Debug().Msgf("Betweenness calculated")
+
+	var pageRankIndex map[int64]float64
 	var hubAuthorityHITSIndex map[int64]network.HubAuthority
-	if !graph.NoConnections() {
-		hubAuthorityHITSIndex = network.HITS(graph, 0.00001)
-	} else {
+
+	if graph.NoConnections() {
 		hubAuthorityHITSIndex = make(map[int64]network.HubAuthority)
 		for _, componentName := range graph.Components {
 			componentId := graph.ComponentToId(componentName)
 			hubAuthorityHITSIndex[componentId] = network.HubAuthority{Hub: 0, Authority: 0}
 		}
+		pageRankIndex = make(map[int64]float64)
+		for _, componentName := range graph.Components {
+			componentId := graph.ComponentToId(componentName)
+			pageRankIndex[componentId] = 0
+		}
+	} else {
+		hubAuthorityHITSIndex = network.HITS(graph, 0.00001)
+		pageRankIndex = network.PageRank(graph, 0.85, 0.00001)
 	}
+	log.Debug().Msgf("PageRank and HITS calculated")
 
 	harmonicCentralityIndex := network.Harmonic(graph, allShortestPaths)
 	farnessCentralityIndex := network.Farness(graph, allShortestPaths)
 	residualClosenessIndex := network.Residual(graph, allShortestPaths)
+	log.Debug().Msgf("Main graph metrics calculated, now calculating metrics for each component")
 	for _, componentName := range graph.Components {
+
 		metrics := &ComponentInGraphMetrics{}
 		componentId := graph.ComponentToId(componentName)
 		afferentCouplings, efferentCouplings := countUniqueFilesInConnections(graph.ConnectionsTo[componentName]), countUniqueFilesInConnections(graph.ConnectionsFrom[componentName])
@@ -75,6 +91,7 @@ func createComponentInGraphMetrics(graph *component.Graph) map[string]*Component
 
 		toReturn[componentName] = metrics
 	}
+	log.Debug().Msgf("Metrics calculated for %d components", len(toReturn))
 	return toReturn
 }
 func createSubGraph(components []string, graph *component.Graph) *component.Graph {
@@ -90,7 +107,7 @@ func createSubGraph(components []string, graph *component.Graph) *component.Grap
 			connections = append(connections, connection)
 		}
 	}
-	groupGraph := component.CreateGraph(components, connections)
+	groupGraph := component.CreateGraph("subgraph", lo.Keys(componentLookup), connections)
 	return groupGraph
 }
 

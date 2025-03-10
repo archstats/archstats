@@ -74,7 +74,7 @@ func shortestCyclesOfSCC(components []string, connections []*Connection) map[str
 
 	for _, node := range components {
 
-		cyclesForNode := getShortCyclesForNode(node, connectionsTo, connectionsFrom, connections)
+		cyclesForNode := getShortCyclesForNode(node, connectionsTo, connectionsFrom)
 
 		for key, cycle := range cyclesForNode {
 			cycles[key] = cycle
@@ -84,7 +84,7 @@ func shortestCyclesOfSCC(components []string, connections []*Connection) map[str
 	return cycles
 }
 
-func getShortCyclesForNode(node string, connectionsTo map[string][]*Connection, connectionsFrom map[string][]*Connection, all []*Connection) map[string]Cycle {
+func getShortCyclesForNode(node string, connectionsTo map[string][]*Connection, connectionsFrom map[string][]*Connection) map[string]Cycle {
 
 	cycles := make(map[string]Cycle)
 	visitedNodes := make(map[string]bool)

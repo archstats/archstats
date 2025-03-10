@@ -2,6 +2,7 @@ package walker
 
 import (
 	"github.com/archstats/archstats/core/file"
+	"github.com/rs/zerolog/log"
 	"io/fs"
 	"os"
 	filepath "path"
@@ -18,12 +19,15 @@ func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file file.Fi
 func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(file file.File)) {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(allFiles))
+	log.Debug().Msgf("Walking & reading %d files", len(allFiles))
 	for _, theFile := range allFiles {
 		go func(file PathToFile, group *sync.WaitGroup) {
 
 			//TODO cleanup error handling
 			content, err := fileSystem.ReadFile(filepath.Clean(file.Path()))
+			log.Debug().Msgf("Reading file %s", file.Path())
 			if err != nil {
+				log.Error().Err(err).Msgf("Error reading file %s", file.Path())
 				panic(err)
 			}
 			openedFile := &openedFile{
@@ -36,22 +40,36 @@ func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(fil
 		}(theFile, wg)
 	}
 	wg.Wait()
+	log.Debug().Msgf("Done reading %d files", len(allFiles))
 }
 
 func GetAllFiles(dirAbsolutePath string) []PathToFile {
-	return getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, ignoreContext{})
+	log.Debug().Msgf("Finding unignored files in %s", dirAbsolutePath)
+
+	files := getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, ignoreContext{})
+
+	log.Debug().Msgf("Found %d files, %d ignored ", len(files.FoundFiles), len(files.IgnoredFiles))
+
+	return files.FoundFiles
 }
 
-func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ignoreCtx ignoreContext) []PathToFile {
+type FileResults struct {
+	FoundFiles   []PathToFile
+	IgnoredFiles []string
+}
+
+func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ignoreCtx ignoreContext) *FileResults {
 	separator := "/"
 
 	dirAbsolutePath = filepath.Clean(dirAbsolutePath)
-	var fileDescriptions []PathToFile
+	var foundFiles []PathToFile
+	var ignoredFiles []string
 
 	files, err := fileSystem.ReadDir(dirAbsolutePath)
 	if err != nil {
-		return fileDescriptions
+		log.Fatal().Err(err).Msgf("Error reading directory %s", dirAbsolutePath)
 	}
+
 	ignoreCtx.addIgnoreLines(fileSystem, dirAbsolutePath, files)
 
 	gitIgnore := ignoreCtx.getGitIgnore()
@@ -60,22 +78,30 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 
 		if entry.IsDir() {
 			path += separator
-			fileDescriptions = append(fileDescriptions, getAllFiles(fileSystem, path, depth+1, ignoreCtx)...)
+			allFiles := getAllFiles(fileSystem, path, depth+1, ignoreCtx)
+			foundFiles = append(foundFiles, allFiles.FoundFiles...)
+			ignoredFiles = append(ignoredFiles, allFiles.IgnoredFiles...)
 		} else {
 			if shouldIgnore(path, gitIgnore) {
+				log.Debug().Msgf("Ignoring file %s", path)
+				ignoredFiles = append(ignoredFiles, path)
 				continue
 			}
 			info, err := entry.Info()
-			// What could go wrong :D
 			if err == nil {
-				fileDescriptions = append(fileDescriptions, &pathToFile{
+				foundFiles = append(foundFiles, &pathToFile{
 					path: path,
 					info: info,
 				})
+			} else {
+				log.Fatal().Err(err).Msgf("Error getting file info for %s", path)
 			}
 		}
 	}
-	return fileDescriptions
+	return &FileResults{
+		FoundFiles:   foundFiles,
+		IgnoredFiles: ignoredFiles,
+	}
 }
 
 type PathToFile interface {

@@ -23,9 +23,16 @@ const (
 	FlagExtension        = "extension"
 	FlagSnippet          = "snippet"
 	FlagSet              = "set"
+	FlagVerbose          = "verbose"
 )
 
-func Analyze(command *cobra.Command) (*core.Results, error) {
+type CommonFlags struct {
+	WorkingDirectory string
+	Extensions       []string
+	Snippets         []string
+}
+
+func GetCommonFlags(command *cobra.Command) *CommonFlags {
 	rootDir, _ := command.Flags().GetString(FlagWorkingDirectory)
 	rootDir, _ = filepath.Abs(rootDir)
 
@@ -33,10 +40,21 @@ func Analyze(command *cobra.Command) (*core.Results, error) {
 
 	snippetStrings, _ := command.Flags().GetStringSlice(FlagSnippet)
 
+	return &CommonFlags{
+		WorkingDirectory: rootDir,
+		Extensions:       extensionStrings,
+		Snippets:         snippetStrings,
+	}
+}
+
+func Analyze(command *cobra.Command) (*core.Results, error) {
+	commonFlags := GetCommonFlags(command)
+	rootDir, _ := filepath.Abs(commonFlags.WorkingDirectory)
+
 	var allExtensions = defaultExtensions()
 	var extraExtensions = command.Context().Value("extraExtensions").([]core.Extension)
 	allExtensions = append(allExtensions, extraExtensions...)
-	for _, extension := range extensionStrings {
+	for _, extension := range commonFlags.Extensions {
 		provider, err := optionalExtension(extension)
 		if err != nil {
 			return nil, err
@@ -46,7 +64,7 @@ func Analyze(command *cobra.Command) (*core.Results, error) {
 
 	allExtensions = append(allExtensions,
 		&regex.Extension{
-			Patterns: lo.Map(snippetStrings, func(s string, idx int) *regexp.Regexp {
+			Patterns: lo.Map(commonFlags.Snippets, func(s string, idx int) *regexp.Regexp {
 				return regexp.MustCompile(s)
 			}),
 		},

@@ -6,6 +6,7 @@ import (
 	definitions2 "github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/walker"
+	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 	"strings"
 	"sync"
@@ -44,17 +45,18 @@ type Results struct {
 	definitions   map[string]*definitions2.Definition
 	renderedViews map[string]*View
 }
+type groupedSnippets struct {
+	all         []*file.Snippet
+	byDirectory file.SnippetGroup
+	byComponent file.SnippetGroup
+	byFile      file.SnippetGroup
+	byType      file.SnippetGroup
+}
 
-func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*file.Results) *Results {
-	rootPath, theAccumulator := settings.rootPath, settings.accumulator
+func breakSnippetsIntoGroups(fileResults []*file.Results) groupedSnippets {
 	allSnippets := lo.FlatMap(fileResults, func(fileResult *file.Results, idx int) []*file.Snippet {
 		return fileResult.Snippets
 	})
-
-	statRecordsByFile := lo.SliceToMap(fileResults, func(fileResult *file.Results) (string, []*file.StatRecord) {
-		return fileResult.Name, fileResult.Stats
-	})
-
 	allSnippetGroups := file.MultiGroupSnippetsBy(allSnippets, map[string]file.GroupSnippetByFunc{
 		"ByDirectory": file.ByDirectory,
 		"ByComponent": file.ByComponent,
@@ -65,22 +67,30 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	snippetsByComponent, snippetsByType, snippetsByFile, snippetsByDirectory :=
 		allSnippetGroups["ByComponent"], allSnippetGroups["ByType"], allSnippetGroups["ByFile"], allSnippetGroups["ByDirectory"]
 
-	componentToFiles := lo.MapValues(snippetsByComponent, func(snippets []*file.Snippet, _ string) []string {
-		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
-			return snippet.File
-		}))
-	})
+	return groupedSnippets{
+		all:         allSnippets,
+		byDirectory: snippetsByDirectory,
+		byComponent: snippetsByComponent,
+		byFile:      snippetsByFile,
+		byType:      snippetsByType,
+	}
+}
 
-	directoryToFiles := lo.MapValues(snippetsByDirectory, func(snippets []*file.Snippet, _ string) []string {
-		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
-			return snippet.File
-		}))
+func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*file.Results) *Results {
+	rootPath, theAccumulator := settings.rootPath, settings.accumulators
+	snippets := breakSnippetsIntoGroups(fileResults)
+	statRecordsByFile := lo.SliceToMap(fileResults, func(fileResult *file.Results) (string, []*file.StatRecord) {
+		return fileResult.Name, fileResult.Stats
 	})
 
 	statsByFile := lo.MapValues(statRecordsByFile, func(statRecords []*file.StatRecord, _ string) *file.Stats {
 		return theAccumulator.merge(statRecords)
 	})
-
+	componentToFiles := lo.MapValues(snippets.byComponent, func(snippets []*file.Snippet, _ string) []string {
+		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
+			return snippet.File
+		}))
+	})
 	statsByComponent := lo.MapValues(componentToFiles, func(files []string, component string) *file.Stats {
 		var stats []*file.StatRecord
 		for _, file := range files {
@@ -96,7 +106,6 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	directoryResults := lo.GroupBy(fileResults, func(item *file.Results) string {
 		return item.Name[:strings.LastIndex(item.Name, "/")]
 	})
-
 	statsByDirectory := lo.MapValues(directoryResults, func(files []*file.Results, directory string) *file.Stats {
 		var stats []*file.StatRecord
 		for _, file := range files {
@@ -118,14 +127,19 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	})
 	statsTotal := theAccumulator.merge(allStatRecords)
 
-	fileToComponent := lo.MapValues(snippetsByFile, func(snippets []*file.Snippet, _ string) string {
+	fileToComponent := lo.MapValues(snippets.byFile, func(snippets []*file.Snippet, _ string) string {
 		return snippets[0].Component
 	})
 	fileToDirectory := lo.MapValues(statsByFile, func(snippets *file.Stats, file string) string {
 		return file[:strings.LastIndex(file, "/")]
 	})
-	componentConnections := component.GetConnections(snippetsByType, snippetsByComponent)
-	graph := component.CreateGraph(lo.Keys(snippetsByComponent), componentConnections)
+	componentConnections := component.GetConnectionsFromSnippetImports(snippets.byType, snippets.byComponent)
+	graph := component.CreateGraph("all", lo.Keys(componentToFiles), componentConnections)
+	directoryToFiles := lo.MapValues(snippets.byDirectory, func(snippets []*file.Snippet, _ string) []string {
+		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
+			return snippet.File
+		}))
+	})
 	return &Results{
 		RootDirectory: rootPath,
 
@@ -134,11 +148,11 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		StatsByDirectory: statsByDirectory,
 		StatsByComponent: statsByComponent,
 
-		Snippets:            allSnippets,
-		SnippetsByDirectory: snippetsByDirectory,
-		SnippetsByComponent: snippetsByComponent,
-		SnippetsByFile:      snippetsByFile,
-		SnippetsByType:      snippetsByType,
+		Snippets:            snippets.all,
+		SnippetsByDirectory: snippets.byDirectory,
+		SnippetsByComponent: snippets.byComponent,
+		SnippetsByFile:      snippets.byFile,
+		SnippetsByType:      snippets.byType,
 
 		ComponentGraph:  graph,
 		Connections:     graph.Connections,
@@ -156,6 +170,8 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	}
 }
 func (r *Results) RenderView(viewName string) (*View, error) {
+	log.Debug().Msgf("Rendering view '%s'", viewName)
+	defer log.Debug().Msgf("Finished rendering view '%s'", viewName)
 	if view, ok := r.renderedViews[viewName]; ok {
 		return view, nil
 	}

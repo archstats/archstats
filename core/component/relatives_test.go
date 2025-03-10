@@ -156,5 +156,5 @@ func TestGetAncestors_LinkedList(t *testing.T) {
 
 func connectionStringsToGraph(inputs []string) *Graph {
 	connections := connectionStringsToConnections(inputs)
-	return CreateGraph(nil, connections)
+	return CreateGraph("", nil, connections)
 }

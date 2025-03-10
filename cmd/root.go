@@ -7,6 +7,8 @@ import (
 	"github.com/archstats/archstats/cmd/view"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/version"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"io"
 )
@@ -17,7 +19,18 @@ func Cmd() *cobra.Command {
 		Short:   "archstats is a command line tool for generating software architectural insights",
 		Version: version.Version(),
 
-		PreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			verbose, err := cmd.Flags().GetBool(common.FlagVerbose)
+			zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
+			log.Logger = log.Output(zerolog.ConsoleWriter{Out: cmd.OutOrStderr(), NoColor: true, TimeFormat: "2006-01-02 15:04:05.000"})
+			if err != nil {
+				log.Err(err).Msg("Error getting verbose flag")
+			}
+			if verbose {
+				zerolog.SetGlobalLevel(zerolog.DebugLevel)
+				log.Debug().Msg("Verbose output enabled")
+			}
 		},
 	}
 	cmd.PersistentFlags().StringSliceP(common.FlagExtension, "e", nil, "Archstat extension(s) to use")
@@ -25,9 +38,11 @@ func Cmd() *cobra.Command {
 	cmd.PersistentFlags().StringP(common.FlagWorkingDirectory, "f", "", "Input directory")
 
 	cmd.PersistentFlags().StringToStringP(common.FlagSet, "s", nil, "Configuration for extensions")
+	cmd.PersistentFlags().BoolP(common.FlagVerbose, "v", false, "Verbose output")
 
 	cmd.AddCommand(view.Cmd())
 	cmd.AddCommand(export.Cmd())
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	return cmd
 }
 

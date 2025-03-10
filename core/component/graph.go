@@ -9,6 +9,7 @@ import (
 // Graph is a directed graph that can contain cycles.
 // It is a wrapper around gonum's graph.Directed interface.
 type Graph struct {
+	Name       string
 	Components []string
 
 	Connections     []*Connection
@@ -80,15 +81,22 @@ func (g *Graph) AllSuccessorsOf(component string) []string {
 	})
 }
 
-func CreateGraph(componentNames []string, connections []*Connection) *Graph {
+// CreateGraph creates a new graph with the given name, included components and connections.
+// The included components automatically include all components in the connections.
+// If you want to include more (orphaned) components, you can add them to the includedComponents slice else pass nil.
+func CreateGraph(graphName string, includedComponents []string, connectionsUnpurged []*Connection) *Graph {
 	componentIndex := map[string]bool{}
 
-	for _, name := range componentNames {
-		componentIndex[name] = true
-	}
+	connections := lo.Filter(connectionsUnpurged, func(connection *Connection, _ int) bool {
+		return connection.From != connection.To
+	})
+
 	for _, connection := range connections {
 		componentIndex[connection.From] = true
 		componentIndex[connection.To] = true
+	}
+	for _, component := range includedComponents {
+		componentIndex[component] = true
 	}
 	amountOfComponents := len(componentIndex)
 	idMapping := make(map[string]int64, amountOfComponents)
@@ -130,6 +138,7 @@ func CreateGraph(componentNames []string, connections []*Connection) *Graph {
 	}
 
 	return &Graph{
+		Name:            graphName,
 		Components:      lo.Keys(componentIndex),
 		Connections:     connections,
 		ConnectionsFrom: componentConnectionsByFrom,
@@ -257,7 +266,7 @@ func (g *Graph) HasEdgeBetween(xid, yid int64) bool {
 }
 
 func (g *Graph) NoConnections() bool {
-	return g.Connections == nil
+	return g.Connections == nil || len(g.Connections) == 0
 }
 
 func nodeListOf(nodes []graph.Node) graph.Nodes {

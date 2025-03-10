@@ -8,6 +8,7 @@ import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"os"
@@ -30,11 +31,13 @@ func Cmd() *cobra.Command {
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var err error
-
+			commonFlags := common.GetCommonFlags(cmd)
 			reportId, err := cmd.Flags().GetString(FlagReportId)
 			if err != nil {
 				return err
 			}
+			log.Info().Msgf("Analyzing %s with extension(s): %s", commonFlags.WorkingDirectory, strings.Join(commonFlags.Extensions, ", "))
+
 			results, err := common.Analyze(cmd)
 			if err != nil {
 				return err
@@ -53,6 +56,8 @@ func Cmd() *cobra.Command {
 			}
 
 			viewsToShow, err := getViewsToShow(viewsRequested, viewsExcluded, possibleViews)
+
+			log.Info().Msgf("Exporting views: %s", strings.Join(viewsToShow, ", "))
 			if err != nil {
 				return err
 			}
@@ -69,6 +74,7 @@ func Cmd() *cobra.Command {
 
 			dbPath := args[0]
 
+			log.Info().Msgf("Exporting %d views to %s", len(viewsToShow), dbPath)
 			viewSlice := lo.MapToSlice(allViews, func(viewName string, view *core.View) *core.View {
 				return view
 			})
@@ -77,10 +83,13 @@ func Cmd() *cobra.Command {
 				ReportId:     reportId,
 				ScanTime:     reportDate,
 			}, viewSlice)
+
 			if err != nil {
+				log.Error().Err(err).Msg("Error exporting to SQLite")
+				log.Debug().Msgf("Error exporting to SQLite: %s", err)
 				return err
 			}
-
+			log.Info().Msgf("Exported %d views to %s", len(viewsToShow), dbPath)
 			return nil
 		},
 	}

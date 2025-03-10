@@ -48,7 +48,7 @@ func TestShortestCycles(t *testing.T) {
 		"PH -> PG",
 	}
 
-	theGraph := CreateGraph(nil, connectionStringsToConnections(input))
+	theGraph := CreateGraph("", nil, connectionStringsToConnections(input))
 	actualCycles := shortestCycles(theGraph)
 
 	expectedCycles := []string{
@@ -74,7 +74,7 @@ var mockito string
 func TestGraph_ShortestCycles(t *testing.T) {
 	mockitoLines := strings.Split(mockito, "\n")
 
-	theGraph := CreateGraph(nil, connectionStringsToConnections(mockitoLines))
+	theGraph := CreateGraph("", nil, connectionStringsToConnections(mockitoLines))
 
 	cycles := theGraph.ShortestCycles()
 
@@ -92,4 +92,17 @@ func assertShortestCyclesCorrectness(t *testing.T, graph *Graph, cycles map[stri
 			assert.True(t, graph.HasEdgeFromTo(fromId, toId), "graph should have edge from '%s' to '%s' to fulfill '%s'", from, to, key)
 		}
 	}
+}
+
+//go:embed shortest_cycles_big_test.txt
+var big string
+
+func TestGraph_ShortestCycles_Big(t *testing.T) {
+	bigLines := strings.Split(big, "\n")
+
+	theGraph := CreateGraph("", nil, connectionStringsToConnections(bigLines))
+
+	cycles := theGraph.ShortestCycles()
+
+	assertShortestCyclesCorrectness(t, theGraph, cycles)
 }

@@ -20,22 +20,24 @@ func ConnectionsIndirectView(results *core.Results) *core.View {
 				continue
 			}
 
-			shortest, _, _ := allShortest.Between(theGraph.ComponentToId(from), theGraph.ComponentToId(to))
+			shortestPaths, _ := allShortest.AllBetween(theGraph.ComponentToId(from), theGraph.ComponentToId(to))
 
-			if len(shortest) >= 2 {
-				rows = append(rows, &core.Row{
-					Data: map[string]interface{}{
-						"from":                 from,
-						"to":                   to,
-						"shortest_path_length": len(shortest),
-						"shortest_path": strings.Join(lo.Map(
-							shortest,
-							func(node graph.Node, _ int) string {
-								return theGraph.IdToComponent(node.ID())
-							},
-						), " -> "),
-					},
-				})
+			for _, shortest := range shortestPaths {
+				if len(shortest) >= 2 {
+					rows = append(rows, &core.Row{
+						Data: map[string]interface{}{
+							"from":                 from,
+							"to":                   to,
+							"shortest_path_length": len(shortest),
+							"shortest_path": strings.Join(lo.Map(
+								shortest,
+								func(node graph.Node, _ int) string {
+									return theGraph.IdToComponent(node.ID())
+								},
+							), " -> "),
+						},
+					})
+				}
 			}
 		}
 	}

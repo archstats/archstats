@@ -1,6 +1,9 @@
 package core
 
-import "github.com/archstats/archstats/core/file"
+import (
+	"github.com/archstats/archstats/core/component"
+	"github.com/archstats/archstats/core/file"
+)
 
 // Config represents the settings for an analysis.
 type Config struct {
@@ -16,6 +19,9 @@ type Extension interface {
 }
 type FileAnalyzer interface {
 	AnalyzeFile(file.File) *file.Results
+}
+type ComponentsAnalyzer interface {
+	AnalyzeComponents(allResults []*file.Results) *component.Results
 }
 type FileResultsEditor interface {
 	EditFileResults(all []*file.Results)
