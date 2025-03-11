@@ -92,7 +92,7 @@ jobs:
           zip out/${{ env.ARTIFACT_BASENAME }}.zip dist/${{ inputs.bin-name }}.exe
           echo "ARTIFACT_PACKAGE=${{ env.ARTIFACT_BASENAME }}.zip" >> $GITHUB_ENV
 
-      - uses: actions/upload-artifact@v3.1.2
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_PACKAGE }}
           path: out/${{ env.ARTIFACT_PACKAGE }}
