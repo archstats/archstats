@@ -30,12 +30,7 @@ type rawPartOfCommit struct {
 	Path      string
 }
 
-func getGitCommitsFromAllReposConcurrently(root string) ([]*rawCommit, error) {
-	gitRepos, err := findGitRepos(root)
-	if err != nil {
-		return nil, err
-	}
-
+func getGitCommitsFromAllReposConcurrently(root string, gitRepos []string) ([]*rawCommit, error) {
 	log.Info().Msgf("Found %d git repositories", len(gitRepos))
 
 	waitGroup := sync.WaitGroup{}
@@ -47,7 +42,7 @@ func getGitCommitsFromAllReposConcurrently(root string) ([]*rawCommit, error) {
 	for _, repo := range gitRepos {
 		go func(repo string) {
 			log.Info().Msgf("Parsing git log for %s", repo)
-			commits, err := parseGitLog(repo)
+			commits, err := parseGitLog(root + "/" + repo)
 			lock.Lock()
 
 			if err == nil {
@@ -92,7 +87,7 @@ func findGitRepos(root string) ([]string, error) {
 			gitPath := filepath.Join(path, ".git")
 			_, err := os.Stat(gitPath)
 			if err == nil {
-				gitRepos = append(gitRepos, path)
+				gitRepos = append(gitRepos, getDir(trimRepoPath(root, gitPath)))
 				// Skip further traversal within this .git directory
 				return filepath.SkipDir
 			}

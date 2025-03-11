@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/stats"
 	"strings"
 )
 
@@ -84,7 +85,7 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	}
 
 	return &file.Results{
-		Stats: []*file.StatRecord{
+		Stats: []*stats.Record{
 			{
 				StatType: Max,
 				Value:    maxIndentations,

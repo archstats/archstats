@@ -2,7 +2,7 @@ package util
 
 import (
 	"github.com/archstats/archstats/core"
-	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/stats"
 	"github.com/samber/lo"
 	"sort"
 	"strings"
@@ -12,7 +12,7 @@ const (
 	Name = "name"
 )
 
-func GenericView(allColumns []string, group file.StatsGroup) *core.View {
+func GenericView(allColumns []string, group stats.StatsGroup) *core.View {
 	var toReturn []*core.Row
 	for groupItem, stats := range group {
 		if groupItem == "" {
@@ -43,7 +43,7 @@ func ensureRowHasAllColumns(data map[string]interface{}, columns []string) {
 	}
 }
 
-func statsToRowData(name string, statsRef *file.Stats) map[string]interface{} {
+func statsToRowData(name string, statsRef *stats.Stats) map[string]interface{} {
 	stats := *statsRef
 	toReturn := make(map[string]interface{}, len(stats)+1)
 	toReturn["name"] = name
@@ -53,14 +53,14 @@ func statsToRowData(name string, statsRef *file.Stats) map[string]interface{} {
 	return toReturn
 }
 
-func GetDistinctColumnsFrom(results file.StatsGroup) []string {
+func GetDistinctColumnsFrom(results stats.StatsGroup) []string {
 
-	allStats := lo.MapToSlice(results, func(_ string, stats *file.Stats) *file.Stats {
+	allStats := lo.MapToSlice(results, func(_ string, stats *stats.Stats) *stats.Stats {
 		return stats
 	})
 
-	init := make(file.Stats)
-	singleStats := lo.Reduce(allStats, func(acc *file.Stats, stats *file.Stats, _ int) *file.Stats {
+	init := make(stats.Stats)
+	singleStats := lo.Reduce(allStats, func(acc *stats.Stats, stats *stats.Stats, _ int) *stats.Stats {
 		for k, v := range *stats {
 			(*acc)[k] = v
 		}

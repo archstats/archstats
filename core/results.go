@@ -5,6 +5,7 @@ import (
 	"github.com/archstats/archstats/core/component"
 	definitions2 "github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/stats"
 	"github.com/archstats/archstats/core/walker"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
@@ -22,10 +23,13 @@ type Results struct {
 	SnippetsByComponent file.SnippetGroup
 	SnippetsByType      file.SnippetGroup
 
-	Stats            *file.Stats
-	StatsByFile      file.StatsGroup
-	StatsByDirectory file.StatsGroup
-	StatsByComponent file.StatsGroup
+	Stats            *stats.Stats
+	StatsByFile      stats.StatsGroup
+	StatsByDirectory stats.StatsGroup
+	StatsByComponent stats.StatsGroup
+
+	StatRecords       []*stats.Record
+	StatRecordsByFile map[string][]*stats.Record
 
 	Connections     []*component.Connection
 	ConnectionsFrom map[string][]*component.Connection
@@ -41,6 +45,7 @@ type Results struct {
 
 	Views []*View
 
+	accumulators  *stats.StatAccumulator
 	views         map[string]*ViewFactory
 	definitions   map[string]*definitions2.Definition
 	renderedViews map[string]*View
@@ -79,58 +84,57 @@ func breakSnippetsIntoGroups(fileResults []*file.Results) groupedSnippets {
 func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*file.Results) *Results {
 	rootPath, theAccumulator := settings.rootPath, settings.accumulators
 	snippets := breakSnippetsIntoGroups(fileResults)
-	statRecordsByFile := lo.SliceToMap(fileResults, func(fileResult *file.Results) (string, []*file.StatRecord) {
+	var statRecordsByFile = lo.SliceToMap(fileResults, func(fileResult *file.Results) (string, []*stats.Record) {
 		return fileResult.Name, fileResult.Stats
 	})
-
-	statsByFile := lo.MapValues(statRecordsByFile, func(statRecords []*file.StatRecord, _ string) *file.Stats {
-		return theAccumulator.merge(statRecords)
+	statsByFile := lo.MapValues(statRecordsByFile, func(statRecords []*stats.Record, _ string) *stats.Stats {
+		return theAccumulator.Merge(statRecords)
 	})
 	componentToFiles := lo.MapValues(snippets.byComponent, func(snippets []*file.Snippet, _ string) []string {
 		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
 			return snippet.File
 		}))
 	})
-	statsByComponent := lo.MapValues(componentToFiles, func(files []string, component string) *file.Stats {
-		var stats []*file.StatRecord
+	statsByComponent := lo.MapValues(componentToFiles, func(files []string, component string) *stats.Stats {
+		var stats_ []*stats.Record
 		for _, file := range files {
-			stats = append(stats, statRecordsByFile[file]...)
+			stats_ = append(stats_, statRecordsByFile[file]...)
 		}
-		stats = append(stats, &file.StatRecord{
+		stats_ = append(stats_, &stats.Record{
 			StatType: file.FileCount,
 			Value:    len(files),
 		})
-		return theAccumulator.merge(stats)
+		return theAccumulator.Merge(stats_)
 	})
 
 	directoryResults := lo.GroupBy(fileResults, func(item *file.Results) string {
 		return item.Name[:strings.LastIndex(item.Name, "/")]
 	})
-	statsByDirectory := lo.MapValues(directoryResults, func(files []*file.Results, directory string) *file.Stats {
-		var stats []*file.StatRecord
+	statsByDirectory := lo.MapValues(directoryResults, func(files []*file.Results, directory string) *stats.Stats {
+		var stats_ []*stats.Record
 		for _, file := range files {
-			stats = append(stats, file.Stats...)
+			stats_ = append(stats_, file.Stats...)
 		}
-		stats = append(stats, &file.StatRecord{
+		stats_ = append(stats_, &stats.Record{
 			StatType: file.FileCount,
 			Value:    len(files),
 		})
-		return theAccumulator.merge(stats)
+		return theAccumulator.Merge(stats_)
 	})
 
-	allStatRecords := lo.Flatten(lo.MapToSlice(statRecordsByFile, func(file string, statRecords []*file.StatRecord) []*file.StatRecord {
+	allStatRecords := lo.Flatten(lo.MapToSlice(statRecordsByFile, func(file string, statRecords []*stats.Record) []*stats.Record {
 		return statRecords
 	}))
-	allStatRecords = append(allStatRecords, &file.StatRecord{
+	allStatRecords = append(allStatRecords, &stats.Record{
 		StatType: file.FileCount,
 		Value:    len(statRecordsByFile),
 	})
-	statsTotal := theAccumulator.merge(allStatRecords)
+	statsTotal := theAccumulator.Merge(allStatRecords)
 
 	fileToComponent := lo.MapValues(snippets.byFile, func(snippets []*file.Snippet, _ string) string {
 		return snippets[0].Component
 	})
-	fileToDirectory := lo.MapValues(statsByFile, func(snippets *file.Stats, file string) string {
+	fileToDirectory := lo.MapValues(statsByFile, func(snippets *stats.Stats, file string) string {
 		return file[:strings.LastIndex(file, "/")]
 	})
 	componentConnections := component.GetConnectionsFromSnippetImports(snippets.byType, snippets.byComponent)
@@ -147,6 +151,9 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		StatsByFile:      statsByFile,
 		StatsByDirectory: statsByDirectory,
 		StatsByComponent: statsByComponent,
+
+		StatRecords:       allStatRecords,
+		StatRecordsByFile: statRecordsByFile,
 
 		Snippets:            snippets.all,
 		SnippetsByDirectory: snippets.byDirectory,
@@ -167,7 +174,14 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		views:         settings.views,
 		definitions:   settings.definitions,
 		renderedViews: make(map[string]*View),
+		accumulators:  theAccumulator,
 	}
+}
+
+func (r *Results) CalculateAccumulatedStatRecords(keyToStatRecords map[string][]*stats.Record) stats.StatsGroup {
+	return lo.MapValues(keyToStatRecords, func(statRecords []*stats.Record, _ string) *stats.Stats {
+		return r.accumulators.Merge(statRecords)
+	})
 }
 func (r *Results) RenderView(viewName string) (*View, error) {
 	log.Debug().Msgf("Rendering view '%s'", viewName)

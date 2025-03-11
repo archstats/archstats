@@ -4,7 +4,9 @@ import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/stats"
 	"github.com/archstats/archstats/extensions/git/commits"
+	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 	"slices"
 	"strings"
@@ -19,6 +21,7 @@ const (
 	UniqueFileChangeCount      = "git__unique_file_changes"
 	UniqueComponentChangeCount = "git__unique_component_changes"
 	CommitCount                = "git__commits"
+	Repository                 = "git__repository"
 
 	File                = "file"
 	Component           = "component"
@@ -83,15 +86,35 @@ type extension struct {
 	commitParts []*commits.PartOfCommit
 
 	splittedCommits *commits.Splitted
+
+	rootPath string
+
+	repositories []string
+}
+
+func (e *extension) AnalyzeFile(fileE file.File) *file.Results {
+	repo := getRepoFromFile(e.repositories, fileE.Path())
+
+	return &file.Results{
+		Stats: []*stats.Record{
+			{Repository, repo},
+		},
+	}
 }
 
 func (e *extension) Init(settings core.Analyzer) error {
 	settings.RegisterResultsEditor(e)
+	settings.RegisterStatAccumulator(Repository, stats.MostCommonStatMerger)
+	settings.RegisterFileAnalyzer(e)
 	settings.RegisterView(&core.ViewFactory{
 		Name:           "git_authors",
 		CreateViewFunc: e.authorViewFactory,
 	})
 
+	settings.RegisterView(&core.ViewFactory{
+		Name:           "git_repos",
+		CreateViewFunc: e.repoViewFactory,
+	})
 	if e.GenerateComponentLogicalCouplingView {
 		settings.RegisterView(&core.ViewFactory{
 			Name:           "git_component_shared_commits",
@@ -114,11 +137,16 @@ func (e *extension) Init(settings core.Analyzer) error {
 		})
 	}
 
-	rawCommits, err := getGitCommitsFromAllReposConcurrently(settings.RootPath())
+	gitRepos, err := findGitRepos(settings.RootPath())
+	if err != nil {
+		log.Err(err).Msg("Error finding git repos")
+	}
+	e.repositories = gitRepos
+	e.rootPath = settings.RootPath()
+	rawCommits, err := getGitCommitsFromAllReposConcurrently(e.rootPath, gitRepos)
 	if err != nil {
 		return err
 	}
-
 	e.commitParts = lo.FlatMap(rawCommits, func(commit *rawCommit, index int) []*commits.PartOfCommit {
 		return gitCommitToPartOfCommit(settings.RootPath(), commit)
 	})
@@ -155,12 +183,9 @@ func setComponent(results *core.Results, commitParts []*commits.PartOfCommit) {
 
 func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.PartOfCommit {
 	return lo.Map(rawCommit.Files, func(file *rawPartOfCommit, _ int) *commits.PartOfCommit {
-		//substring length of root away from repo path
-		pathToRepo := strings.TrimPrefix(rawCommit.Repo, rootPath)
-		// remove leading slash
-		if strings.HasPrefix(pathToRepo, "/") {
-			pathToRepo = pathToRepo[1:]
-		}
+
+		rawRepoName := rawCommit.Repo
+		pathToRepo := trimRepoPath(rootPath, rawRepoName)
 
 		//absolutePath := rootPath + "/" + rawCommit.Repo + "/" + file.Path
 
@@ -180,6 +205,16 @@ func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.P
 	})
 }
 
+func trimRepoPath(rootPath string, rawRepoName string) string {
+	//substring length of root away from repo path
+	pathToRepo := strings.TrimPrefix(rawRepoName, rootPath)
+	// remove leading slash
+	if strings.HasPrefix(pathToRepo, "/") {
+		pathToRepo = pathToRepo[1:]
+	}
+	return pathToRepo
+}
+
 func getDir(path string) string {
 	if strings.Contains(path, "/") {
 		return path[:strings.LastIndex(path, "/")]
@@ -187,7 +222,7 @@ func getDir(path string) string {
 	return ""
 }
 
-func setStatsTotal(basedOn time.Time, statGroup file.StatsGroup, group map[string][]*commits.PartOfCommit) {
+func setStatsTotal(basedOn time.Time, statGroup stats.StatsGroup, group map[string][]*commits.PartOfCommit) {
 	for filePath, _ := range statGroup {
 		commitParts := group[filePath]
 
@@ -201,7 +236,7 @@ func setStatsTotal(basedOn time.Time, statGroup file.StatsGroup, group map[strin
 	}
 }
 
-func setStatsLastXDays(basedOn time.Time, days int, statGroup file.StatsGroup, group map[string][]*commits.PartOfCommit) {
+func setStatsLastXDays(basedOn time.Time, days int, statGroup stats.StatsGroup, group map[string][]*commits.PartOfCommit) {
 	for filePath, _ := range group {
 		commitParts := group[filePath]
 

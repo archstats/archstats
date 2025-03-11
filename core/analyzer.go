@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/archstats/archstats/core/definitions"
+	"github.com/archstats/archstats/core/stats"
 	"github.com/rs/zerolog/log"
 )
 
@@ -10,7 +11,7 @@ type Analyzer interface {
 	RootPath() string
 
 	AddDefinition(definition *definitions.Definition)
-	RegisterStatAccumulator(statType string, merger StatAccumulatorFunction)
+	RegisterStatAccumulator(statType string, merger stats.StatAccumulatorFunction)
 	RegisterView(viewFactory *ViewFactory)
 	RegisterFileAnalyzer(analyzer FileAnalyzer)
 	RegisterFileResultsEditor(editor FileResultsEditor)
@@ -21,8 +22,8 @@ func New(config *Config) Analyzer {
 	return &analyzer{rootPath: config.RootPath, extensions: config.Extensions,
 		views:       map[string]*ViewFactory{},
 		definitions: map[string]*definitions.Definition{},
-		accumulators: &accumulatorIndex{
-			AccumulateFunctions: make(map[string]StatAccumulatorFunction),
+		accumulators: &stats.StatAccumulator{
+			AccumulateFunctions: make(map[string]stats.StatAccumulatorFunction),
 		}}
 }
 
@@ -30,7 +31,7 @@ type analyzer struct {
 	rootPath           string
 	extensions         []Extension
 	views              map[string]*ViewFactory
-	accumulators       *accumulatorIndex
+	accumulators       *stats.StatAccumulator
 	fileAnalyzers      []FileAnalyzer
 	fileResultsEditors []FileResultsEditor
 	resultsEditors     []ResultsEditor
@@ -65,7 +66,7 @@ func (analyzer *analyzer) RootPath() string {
 	return analyzer.rootPath
 }
 
-func (analyzer *analyzer) RegisterStatAccumulator(statType string, merger StatAccumulatorFunction) {
+func (analyzer *analyzer) RegisterStatAccumulator(statType string, merger stats.StatAccumulatorFunction) {
 	analyzer.accumulators.AccumulateFunctions[statType] = merger
 }
 

@@ -1,14 +1,11 @@
 package file
 
-type StatRecord struct {
-	StatType string
-	Value    interface{}
-}
+import "github.com/archstats/archstats/core/stats"
 
 type Results struct {
 	Directory string
 	Component string
 	Name      string
-	Stats     []*StatRecord
+	Stats     []*stats.Record
 	Snippets  []*Snippet
 }
