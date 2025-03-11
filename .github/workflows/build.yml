@@ -1,5 +1,5 @@
 ---
-name: build_archstats
+name: Build & Release Archtsats ${{inputs.version}} [${{inputs.goos}}/${{inputs.goarch}}]
 
 on:
   workflow_call:
@@ -20,9 +20,6 @@ on:
         type: string
         required: true
       runson:
-        type: string
-        required: true
-      release:
         type: string
         required: true
 

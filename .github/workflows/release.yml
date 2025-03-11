@@ -12,19 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get-version.outputs.version }}
-      release: ${{ steps.get-version.outputs.release }}
     steps:
       - id: get-version
         name: Get version
         run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
-      - id: get-release
-        name: Get release
-        run: |-
-          RELEASE_ID=curl --location 'https://api.github.com/repos/archstats/archstats/releases/tags/v0.1.3' \
-          --header 'X-GitHub-Api-Version: 2022-11-28' \
-          --header 'Authorization: Bearer {{ secrets.GITHUB_TOKEN }}' | jq -r '.id'
-          
-          echo "release=${RELEASE_ID}" >> $GITHUB_OUTPUT
 
   releases:
     name: ${{ matrix.goos }} ${{ matrix.goarch }} ${{ needs.get-version.outputs.version }}
@@ -47,5 +38,4 @@ jobs:
       goos: ${{ matrix.goos }}
       package-name: archstats
       version: ${{ needs.get-version.outputs.version }}
-      release: ${{ needs.get-version.outputs.release }}
       runson: ${{ matrix.runson }}
