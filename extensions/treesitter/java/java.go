@@ -106,7 +106,16 @@ func createQueryForClassAnnotationReferringBackToName(snippetType, annotationReg
 )
 (#match? @_annotation_name "%s")
 )
-`, snippetType, annotationRegex)
+((interface_declaration
+	(modifiers [
+    	(annotation name: ((identifier) @_annotation_name)) 
+        (marker_annotation name: ((identifier)@_annotation_name))
+        ]) 
+     name: (identifier) @%s
+)
+(#match? @_annotation_name "%s")
+)
+`, snippetType, annotationRegex, snippetType, annotationRegex)
 }
 
 func jpaQueriesForStats() []string {
@@ -130,6 +139,13 @@ func javaQueriesForSnippets(ignoreImportsFor []string) []string {
 	return []string{
 		fmt.Sprintf(`
 (class_declaration name: (identifier) @java__class__declaration)
+(interface_declaration name: (identifier) @java__interface__declaration)
+(record_declaration name: (identifier) @java__record__declaration)
+
+((interface_declaration name: (identifier) @java__type__declaration))
+((class_declaration name: (identifier) @java__type__declaration))
+((record_declaration name: (identifier) @java__type__declaration))
+
 (field_declaration (variable_declarator name: (identifier) @java__field__declaration))
 (method_declaration name: (identifier) @java__method_declaration)
 (import_declaration (scoped_identifier) @java__import_declaration
@@ -177,7 +193,16 @@ func createQueryForClassAnnotation(statName, annotationRegex string) string {
         ] @%s) 
 )
 (#match? @_annotation_name "%s")
-)`, statName, annotationRegex)
+)
+((interface_declaration
+	(modifiers [
+    	(annotation name: ((identifier) @_annotation_name)) 
+        (marker_annotation name: ((identifier)@_annotation_name))
+        ] @%s) 
+)
+(#match? @_annotation_name "%s")
+)
+`, statName, annotationRegex)
 }
 
 func createQueryForMethodAnnotation(statName, annotationRegex string) string {
