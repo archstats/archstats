@@ -74,6 +74,10 @@ func LastRecordStatMerger(thingsToMerge []interface{}) interface{} {
 	return thingsToMerge[len(thingsToMerge)-1]
 }
 
+func UniqueCountStatMerger(thingsToMerge []interface{}) interface{} {
+	return len(lo.Uniq(thingsToMerge))
+}
+
 func MostCommonStatMerger(thingsToMerge []interface{}) interface{} {
 	countMap := make(map[interface{}]int)
 	type returnT struct {

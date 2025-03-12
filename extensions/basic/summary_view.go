@@ -13,7 +13,8 @@ const (
 func summaryView(results *core.Results) *core.View {
 	var toReturn []*core.Row
 
-	for stat, value := range *results.Stats {
+	totalStats := results.Calculate(results.StatRecords)
+	for stat, value := range *totalStats {
 		toReturn = append(toReturn, &core.Row{
 			Data: map[string]interface{}{
 				NameColumn:  stat,
@@ -29,7 +30,7 @@ func summaryView(results *core.Results) *core.View {
 		},
 		{
 			NameColumn:  "component_count",
-			ValueColumn: len(results.StatsByComponent),
+			ValueColumn: len(results.ComponentToFiles),
 		},
 		{
 			NameColumn:  "connection_count",
@@ -37,7 +38,7 @@ func summaryView(results *core.Results) *core.View {
 		},
 		{
 			NameColumn:  "directory_count",
-			ValueColumn: len(results.StatsByDirectory),
+			ValueColumn: len(results.DirectoryToFiles),
 		},
 	}
 

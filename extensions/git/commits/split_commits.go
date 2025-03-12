@@ -9,7 +9,6 @@ import (
 type CommitPartMap map[string][]*PartOfCommit
 
 func Split(basedOn time.Time, dayBuckets []int, commitParts []*PartOfCommit) *Splitted {
-
 	splittedByDayBucket := SplitCommitsIntoBucketsOfDays(basedOn, commitParts, dayBuckets)
 
 	return &Splitted{
@@ -53,13 +52,6 @@ func (ms *Splitted) SplitByFile() CommitPartMap {
 		ms.splitAll()
 	}
 	return ms.commitPartsByFile
-}
-
-func (ms *Splitted) SplitByComponent() CommitPartMap {
-	if ms.commitPartsByComponent == nil {
-		ms.splitAll()
-	}
-	return ms.commitPartsByComponent
 }
 
 func (ms *Splitted) SplitByCommitHash() CommitPartMap {
@@ -107,12 +99,6 @@ func (ms *Splitted) splitAll() {
 		"file": func(commit *PartOfCommit) string {
 			return commit.File
 		},
-		"directory": func(commit *PartOfCommit) string {
-			return commit.Directory
-		},
-		"component": func(commit *PartOfCommit) string {
-			return commit.Component
-		},
 		"commit": func(commit *PartOfCommit) string {
 			return commit.Commit
 		},
@@ -125,7 +111,6 @@ func (ms *Splitted) splitAll() {
 
 	ms.commitPartsByFile = allGroups["file"]
 	ms.commitPartsByDirectory = allGroups["directory"]
-	ms.commitPartsByComponent = allGroups["component"]
 	ms.commitPartsByCommit = allGroups["commit"]
 	ms.commitPartsByAuthor = allGroups["author"]
 

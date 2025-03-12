@@ -1,19 +1,24 @@
 package commits
 
 import (
+	"github.com/samber/lo"
 	"math"
 	"time"
 )
 
 type CommitStats struct {
-	CommitCount                int
-	AdditionCount              int
+	AdditionCount int
+	CommitCount   int
+
 	DeletionCount              int
+	OldestCommitAgeInDays      int
 	UniqueFileChangeCount      int
 	UniqueDirectoryChangeCount int
 	UniqueComponentChangeCount int
 	UniqueAuthorCount          int
-	OldestCommitAgeInDays      int
+	UniqueAuthors              []string
+	UniqueCommits              []string
+	FileChanges                []string
 }
 
 // GetStats Gets the stats for a group of commits.
@@ -52,7 +57,9 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 		UniqueDirectoryChangeCount: len(directories),
 		UniqueComponentChangeCount: len(components),
 		UniqueAuthorCount:          len(authors),
-		OldestCommitAgeInDays:      oldestCommitAgeInDays,
+		UniqueAuthors:              lo.Keys(authors),
+		UniqueCommits:              lo.Keys(commits),
+		FileChanges:                lo.Keys(files),
 	}
 }
 

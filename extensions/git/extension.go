@@ -93,18 +93,118 @@ type extension struct {
 }
 
 func (e *extension) AnalyzeFile(fileE file.File) *file.Results {
-	repo := getRepoFromFile(e.repositories, fileE.Path())
+
+	path := fileE.Path()
+	repo := getRepoFromFile(e.repositories, path)
+	commitsByFile := e.splittedCommits.SplitByFile()
+	commitsForFile := commitsByFile[path]
+	splittedByDay := commits.Split(e.BasedOn, e.DayBuckets, commitsForFile).DayBuckets()
+
+	var recordsToReturn []*stats.Record
+	commitStats := commits.GetStats(e.BasedOn, commitsForFile)
+
+	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: Repository, Value: repo})
+	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: AgeInDays, Value: commitStats.OldestCommitAgeInDays})
+	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(AdditionCount), Value: commitStats})
+	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(DeletionCount), Value: commitStats})
+	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(CommitCount), Value: commitStats})
+	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(AuthorCount), Value: commitStats})
+	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(UniqueFileChangeCount), Value: commitStats})
+
+	for days, split := range splittedByDay {
+		commitsForThisFile := split.CommitParts()
+		bucketStats := commits.GetStats(e.BasedOn, commitsForThisFile)
+		recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toDayStat(AdditionCount, days), Value: bucketStats})
+		recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toDayStat(DeletionCount, days), Value: bucketStats})
+		recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toDayStat(CommitCount, days), Value: bucketStats})
+		recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toDayStat(AuthorCount, days), Value: bucketStats})
+		recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toDayStat(UniqueFileChangeCount, days), Value: bucketStats})
+
+	}
 
 	return &file.Results{
-		Stats: []*stats.Record{
-			{Repository, repo},
-		},
+		Stats: recordsToReturn,
 	}
+}
+
+func UniqueAuthors(thingsToMerge []interface{}) interface{} {
+	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
+		return thing.(*commits.CommitStats)
+	})
+	authors := make(map[string]bool)
+	for _, commit := range commitSlice {
+		for _, author := range commit.UniqueAuthors {
+			authors[author] = true
+		}
+	}
+	return len(authors)
+}
+
+func UniqueCommits(thingsToMerge []interface{}) interface{} {
+	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
+		return thing.(*commits.CommitStats)
+	})
+	commits := make(map[string]bool)
+	for _, commit := range commitSlice {
+		for _, commitHash := range commit.UniqueCommits {
+			commits[commitHash] = true
+		}
+	}
+	return len(commits)
+}
+
+func UniqueFiles(thingsToMerge []interface{}) interface{} {
+	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
+		return thing.(*commits.CommitStats)
+	})
+	files := make(map[string]bool)
+	for _, commit := range commitSlice {
+		for _, file := range commit.FileChanges {
+			files[file] = true
+		}
+	}
+	return len(files)
+}
+func TotalAdditions(thingsToMerge []interface{}) interface{} {
+	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
+		return thing.(*commits.CommitStats)
+	})
+	totalAdditions := 0
+	for _, commit := range commitSlice {
+		totalAdditions += commit.AdditionCount
+	}
+	return totalAdditions
+}
+func TotalDeletions(thingsToMerge []interface{}) interface{} {
+	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
+		return thing.(*commits.CommitStats)
+	})
+	totalDeletions := 0
+	for _, commit := range commitSlice {
+		totalDeletions += commit.DeletionCount
+	}
+	return totalDeletions
 }
 
 func (e *extension) Init(settings core.Analyzer) error {
 	settings.RegisterResultsEditor(e)
+
 	settings.RegisterStatAccumulator(Repository, stats.MostCommonStatMerger)
+	settings.RegisterStatAccumulator(AgeInDays, stats.MostCommonStatMerger)
+	settings.RegisterStatAccumulator(toTotalStat(AuthorCount), UniqueAuthors)
+	settings.RegisterStatAccumulator(toTotalStat(CommitCount), UniqueCommits)
+	settings.RegisterStatAccumulator(toTotalStat(UniqueFileChangeCount), UniqueFiles)
+	settings.RegisterStatAccumulator(toTotalStat(AdditionCount), TotalAdditions)
+	settings.RegisterStatAccumulator(toTotalStat(DeletionCount), TotalDeletions)
+
+	for _, bucket := range e.DayBuckets {
+		settings.RegisterStatAccumulator(toDayStat(AuthorCount, bucket), UniqueAuthors)
+		settings.RegisterStatAccumulator(toDayStat(CommitCount, bucket), UniqueCommits)
+		settings.RegisterStatAccumulator(toDayStat(UniqueFileChangeCount, bucket), UniqueFiles)
+		settings.RegisterStatAccumulator(toDayStat(AdditionCount, bucket), TotalAdditions)
+		settings.RegisterStatAccumulator(toDayStat(DeletionCount, bucket), TotalDeletions)
+	}
+
 	settings.RegisterFileAnalyzer(e)
 	settings.RegisterView(&core.ViewFactory{
 		Name:           "git_authors",
@@ -150,6 +250,7 @@ func (e *extension) Init(settings core.Analyzer) error {
 	e.commitParts = lo.FlatMap(rawCommits, func(commit *rawCommit, index int) []*commits.PartOfCommit {
 		return gitCommitToPartOfCommit(settings.RootPath(), commit)
 	})
+	e.splittedCommits = commits.Split(e.BasedOn, e.DayBuckets, e.commitParts)
 
 	return nil
 }
@@ -158,29 +259,15 @@ func (e *extension) Init(settings core.Analyzer) error {
 func (e *extension) definitions() []*definitions.Definition {
 	return []*definitions.Definition{}
 }
-
 func (e *extension) EditResults(results *core.Results) {
 	setComponent(results, e.commitParts)
 
-	e.splittedCommits = commits.Split(e.BasedOn, e.DayBuckets, e.commitParts)
-
-	setStatsTotal(e.BasedOn, results.StatsByFile, e.splittedCommits.SplitByFile())
-	setStatsTotal(e.BasedOn, results.StatsByDirectory, e.splittedCommits.SplitByDirectory())
-	setStatsTotal(e.BasedOn, results.StatsByComponent, e.splittedCommits.SplitByComponent())
-
-	for days, split := range e.splittedCommits.DayBuckets() {
-		setStatsLastXDays(e.BasedOn, days, results.StatsByFile, split.SplitByFile())
-		setStatsLastXDays(e.BasedOn, days, results.StatsByDirectory, split.SplitByDirectory())
-		setStatsLastXDays(e.BasedOn, days, results.StatsByComponent, split.SplitByComponent())
-	}
 }
-
 func setComponent(results *core.Results, commitParts []*commits.PartOfCommit) {
 	for _, part := range commitParts {
 		part.Component = results.FileToComponent[part.File]
 	}
 }
-
 func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.PartOfCommit {
 	return lo.Map(rawCommit.Files, func(file *rawPartOfCommit, _ int) *commits.PartOfCommit {
 
@@ -206,9 +293,7 @@ func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.P
 }
 
 func trimRepoPath(rootPath string, rawRepoName string) string {
-	//substring length of root away from repo path
 	pathToRepo := strings.TrimPrefix(rawRepoName, rootPath)
-	// remove leading slash
 	if strings.HasPrefix(pathToRepo, "/") {
 		pathToRepo = pathToRepo[1:]
 	}
@@ -220,33 +305,6 @@ func getDir(path string) string {
 		return path[:strings.LastIndex(path, "/")]
 	}
 	return ""
-}
-
-func setStatsTotal(basedOn time.Time, statGroup stats.StatsGroup, group map[string][]*commits.PartOfCommit) {
-	for filePath, _ := range statGroup {
-		commitParts := group[filePath]
-
-		stats := commits.GetStats(basedOn, commitParts)
-		statGroup.SetStat(filePath, AgeInDays, stats.OldestCommitAgeInDays)
-		statGroup.SetStat(filePath, toTotalStat(AdditionCount), stats.AdditionCount)
-		statGroup.SetStat(filePath, toTotalStat(DeletionCount), stats.DeletionCount)
-		statGroup.SetStat(filePath, toTotalStat(CommitCount), stats.CommitCount)
-		statGroup.SetStat(filePath, toTotalStat(AuthorCount), stats.UniqueAuthorCount)
-		statGroup.SetStat(filePath, toTotalStat(UniqueFileChangeCount), stats.UniqueFileChangeCount)
-	}
-}
-
-func setStatsLastXDays(basedOn time.Time, days int, statGroup stats.StatsGroup, group map[string][]*commits.PartOfCommit) {
-	for filePath, _ := range group {
-		commitParts := group[filePath]
-
-		stats := commits.GetStats(basedOn, commitParts)
-		statGroup.SetStat(filePath, toDayStat(AdditionCount, days), stats.AdditionCount)
-		statGroup.SetStat(filePath, toDayStat(DeletionCount, days), stats.DeletionCount)
-		statGroup.SetStat(filePath, toDayStat(CommitCount, days), stats.CommitCount)
-		statGroup.SetStat(filePath, toDayStat(AuthorCount, days), stats.UniqueAuthorCount)
-		statGroup.SetStat(filePath, toDayStat(UniqueFileChangeCount, days), stats.UniqueFileChangeCount)
-	}
 }
 
 func sharedCommitColumns(dayBuckets []int) []*core.Column {

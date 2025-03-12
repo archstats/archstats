@@ -9,6 +9,7 @@ import (
 	"github.com/archstats/archstats/core/walker"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -22,11 +23,6 @@ type Results struct {
 	SnippetsByDirectory file.SnippetGroup
 	SnippetsByComponent file.SnippetGroup
 	SnippetsByType      file.SnippetGroup
-
-	Stats            *stats.Stats
-	StatsByFile      stats.StatsGroup
-	StatsByDirectory stats.StatsGroup
-	StatsByComponent stats.StatsGroup
 
 	StatRecords       []*stats.Record
 	StatRecordsByFile map[string][]*stats.Record
@@ -95,33 +91,7 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 			return snippet.File
 		}))
 	})
-	statsByComponent := lo.MapValues(componentToFiles, func(files []string, component string) *stats.Stats {
-		var stats_ []*stats.Record
-		for _, file := range files {
-			stats_ = append(stats_, statRecordsByFile[file]...)
-		}
-		stats_ = append(stats_, &stats.Record{
-			StatType: file.FileCount,
-			Value:    len(files),
-		})
-		return theAccumulator.Merge(stats_)
-	})
-
-	directoryResults := lo.GroupBy(fileResults, func(item *file.Results) string {
-		return item.Name[:strings.LastIndex(item.Name, "/")]
-	})
-	statsByDirectory := lo.MapValues(directoryResults, func(files []*file.Results, directory string) *stats.Stats {
-		var stats_ []*stats.Record
-		for _, file := range files {
-			stats_ = append(stats_, file.Stats...)
-		}
-		stats_ = append(stats_, &stats.Record{
-			StatType: file.FileCount,
-			Value:    len(files),
-		})
-		return theAccumulator.Merge(stats_)
-	})
-
+	directoryToFiles := mapDirectoryToFiles(lo.Keys(snippets.byFile))
 	allStatRecords := lo.Flatten(lo.MapToSlice(statRecordsByFile, func(file string, statRecords []*stats.Record) []*stats.Record {
 		return statRecords
 	}))
@@ -129,7 +99,6 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		StatType: file.FileCount,
 		Value:    len(statRecordsByFile),
 	})
-	statsTotal := theAccumulator.Merge(allStatRecords)
 
 	fileToComponent := lo.MapValues(snippets.byFile, func(snippets []*file.Snippet, _ string) string {
 		return snippets[0].Component
@@ -139,18 +108,9 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	})
 	componentConnections := component.GetConnectionsFromSnippetImports(snippets.byType, snippets.byComponent)
 	graph := component.CreateGraph("all", lo.Keys(componentToFiles), componentConnections)
-	directoryToFiles := lo.MapValues(snippets.byDirectory, func(snippets []*file.Snippet, _ string) []string {
-		return lo.Uniq(lo.Map(snippets, func(snippet *file.Snippet, idx int) string {
-			return snippet.File
-		}))
-	})
+
 	return &Results{
 		RootDirectory: rootPath,
-
-		Stats:            statsTotal,
-		StatsByFile:      statsByFile,
-		StatsByDirectory: statsByDirectory,
-		StatsByComponent: statsByComponent,
 
 		StatRecords:       allStatRecords,
 		StatRecordsByFile: statRecordsByFile,
@@ -176,6 +136,10 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		renderedViews: make(map[string]*View),
 		accumulators:  theAccumulator,
 	}
+}
+
+func (r *Results) Calculate(records []*stats.Record) *stats.Stats {
+	return r.accumulators.Merge(records)
 }
 
 func (r *Results) CalculateAccumulatedStatRecords(keyToStatRecords map[string][]*stats.Record) stats.StatsGroup {
@@ -249,4 +213,50 @@ func mergeFileResults(results []*file.Results) *file.Results {
 		newResults.Snippets = append(newResults.Snippets, otherResult.Snippets...)
 	}
 	return newResults
+}
+
+func mapDirectoryToFiles(files []string) map[string][]string {
+	directoryFiles := make(map[string][]string)
+
+	allDirs := getAllDirectories(files)
+
+	for _, dir := range allDirs {
+		directoryFiles[dir] = make([]string, 0)
+	}
+
+	for _, file := range files {
+		for _, dir := range allDirs {
+			if strings.HasPrefix(file, dir) {
+				directoryFiles[dir] = append(directoryFiles[dir], file)
+			}
+		}
+	}
+	return directoryFiles
+}
+
+func getAllDirectories(files []string) []string {
+	var directories []string
+	for _, file := range files {
+		directories = append(directories, getParentDirectories(file)...)
+	}
+	//Remove empty strings, and duplicates if any.
+	uniqueDirs := lo.Uniq(directories)
+
+	return uniqueDirs
+}
+
+// getParentDirectories returns all parent directories of the given path.
+func getParentDirectories(path string) []string {
+	var dirs []string
+	dir := filepath.Dir(path)
+
+	for dir != "." && dir != "/" {
+		dirs = append(dirs, dir)
+		dir = filepath.Dir(dir)
+	}
+
+	//Remove empty strings, and duplicates if any.
+	uniqueDirs := lo.Uniq(dirs)
+
+	return uniqueDirs
 }
