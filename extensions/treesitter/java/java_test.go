@@ -2,6 +2,7 @@ package java
 
 import (
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/extensions/treesitter/common"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"os"
@@ -95,4 +96,9 @@ func assertSnippetCount(t *testing.T, snippets []*file.Snippet, snippetType stri
 		return snippet.Type == snippetType
 	})
 	assert.Len(t, actual, expected)
+}
+
+func createJavaLanguagePack() *common.LanguagePack {
+	extension := &Extension{IgnoreCommonJavaImports: false}
+	return extension.createJavaLanguagePack()
 }

@@ -96,7 +96,9 @@ func optionalExtension(in string) (core.Extension, error) {
 	case "indentations-2":
 		return indentations.TwoTabs(), nil
 	case "java":
-		return &java.Extension{}, nil
+		return &java.Extension{
+			IgnoreCommonJavaImports: true,
+		}, nil
 	case "csharp":
 		return &csharp.Extension{}, nil
 

@@ -1,28 +1,44 @@
 package java
 
 import (
+	_ "embed"
 	"fmt"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/samber/lo"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	java "github.com/tree-sitter/tree-sitter-java/bindings/go"
+	"strings"
 )
 
 type Extension struct {
+	IgnoreImportsFor        []string
+	IgnoreCommonJavaImports bool
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
-	settings.RegisterFileAnalyzer(createJavaLanguagePack())
+	settings.RegisterFileAnalyzer(e.createJavaLanguagePack())
 	return nil
 }
 
-func createJavaLanguagePack() *common.LanguagePack {
+//go:embed common_java_packages.txt
+var commonJavaImports string
+
+func (e *Extension) createJavaLanguagePack() *common.LanguagePack {
 
 	language := tree_sitter.NewLanguage(java.Language())
 	var allQueries []string
 	allQueries = append(allQueries, springQueries()...)
 	allQueries = append(allQueries, jpaQueries()...)
-	allQueries = append(allQueries, modularityQueries()...)
+
+	var ignoreList []string
+	if e.IgnoreCommonJavaImports {
+		ignoreList = strings.Split(commonJavaImports, "\n")
+	}
+
+	ignoreList = append(ignoreList, e.IgnoreImportsFor...)
+
+	allQueries = append(allQueries, modularityQueries(ignoreList)...)
 
 	lp := &common.LanguagePackTemplate{
 		FileGlob: "**.java",
@@ -109,7 +125,13 @@ func createQueryForMethodAnnotation(statName, annotationRegex string) string {
 )`, statName, annotationRegex)
 }
 
-func modularityQueries() []string {
+func modularityQueries(ignoreImportsFor []string) []string {
+	ignoreListSplitted := lo.Map(ignoreImportsFor, func(imp string, _ int) string {
+		return fmt.Sprintf("(#not-match? @modularity__component__imports \"^%s\")", imp)
+	})
+
+	ignoreList := strings.Join(ignoreListSplitted, "\n")
+
 	return []string{
 		`(package_declaration  (scoped_identifier) @modularity__component__declarations)`,
 		`
@@ -121,30 +143,34 @@ func modularityQueries() []string {
 ((interface_declaration name: (identifier) @modularity__types__abstract))
 ((class_declaration ((modifiers) @_modifiers) name: (identifier) @modularity__types__abstract) (#match? @_modifiers "abstract"))
 `,
-		`
+		fmt.Sprintf(`
 (
   ((import_declaration 
     ((scoped_identifier scope: (scoped_identifier) @modularity__component__imports))) @_import ) 
     (#not-match? @_import "(^import static)|[*]")
+	%s
 )
 (
   ((import_declaration 
     ((scoped_identifier) @modularity__component__imports) (asterisk)) @_import)
     (#not-match? @_import "(^import static)")
     (#match? @_import "[*]")
+	%s
 )
 (
   ((import_declaration
     ((scoped_identifier scope: (scoped_identifier) @modularity__component__imports))) @_import ) 
       (#match? @_import "(^import static)")
       (#not-match? @_import "[*]")
+	  %s
 )
 (
   ((import_declaration
       ((scoped_identifier) @modularity__component__imports) (asterisk)) @_import)
       (#match? @_import "(^import static)")
       (#match? @_import "[*]")
+	  %s
 )
-`,
+`, ignoreList, ignoreList, ignoreList, ignoreList),
 	}
 }

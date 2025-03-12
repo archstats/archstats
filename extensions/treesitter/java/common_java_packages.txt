@@ -1,0 +1,13 @@
+org.slf4j
+org.apache.commons
+org.apache.log4j
+java
+javax
+org.springframework
+org.hibernate
+org.apache.http
+com.fasterxml.jackson
+org.junit
+com.google
+org.jboss
+lombok
