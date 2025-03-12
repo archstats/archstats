@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/archstats/archstats/core/file"
 	"github.com/gobwas/glob"
-	"github.com/samber/lo"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 	"strings"
 )
@@ -14,7 +13,8 @@ type ComponentResolutionFunc func(r *file.Results) string
 type LanguagePack struct {
 	FileGlob            glob.Glob
 	Language            *sitter.Language
-	Queries             []*sitter.Query
+	QueriesForStats     []*sitter.Query
+	QueriesForSnippets  []*sitter.Query
 	ComponentResolution ComponentResolutionFunc
 	SnippetTransformers map[string]func(*file.Snippet) *file.Snippet
 }
@@ -22,9 +22,10 @@ type LanguagePack struct {
 type LanguagePackTemplate struct {
 	FileGlob            string
 	Language            *sitter.Language
-	Queries             []string
+	QueriesForStats     []string
 	ComponentResolution ComponentResolutionFunc
 	SnippetTransformers map[string]func(*file.Snippet) *file.Snippet
+	QueriesForSnippets  []string
 }
 
 func PackFromTemplate(template *LanguagePackTemplate) (*LanguagePack, error) {
@@ -36,24 +37,39 @@ func PackFromTemplate(template *LanguagePackTemplate) (*LanguagePack, error) {
 		return nil, err
 	}
 	lp.FileGlob = g
-	var queries []*sitter.Query
-	for _, query := range template.Queries {
-		newQuery, err := sitter.NewQuery(lp.Language, query)
+
+	queriesForStats, err := stringsToQueries(lp.Language, template.QueriesForStats)
+	if err != nil {
+		return nil, err
+	}
+	queriesForSnippets, err := stringsToQueries(lp.Language, template.QueriesForSnippets)
+	if err != nil {
+		return nil, err
+	}
+
+	lp.QueriesForStats = queriesForStats
+	lp.QueriesForSnippets = queriesForSnippets
+	lp.ComponentResolution = GetComponentResolutionFromTemplate(template)
+	return lp, nil
+}
+
+func stringsToQueries(language *sitter.Language, queries []string) ([]*sitter.Query, error) {
+	var queriesForStats []*sitter.Query
+	for _, query := range queries {
+		newQuery, err := sitter.NewQuery(language, query)
 		if err != nil {
 			return nil, err
 		}
-		queries = append(queries, newQuery)
+		queriesForStats = append(queriesForStats, newQuery)
 	}
-	lp.Queries = queries
-	lp.ComponentResolution = GetComponentResolutionFromTemplate(template)
-	return lp, nil
+	return queriesForStats, nil
 }
 
 func GetComponentResolutionFromTemplate(template *LanguagePackTemplate) ComponentResolutionFunc {
 	if template.ComponentResolution != nil {
 		return template.ComponentResolution
 	}
-	for _, query := range template.Queries {
+	for _, query := range template.QueriesForStats {
 		if strings.Contains(query, "modularity__component__declarations") {
 			return DeclarationBasedComponentResolution
 		}
@@ -71,13 +87,12 @@ func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Re
 	if !lp.FileGlob.Match(path) {
 		return nil
 	}
-	snippets := lp.analyzeFileContent(path, content)
-	snippetsToRecord := lo.Filter(snippets, func(snippet *file.Snippet, idx int) bool {
-		return !strings.HasPrefix("_", snippet.Type)
-	})
+	snippetsForStats := analyzeFileContent(path, content, lp.Language, lp.QueriesForStats)
+	snippetsForSnippets := analyzeFileContent(path, content, lp.Language, lp.QueriesForSnippets)
+	allSnippets := append(snippetsForStats, snippetsForSnippets...)
 	results := &file.Results{
-		Snippets: snippetsToRecord,
-		Stats:    file.SnippetsToStats(snippets),
+		Snippets: allSnippets,
+		Stats:    file.SnippetsToStats(snippetsForStats),
 	}
 	component := lp.ComponentResolution(results)
 	results.Component = component
@@ -87,16 +102,16 @@ func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Re
 	return results
 }
 
-func (lp *LanguagePack) analyzeFileContent(filePath string, content []byte) []*file.Snippet {
+func analyzeFileContent(filePath string, content []byte, language *sitter.Language, queries []*sitter.Query) []*file.Snippet {
 	parser := sitter.NewParser()
 
-	err := parser.SetLanguage(lp.Language)
+	err := parser.SetLanguage(language)
 	if err != nil {
 		panic(err)
 	}
 	tree := parser.ParseCtx(context.Background(), content, nil)
 	var snippetsToReturn []*file.Snippet
-	for _, qr := range lp.Queries {
+	for _, qr := range queries {
 		snippets := execQuery(filePath, qr, tree, content)
 		snippetsToReturn = append(snippetsToReturn, snippets...)
 	}

@@ -19,7 +19,7 @@ func createCSharpLanguagePack() *common.LanguagePack {
 	lp := &common.LanguagePackTemplate{
 		FileGlob: "**.cs",
 		Language: language,
-		Queries: []string{
+		QueriesForStats: []string{
 			`(namespace_declaration
 				 name: ([(qualified_name) (identifier)]) @modularity__component__declarations)`,
 			`

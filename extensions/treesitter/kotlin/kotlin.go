@@ -11,7 +11,7 @@ func createKotlinPack() *common.LanguagePack {
 	template := &common.LanguagePackTemplate{
 		FileGlob: "**.kt",
 		Language: language,
-		Queries: []string{
+		QueriesForStats: []string{
 			`(import_header
 	(identifier (((simple_identifier) ("\." (simple_identifier))*))@import )  @_import_no_wildcard .
 )

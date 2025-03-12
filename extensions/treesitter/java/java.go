@@ -27,23 +27,23 @@ var commonJavaImports string
 func (e *Extension) createJavaLanguagePack() *common.LanguagePack {
 
 	language := tree_sitter.NewLanguage(java.Language())
-	var allQueries []string
-	allQueries = append(allQueries, springQueries()...)
-	allQueries = append(allQueries, jpaQueries()...)
+	ignoreList := e.getIgnoreList()
+	var allQueriesForStats []string
+	allQueriesForStats = append(allQueriesForStats, springQueriesForStats()...)
+	allQueriesForStats = append(allQueriesForStats, jpaQueriesForStats()...)
+	allQueriesForStats = append(allQueriesForStats, javaQueriesForStats()...)
+	allQueriesForStats = append(allQueriesForStats, modularityQueries(ignoreList)...)
 
-	var ignoreList []string
-	if e.IgnoreCommonJavaImports {
-		ignoreList = strings.Split(commonJavaImports, "\n")
-	}
-
-	ignoreList = append(ignoreList, e.IgnoreImportsFor...)
-
-	allQueries = append(allQueries, modularityQueries(ignoreList)...)
+	var allQueriesForSnippets []string
+	allQueriesForSnippets = append(allQueriesForSnippets, springQueriesForSnippets()...)
+	allQueriesForSnippets = append(allQueriesForSnippets, jpaQueriesForSnippets()...)
+	allQueriesForSnippets = append(allQueriesForSnippets, javaQueriesForSnippets(ignoreList)...)
 
 	lp := &common.LanguagePackTemplate{
-		FileGlob: "**.java",
-		Language: language,
-		Queries:  allQueries,
+		FileGlob:           "**.java",
+		Language:           language,
+		QueriesForStats:    allQueriesForStats,
+		QueriesForSnippets: allQueriesForSnippets,
 	}
 	template, err := common.PackFromTemplate(lp)
 	if err != nil {
@@ -52,7 +52,16 @@ func (e *Extension) createJavaLanguagePack() *common.LanguagePack {
 	return template
 }
 
-func springQueries() []string {
+func (e *Extension) getIgnoreList() []string {
+	var ignoreList []string
+	if e.IgnoreCommonJavaImports {
+		ignoreList = strings.Split(commonJavaImports, "\n")
+	}
+	ignoreList = append(ignoreList, e.IgnoreImportsFor...)
+	return ignoreList
+}
+
+func springQueriesForStats() []string {
 	return []string{
 		createQueryForClassAnnotation("java__spring__controllers", "^(Controller|RestController)$"),
 		createQueryForClassAnnotation("java__spring__services", "^Service$"),
@@ -74,10 +83,68 @@ func springQueries() []string {
 		createQueryForRequestMapping("java__spring__request_mappings__patch", "PATCH"),
 	}
 }
-func jpaQueries() []string {
+
+func springQueriesForSnippets() []string {
 	return []string{
-		createQueryForClassAnnotation("java__jpa__entity", "^Entity$"),
+		createQueryForClassAnnotationReferringBackToName("java__spring__controller", "^(Controller|RestController)$"),
+		createQueryForClassAnnotationReferringBackToName("java__spring__service", "^Service$"),
+		createQueryForClassAnnotationReferringBackToName("java__spring__repository", "^Repository$"),
+		createQueryForClassAnnotationReferringBackToName("java__spring__component", "^Component$"),
+		createQueryForClassAnnotationReferringBackToName("java__spring__configuration", "^Configuration$"),
+		createQueryForClassAnnotationReferringBackToName("java__spring__bean", "^(Component|Service|Repository|Controller|RestController|Configuration)$"),
 	}
+}
+
+func createQueryForClassAnnotationReferringBackToName(snippetType, annotationRegex string) string {
+	return fmt.Sprintf(`
+((class_declaration
+	(modifiers [
+    	(annotation name: ((identifier) @_annotation_name)) 
+        (marker_annotation name: ((identifier)@_annotation_name))
+        ]) 
+     name: (identifier) @%s
+)
+(#match? @_annotation_name "%s")
+)
+`, snippetType, annotationRegex)
+}
+
+func jpaQueriesForStats() []string {
+	return []string{
+		createQueryForClassAnnotation("java__jpa__entities", "^Entity$"),
+	}
+}
+
+func jpaQueriesForSnippets() []string {
+	return []string{
+		createQueryForClassAnnotationReferringBackToName("java__jpa__entity", "^Entity$"),
+	}
+}
+
+func javaQueriesForSnippets(ignoreImportsFor []string) []string {
+	ignoreListSplitted := lo.Map(ignoreImportsFor, func(imp string, _ int) string {
+		return fmt.Sprintf("(#not-match? @java__import_declaration \"^%s\")", imp)
+	})
+
+	ignoreList := strings.Join(ignoreListSplitted, "\n")
+	return []string{
+		fmt.Sprintf(`
+(class_declaration name: (identifier) @java__class__declaration)
+(field_declaration (variable_declarator name: (identifier) @java__field__declaration))
+(method_declaration name: (identifier) @java__method_declaration)
+(import_declaration (scoped_identifier) @java__import_declaration
+%s
+)
+`, ignoreList),
+	}
+}
+func javaQueriesForStats() []string {
+	return []string{
+		`
+(class_declaration name: (identifier) @java__class__declarations)
+(field_declaration (variable_declarator name: (identifier) @java__field__declarations))
+(method_declaration name: (identifier) @java__method_declarations)
+`}
 }
 
 func createQueryForRequestMapping(statName, method string) string {
