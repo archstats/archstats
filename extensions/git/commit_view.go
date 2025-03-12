@@ -13,6 +13,7 @@ func (e *extension) commitViewFactory(*core.Results) *core.View {
 		Columns: []*core.Column{
 			core.StringColumn(File),
 			core.StringColumn(Component),
+			core.StringColumn("repository"),
 			core.StringColumn(CommitHash),
 			core.DateColumn(CommitTime),
 			core.StringColumn(AuthorName),
@@ -31,6 +32,7 @@ func partsOfCommitToRows(parts []*commits.PartOfCommit) []*core.Row {
 				File:                part.File,
 				Component:           part.Component,
 				CommitHash:          part.Commit,
+				"repository":        part.Repo,
 				CommitTime:          part.Time,
 				AuthorName:          part.Author,
 				AuthorEmail:         part.AuthorEmail,
