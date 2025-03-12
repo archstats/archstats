@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -184,11 +185,41 @@ func SaveToDB(options *SqlOptions, views []*core.View) error {
 	return err
 }
 
+// MaxParameters SQLITE_LIMIT_VARIABLE_NUMBER, see https://www.sqlite.org/limits.html#max_variable_number
+const MaxParameters = 32766
+const MaxChunkSize = 500
+
+func calculateOptimumChunkSize(rows, columns int) int {
+	maxParams := MaxParameters
+	maxChunkSize := MaxChunkSize
+
+	// Calculate the maximum rows allowed based on parameter limit.
+	maxRowsByParams := maxParams / columns
+
+	// Choose the smaller of the two limits.
+	optimumChunkSize := int(math.Min(float64(maxRowsByParams), float64(maxChunkSize)))
+
+	// Ensure the chunk size is at least 1, if columns is 0, we should return 0, otherwise it will cause divide by zero error.
+	if columns == 0 {
+		return 0
+	}
+
+	return optimumChunkSize
+}
+
 func insertRowsForAllViews(options *SqlOptions, views []*core.View, db *sql.DB) error {
 	for _, view := range views {
-		chunks := lo.Chunk(view.Rows, 500)
+		columnCount := len(view.Columns) + 2
+		rowCount := len(view.Rows)
+
+		chunkValue := calculateOptimumChunkSize(rowCount, columnCount)
+
+		viewName := view.Name
+
+		log.Info().Msgf("Inserting %d rows for view %s in chunks of %d rows", len(view.Rows), viewName, chunkValue)
+		chunks := lo.Chunk(view.Rows, chunkValue)
 		for _, chunk := range chunks {
-			err := insertRowsForView(db, view.Name, view.Columns, chunk, options)
+			err := insertRowsForView(db, viewName, view.Columns, chunk, options)
 			if err != nil {
 				return err
 			}
