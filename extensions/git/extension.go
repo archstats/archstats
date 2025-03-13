@@ -6,6 +6,7 @@ import (
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
 	"github.com/archstats/archstats/extensions/git/commits"
+	"github.com/archstats/archstats/extensions/util"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 	"slices"
@@ -327,13 +328,13 @@ func toRow(
 		},
 	}
 	row1.Data[SharedCommitCount] = len(commitsInCommon)
-	row1.Data[PercentageOfAllCommitsPair1] = float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component1])) * 100.0
-	row1.Data[PercentageOfAllCommitsPair2] = float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component2])) * 100.0
+	row1.Data[PercentageOfAllCommitsPair1] = util.NanToZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component1])) * 100.0)
+	row1.Data[PercentageOfAllCommitsPair2] = util.NanToZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component2])) * 100.0)
 
 	for days, commitsInCommon := range commitsInCommonPerDayBucket {
 		row1.Data[toDayStat(SharedCommitCount, days)] = len(commitsInCommon)
-		row1.Data[toDayStat(PercentageOfAllCommitsPair1, days)] = float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component1])) * 100.0
-		row1.Data[toDayStat(PercentageOfAllCommitsPair2, days)] = float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component2])) * 100.0
+		row1.Data[toDayStat(PercentageOfAllCommitsPair1, days)] = util.NanToZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component1])) * 100.0)
+		row1.Data[toDayStat(PercentageOfAllCommitsPair2, days)] = util.NanToZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component2])) * 100.0)
 	}
 
 	return row1
