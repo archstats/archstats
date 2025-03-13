@@ -7,6 +7,7 @@ import (
 	"os"
 	filepath "path"
 	"sync"
+	"time"
 )
 
 func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file file.File)) {
@@ -22,10 +23,10 @@ func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(fil
 	log.Debug().Msgf("Walking & reading %d files", len(allFiles))
 	for _, theFile := range allFiles {
 		go func(file PathToFile, group *sync.WaitGroup) {
-
+			start := time.Now()
 			//TODO cleanup error handling
 			content, err := fileSystem.ReadFile(filepath.Clean(file.Path()))
-			log.Debug().Msgf("Reading file %s", file.Path())
+
 			if err != nil {
 				log.Error().Err(err).Msgf("Error reading file %s", file.Path())
 				panic(err)
@@ -36,6 +37,7 @@ func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(fil
 			}
 
 			visitor(openedFile)
+			log.Debug().Msgf("Finished reading %s in %s", file.Path(), time.Since(start))
 			group.Done()
 		}(theFile, wg)
 	}
@@ -48,7 +50,7 @@ func GetAllFiles(dirAbsolutePath string) []PathToFile {
 
 	files := getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, ignoreContext{})
 
-	log.Debug().Msgf("Found %d files, %d ignored ", len(files.FoundFiles), len(files.IgnoredFiles))
+	log.Debug().Msgf("Found %d files, %d files/directories ignored ", len(files.FoundFiles), len(files.IgnoredFiles))
 
 	return files.FoundFiles
 }
@@ -77,13 +79,16 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 		path := dirAbsolutePath + separator + entry.Name()
 
 		if entry.IsDir() {
+			if shouldIgnore(path, gitIgnore) {
+				ignoredFiles = append(ignoredFiles, path)
+				continue
+			}
 			path += separator
 			allFiles := getAllFiles(fileSystem, path, depth+1, ignoreCtx)
 			foundFiles = append(foundFiles, allFiles.FoundFiles...)
 			ignoredFiles = append(ignoredFiles, allFiles.IgnoredFiles...)
 		} else {
 			if shouldIgnore(path, gitIgnore) {
-				log.Debug().Msgf("Ignoring file %s", path)
 				ignoredFiles = append(ignoredFiles, path)
 				continue
 			}
