@@ -4,8 +4,10 @@ import (
 	"context"
 	"github.com/archstats/archstats/core/file"
 	"github.com/gobwas/glob"
+	"github.com/rs/zerolog/log"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 	"strings"
+	"time"
 )
 
 type ComponentResolutionFunc func(r *file.Results) string
@@ -84,6 +86,7 @@ func (lp *LanguagePack) AnalyzeFile(f file.File) *file.Results {
 }
 
 func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Results {
+	start := time.Now()
 	if !lp.FileGlob.Match(path) {
 		return nil
 	}
@@ -99,6 +102,7 @@ func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Re
 	for _, snippet := range results.Snippets {
 		snippet.Component = component
 	}
+	log.Debug().Msgf("[treesitter] Analyzed %s with treesitter in %s", path, time.Since(start))
 	return results
 }
 

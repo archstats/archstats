@@ -202,7 +202,7 @@ func createQueryForClassAnnotation(statName, annotationRegex string) string {
 )
 (#match? @_annotation_name "%s")
 )
-`, statName, annotationRegex)
+`, statName, annotationRegex, statName, annotationRegex)
 }
 
 func createQueryForMethodAnnotation(statName, annotationRegex string) string {
