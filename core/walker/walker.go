@@ -79,10 +79,6 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 		path := dirAbsolutePath + separator + entry.Name()
 
 		if entry.IsDir() {
-			if shouldIgnore(path, gitIgnore) {
-				ignoredFiles = append(ignoredFiles, path)
-				continue
-			}
 			path += separator
 			allFiles := getAllFiles(fileSystem, path, depth+1, ignoreCtx)
 			foundFiles = append(foundFiles, allFiles.FoundFiles...)

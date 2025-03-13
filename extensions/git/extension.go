@@ -293,6 +293,10 @@ func sharedCommitsToRows(
 			combined := []string{component1, component2}
 			slices.Sort(combined)
 			key := strings.Join(combined, ":")
+			// Filter out pairs that don't have shared commits
+			if _, hasKey := pairToCommitsInCommon[key]; !hasKey {
+				continue
+			}
 
 			pairsPerDayBucketMapped := lo.MapValues(pairToCommitsInCommonPerDayBucket, func(sharedCommitCount map[string]commits.CommitHashes, _ int) commits.CommitHashes {
 				if _, hasKey := sharedCommitCount[key]; !hasKey {
@@ -302,7 +306,7 @@ func sharedCommitsToRows(
 			})
 
 			row1 := toRow(component1, component2, pairToCommitsInCommon[key], pairsPerDayBucketMapped, componentOrFileToAllCommits, componentOrFileToAllCommitsPerDayBucket)
-
+			// Only add rows that have shared commits
 			rows = append(rows, row1)
 		}
 	}

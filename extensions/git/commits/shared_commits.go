@@ -1,6 +1,7 @@
 package commits
 
 import (
+	"fmt"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"strings"
@@ -37,6 +38,9 @@ func PairsToCommitsInCommon(filesOrComponents []string, componentOrFileToCommits
 
 func SharedCommitsForGroup(group []string, componentOrFileToCommits map[string]CommitHashes) CommitHashes {
 	var intersection CommitHashes
+	if strings.Contains(group[0], "common") && strings.Contains(group[1], "common") {
+		fmt.Println("common")
+	}
 	for _, elem := range group {
 		commits := componentOrFileToCommits[elem]
 		if intersection == nil {
