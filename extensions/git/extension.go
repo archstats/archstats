@@ -127,65 +127,6 @@ func (e *extension) AnalyzeFile(fileE file.File) *file.Results {
 	}
 }
 
-func UniqueAuthors(thingsToMerge []interface{}) interface{} {
-	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
-		return thing.(*commits.CommitStats)
-	})
-	authors := make(map[string]bool)
-	for _, commit := range commitSlice {
-		for _, author := range commit.UniqueAuthors {
-			authors[author] = true
-		}
-	}
-	return len(authors)
-}
-
-func UniqueCommits(thingsToMerge []interface{}) interface{} {
-	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
-		return thing.(*commits.CommitStats)
-	})
-	commits := make(map[string]bool)
-	for _, commit := range commitSlice {
-		for _, commitHash := range commit.UniqueCommits {
-			commits[commitHash] = true
-		}
-	}
-	return len(commits)
-}
-
-func UniqueFiles(thingsToMerge []interface{}) interface{} {
-	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
-		return thing.(*commits.CommitStats)
-	})
-	files := make(map[string]bool)
-	for _, commit := range commitSlice {
-		for _, file := range commit.FileChanges {
-			files[file] = true
-		}
-	}
-	return len(files)
-}
-func TotalAdditions(thingsToMerge []interface{}) interface{} {
-	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
-		return thing.(*commits.CommitStats)
-	})
-	totalAdditions := 0
-	for _, commit := range commitSlice {
-		totalAdditions += commit.AdditionCount
-	}
-	return totalAdditions
-}
-func TotalDeletions(thingsToMerge []interface{}) interface{} {
-	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
-		return thing.(*commits.CommitStats)
-	})
-	totalDeletions := 0
-	for _, commit := range commitSlice {
-		totalDeletions += commit.DeletionCount
-	}
-	return totalDeletions
-}
-
 func (e *extension) Init(settings core.Analyzer) error {
 	settings.RegisterResultsEditor(e)
 
@@ -244,6 +185,7 @@ func (e *extension) Init(settings core.Analyzer) error {
 	e.repositories = gitRepos
 	e.rootPath = settings.RootPath()
 	rawCommits, err := getGitCommitsFromAllReposConcurrently(e.rootPath, gitRepos)
+	log.Info().Msgf("Found %d commits total across %d repositories", len(rawCommits), len(gitRepos))
 	if err != nil {
 		return err
 	}
@@ -261,6 +203,9 @@ func (e *extension) definitions() []*definitions.Definition {
 }
 func (e *extension) EditResults(results *core.Results) {
 	setComponent(results, e.commitParts)
+	// Re-split commits based on components
+	// This is necessary because components aren't known on Init()
+	e.splittedCommits = commits.Split(e.BasedOn, e.DayBuckets, e.commitParts)
 
 }
 func setComponent(results *core.Results, commitParts []*commits.PartOfCommit) {
@@ -276,12 +221,13 @@ func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.P
 
 		//absolutePath := rootPath + "/" + rawCommit.Repo + "/" + file.Path
 
+		filePath := trimLeadingSlash(pathToRepo + "/" + file.Path)
 		return &commits.PartOfCommit{
 			Component:   "",
 			Repo:        pathToRepo,
 			Commit:      rawCommit.Hash,
 			Time:        rawCommit.Time,
-			File:        pathToRepo + "/" + file.Path,
+			File:        filePath,
 			Directory:   getDir(file.Path),
 			Author:      rawCommit.AuthorName,
 			AuthorEmail: rawCommit.AuthorEmail,
@@ -294,15 +240,19 @@ func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.P
 
 func trimRepoPath(rootPath string, rawRepoName string) string {
 	pathToRepo := strings.TrimPrefix(rawRepoName, rootPath)
-	if strings.HasPrefix(pathToRepo, "/") {
-		pathToRepo = pathToRepo[1:]
+	return trimLeadingSlash(pathToRepo)
+}
+
+func trimLeadingSlash(path string) string {
+	if strings.HasPrefix(path, "/") {
+		return path[1:]
 	}
-	return pathToRepo
+	return path
 }
 
 func getDir(path string) string {
 	if strings.Contains(path, "/") {
-		return path[:strings.LastIndex(path, "/")]
+		return trimLeadingSlash(path[:strings.LastIndex(path, "/")])
 	}
 	return ""
 }

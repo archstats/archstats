@@ -16,8 +16,6 @@ func (e *extension) directoryCouplingViewFactory(results *core.Results) *core.Vi
 		dayBucketSharedCommitCounts[days] = commits.PairsToCommitsInCommon(directory, split.DirectoryToCommitHashes())
 	}
 
-	e.splittedCommits.DirectoryToCommitHashes()
-
 	mappedDayBuckets := lo.MapValues(e.splittedCommits.DayBuckets(), func(splitted *commits.Splitted, _ int) map[string]commits.CommitHashes {
 		return splitted.DirectoryToCommitHashes()
 	})

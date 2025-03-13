@@ -105,6 +105,12 @@ func (ms *Splitted) splitAll() {
 		"author": func(commit *PartOfCommit) string {
 			return commit.Author
 		},
+		"directory": func(commit *PartOfCommit) string {
+			return commit.Directory
+		},
+		"component": func(commit *PartOfCommit) string {
+			return commit.Component
+		},
 	}
 
 	allGroups := multiGroupBy(ms.commitParts, funcs)
@@ -113,7 +119,7 @@ func (ms *Splitted) splitAll() {
 	ms.commitPartsByDirectory = allGroups["directory"]
 	ms.commitPartsByCommit = allGroups["commit"]
 	ms.commitPartsByAuthor = allGroups["author"]
-
+	ms.commitPartsByComponent = allGroups["component"]
 	ms.fileToCommitHashes = lo.MapValues(ms.commitPartsByFile, func(parts []*PartOfCommit, _ string) CommitHashes {
 		return getUniqueHashes(parts)
 	})
@@ -123,6 +129,13 @@ func (ms *Splitted) splitAll() {
 	ms.componentToCommitHashes = lo.MapValues(ms.commitPartsByComponent, func(parts []*PartOfCommit, _ string) CommitHashes {
 		return getUniqueHashes(parts)
 	})
+}
+
+func (ms *Splitted) SplitByComponent() CommitPartMap {
+	if ms.commitPartsByComponent == nil {
+		ms.splitAll()
+	}
+	return ms.commitPartsByComponent
 }
 
 func getUniqueHashes(parts []*PartOfCommit) CommitHashes {
