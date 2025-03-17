@@ -16,9 +16,9 @@ import (
 
 func Optional() []*config.CLIConfiguredExtension {
 	extensions := []*config.CLIConfiguredExtension{
-		java.Ext(),
+		java.CLIExtension(),
+		git.CLIExtension(),
 		config.CreateEmptyCLIExtension("csharp", &csharp.Extension{}),
-		config.CreateEmptyCLIExtension("git", git.Extension()),
 		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {
@@ -29,7 +29,7 @@ func Optional() []*config.CLIConfiguredExtension {
 
 func AlwaysEnabled() []*config.CLIConfiguredExtension {
 	return []*config.CLIConfiguredExtension{
-		config.CreateEmptyCLIExtension("indentations", indentations.FourTabs()),
+		indentations.CLIExtension(),
 		config.CreateEmptyCLIExtension("basic", basic.Extension()),
 		config.CreateEmptyCLIExtension("components", components.Extension()),
 		config.CreateEmptyCLIExtension("lines", lines.Extension()),

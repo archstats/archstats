@@ -185,7 +185,7 @@ func (e *extension) Init(settings core.Analyzer) error {
 	}
 	e.repositories = gitRepos
 	e.rootPath = settings.RootPath()
-	rawCommits, err := getGitCommitsFromAllReposConcurrently(e.rootPath, gitRepos)
+	rawCommits, err := e.getGitCommitsFromAllReposConcurrently(e.rootPath, gitRepos)
 	log.Info().Msgf("Found %d commits total across %d repositories", len(rawCommits), len(gitRepos))
 	if err != nil {
 		return err

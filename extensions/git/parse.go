@@ -30,7 +30,7 @@ type rawPartOfCommit struct {
 	Path      string
 }
 
-func getGitCommitsFromAllReposConcurrently(root string, gitRepos []string) ([]*rawCommit, error) {
+func (e *extension) getGitCommitsFromAllReposConcurrently(root string, gitRepos []string) ([]*rawCommit, error) {
 	log.Info().Msgf("Found %d git repositories", len(gitRepos))
 
 	waitGroup := sync.WaitGroup{}
@@ -42,7 +42,7 @@ func getGitCommitsFromAllReposConcurrently(root string, gitRepos []string) ([]*r
 	for _, repo := range gitRepos {
 		go func(repo string) {
 			log.Info().Msgf("Parsing git log for %s", repo)
-			commits, err := parseGitLog(root + "/" + repo)
+			commits, err := e.parseGitLog(root + "/" + repo)
 			lock.Lock()
 
 			if err == nil {
@@ -102,16 +102,27 @@ func findGitRepos(root string) ([]string, error) {
 	return gitRepos, nil
 }
 
-func parseGitLog(path string) ([]*rawCommit, error) {
+func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 	// Check if the Git command exists
 	if !gitCommandExists() {
 		return nil, fmt.Errorf("git command not found")
 	}
 
-	// Run 'git log' command
-	cmd := exec.Command("git",
+	argsRaw := []string{
 		"-C", filepath.Clean(path),
-		"log", "--all", "--numstat", "--no-renames", "--pretty=format:[-archstatscommit-]%h--%at--%an--%ae--%s--")
+	}
+	if e.GitSince != "" {
+		argsRaw = append(argsRaw, "--since", e.GitSince)
+	}
+	if e.GitAfter != "" {
+		argsRaw = append(argsRaw, "--after", e.GitAfter)
+	}
+	argsRaw = append(argsRaw, "log", "--all", "--numstat", "--no-renames", "--pretty=format:[-archstatscommit-]%h--%at--%an--%ae--%s--")
+
+	cmd := exec.Command(
+		"git",
+		argsRaw...,
+	)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to run git log command: %s", err)

@@ -13,7 +13,7 @@ const (
 	TreesitterQueriesFile = "java-treesitter-queries"
 )
 
-func Ext() *config.CLIConfiguredExtension {
+func CLIExtension() *config.CLIConfiguredExtension {
 	return &config.CLIConfiguredExtension{
 		Name:        "java",
 		Description: "Java language extension",
