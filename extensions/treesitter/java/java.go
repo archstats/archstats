@@ -14,6 +14,11 @@ import (
 type Extension struct {
 	IgnoreImportsFor        []string
 	IgnoreCommonJavaImports bool
+	ExtraQueries            []string
+}
+
+func (e *Extension) typeAssert() core.Extension {
+	return e
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
@@ -38,6 +43,8 @@ func (e *Extension) createJavaLanguagePack() *common.LanguagePack {
 	allQueriesForSnippets = append(allQueriesForSnippets, springQueriesForSnippets()...)
 	allQueriesForSnippets = append(allQueriesForSnippets, jpaQueriesForSnippets()...)
 	allQueriesForSnippets = append(allQueriesForSnippets, javaQueriesForSnippets(ignoreList)...)
+
+	allQueriesForSnippets = append(allQueriesForSnippets, e.ExtraQueries...)
 
 	lp := &common.LanguagePackTemplate{
 		FileGlob:           "**.java",
@@ -132,7 +139,7 @@ func jpaQueriesForSnippets() []string {
 
 func javaQueriesForSnippets(ignoreImportsFor []string) []string {
 	ignoreListSplitted := lo.Map(ignoreImportsFor, func(imp string, _ int) string {
-		return fmt.Sprintf("(#not-match? @java__import_declaration \"^%s\")", imp)
+		return fmt.Sprintf("(#not-match? @java__import__declaration \"^%s\")", imp)
 	})
 
 	ignoreList := strings.Join(ignoreListSplitted, "\n")
@@ -147,8 +154,8 @@ func javaQueriesForSnippets(ignoreImportsFor []string) []string {
 ((record_declaration name: (identifier) @java__type__declaration))
 
 (field_declaration (variable_declarator name: (identifier) @java__field__declaration))
-(method_declaration name: (identifier) @java__method_declaration)
-(import_declaration (scoped_identifier) @java__import_declaration
+(method_declaration name: (identifier) @java__method__declaration)
+(import_declaration (scoped_identifier) @java__import__declaration
 %s
 )
 `, ignoreList),
@@ -175,7 +182,8 @@ func createQueryForRequestMapping(statName, method string) string {
                         value: ([(identifier) (field_access)]) @_value
          ))) 
         (marker_annotation name: ((identifier)@_annotation_name))
-        ] @%s) 
+        ]) 
+   name: (identifier) @%s
 )
 (#match? @_annotation_name "^RequestMapping$")
 (#match? @_argument "^method$")
@@ -190,7 +198,8 @@ func createQueryForClassAnnotation(statName, annotationRegex string) string {
 	(modifiers [
     	(annotation name: ((identifier) @_annotation_name)) 
         (marker_annotation name: ((identifier)@_annotation_name))
-        ] @%s) 
+        ]) 
+	name: (identifier) @%s
 )
 (#match? @_annotation_name "%s")
 )
@@ -198,7 +207,8 @@ func createQueryForClassAnnotation(statName, annotationRegex string) string {
 	(modifiers [
     	(annotation name: ((identifier) @_annotation_name)) 
         (marker_annotation name: ((identifier)@_annotation_name))
-        ] @%s) 
+        ] )
+	name: (identifier) @%s
 )
 (#match? @_annotation_name "%s")
 )
@@ -211,7 +221,8 @@ func createQueryForMethodAnnotation(statName, annotationRegex string) string {
 	(modifiers [
 		(annotation name: ((identifier) @_annotation_name)) 
 		(marker_annotation name: ((identifier)@_annotation_name))
-		] @%s) 
+		]) 
+	name: (identifier) @%s
 )
 (#match? @_annotation_name "%s")
 )`, statName, annotationRegex)

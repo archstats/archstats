@@ -41,6 +41,10 @@ func init() {
 
 	}
 }
+
+func GetLanguageExtensions() map[string]core.Extension {
+	return regexExtensions
+}
 func BuiltInRegexExtension(extension string) (core.Extension, error) {
 	ext, has := regexExtensions[extension]
 	if has {
