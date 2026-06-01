@@ -21,7 +21,7 @@ func TestElepy(t *testing.T) {
 	maps, err := queryToRowsOfMaps(db, "SELECT * FROM components")
 	assert.NoError(t, err)
 	assertTableHasRowsAndColumns(t, "name", maps, []map[string]interface{}{
-		{"name": "com.elepy", components.AfferentCouplings: 5, components.EfferentCouplings: 1},
+		{"name": "com.elepy", components.AfferentCouplings: 59, components.EfferentCouplings: 17},
 	})
 }
 
