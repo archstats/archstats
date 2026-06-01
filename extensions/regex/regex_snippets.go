@@ -15,9 +15,10 @@ import (
 //
 // See https://www.regular-expressions.info/named.html for more information on named groups.
 type Extension struct {
-	OnlyStats bool
-	Glob      glob.Glob
-	Patterns  []*regexp.Regexp
+	OnlyStats  bool
+	Glob       glob.Glob
+	GlobString string
+	Patterns   []*regexp.Regexp
 }
 
 func (s *Extension) Init(a core.Analyzer) error {

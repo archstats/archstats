@@ -34,9 +34,10 @@ func init() {
 		}
 
 		regexExtensions[lang] = &Extension{
-			OnlyStats: extension.OnlyStats,
-			Glob:      glob.MustCompile(extension.FileGlob),
-			Patterns:  patterns,
+			OnlyStats:  extension.OnlyStats,
+			Glob:       glob.MustCompile(extension.FileGlob),
+			GlobString: extension.FileGlob,
+			Patterns:   patterns,
 		}
 
 	}

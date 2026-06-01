@@ -35,4 +35,6 @@ type CLIConfiguredExtension struct {
 	Arguments Arguments
 
 	Initializer func(config *cobra.Command) (core.Extension, error)
+
+	DiscoveryTrigger func(ctx *DiscoveryContext) bool
 }

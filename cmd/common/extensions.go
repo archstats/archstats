@@ -14,13 +14,35 @@ import (
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
 	"github.com/archstats/archstats/extensions/treesitter/java"
 	"github.com/archstats/archstats/extensions/treesitter/kotlin"
+	"github.com/gobwas/glob"
 )
 
 func Optional() []*config.CLIConfiguredExtension {
+	gitExt := git.CLIExtension()
+	gitExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasPath(".git")
+	}
+
+	javaExt := java.CLIExtension()
+	javaExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".java")
+	}
+
+	csharpExt := config.CreateEmptyCLIExtension("csharp", &csharp.Extension{})
+	csharpExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".cs")
+	}
+
+	kotlinExt := config.CreateEmptyCLIExtension("kotlin", &kotlin.Extension{})
+	kotlinExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".kt")
+	}
+
 	extensions := []*config.CLIConfiguredExtension{
-		java.CLIExtension(),
-		config.CreateEmptyCLIExtension("csharp", &csharp.Extension{}),
-		config.CreateEmptyCLIExtension("kotlin", &kotlin.Extension{}),
+		gitExt,
+		javaExt,
+		csharpExt,
+		kotlinExt,
 		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {
@@ -28,7 +50,23 @@ func Optional() []*config.CLIConfiguredExtension {
 		if name == "kotlin" {
 			continue
 		}
-		extensions = append(extensions, config.CreateEmptyCLIExtension(name, extension))
+		cliExt := config.CreateEmptyCLIExtension(name, extension)
+
+		if regexExt, ok := extension.(*regex.Extension); ok && regexExt.GlobString != "" {
+			g, err := glob.Compile(regexExt.GlobString)
+			if err == nil {
+				cliExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+					for _, file := range ctx.Files {
+						if g.Match(file) {
+							return true
+						}
+					}
+					return false
+				}
+			}
+		}
+
+		extensions = append(extensions, cliExt)
 	}
 	return extensions
 }
@@ -40,7 +78,6 @@ func AlwaysEnabled() []*config.CLIConfiguredExtension {
 		config.CreateEmptyCLIExtension("components", components.Extension()),
 		config.CreateEmptyCLIExtension("lines", lines.Extension()),
 		config.CreateEmptyCLIExtension("declbased", declbased.Extension()),
-		git.CLIExtension(),
 		config.CreateEmptyCLIExtension("codesmells", codesmells.Extension()),
 	}
 }

@@ -3,7 +3,9 @@ package indentations
 import (
 	"bufio"
 	"bytes"
+	"embed"
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
 	"strings"
@@ -27,6 +29,9 @@ func TwoTabs() *Extension {
 	}
 }
 
+//go:embed definitions/**
+var defs embed.FS
+
 type Extension struct {
 	SpacesInTab int
 }
@@ -36,6 +41,15 @@ func (i *Extension) typeAssertions() (core.Extension, core.FileAnalyzer) {
 }
 
 func (i *Extension) Init(settings core.Analyzer) error {
+	defs, err := definitions.LoadYamlFiles(defs)
+	if err != nil {
+		return err
+	}
+
+	for _, definition := range defs {
+		settings.AddDefinition(definition)
+	}
+
 	settings.RegisterFileAnalyzer(i)
 	settings.RegisterStatAccumulator(Max, maxAccumulator)
 	settings.RegisterStatAccumulator(Avg, avgAccumulator)
