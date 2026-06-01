@@ -43,9 +43,8 @@ func Init(command *cobra.Command) (core.Extension, error) {
 		return nil, err
 	}
 
-	return &extension{
-		GitSince: gitSince,
-		GitAfter: gitAfter,
-	}, nil
-
+	ext := Extension().(*extension)
+	ext.GitSince = gitSince
+	ext.GitAfter = gitAfter
+	return ext, nil
 }
