@@ -24,7 +24,13 @@ func GetEnabledExtensions(cmd *cobra.Command) ([]*config.CLIConfiguredExtension,
 
 	if len(wantToEnableExtensions) > 0 {
 		// Explicit extensions specified: disable auto-discovery
+		alwaysEnabledNames := lo.Map(enabledExtensions, func(ext *config.CLIConfiguredExtension, _ int) string {
+			return ext.Name
+		})
 		for _, extensionName := range wantToEnableExtensions {
+			if lo.Contains(alwaysEnabledNames, extensionName) {
+				continue
+			}
 			if _, ok := optionalMap[extensionName]; !ok {
 				return nil, fmt.Errorf("unknown extension: %s", extensionName)
 			}
