@@ -12,7 +12,7 @@ import (
 var rawFile string
 
 func TestKotlin(t *testing.T) {
-	pack := createKotlinPack()
+	pack := createKotlinLanguagePack()
 
 	content := pack.AnalyzeFileContent("TestFile.kt", []byte(rawFile))
 	expectedImports := []string{

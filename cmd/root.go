@@ -119,5 +119,5 @@ func Execute(outStream, errorStream io.Writer, extensions []core.Extension, args
 	rootCmd.SetOut(outStream)
 	rootCmd.SetErr(errorStream)
 
-	return rootCmd.ExecuteContext(context.WithValue(context.Background(), "extraExtensions", extensions))
+	return rootCmd.ExecuteContext(common.ContextWithExtraExtensions(context.Background(), extensions))
 }

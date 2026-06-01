@@ -31,7 +31,7 @@ significant_
 parts of a file. These snippets are then aggregated to create insights for a codebase.
 
 Every snippet has a type, which is used to provide semantic meaning to the snippet. Snippet types are normalized to be
-lowecase.
+lowercase.
 
 ## Built-in snippet types
 

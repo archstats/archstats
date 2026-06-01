@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"github.com/archstats/archstats/core"
 	"github.com/spf13/cobra"
 	"path/filepath"
@@ -13,6 +14,17 @@ const (
 	FlagSet              = "set"
 	FlagVerbose          = "verbose"
 )
+
+// contextKey is an unexported type used for context keys to avoid collisions.
+type contextKey struct{}
+
+// ExtraExtensionsKey is the context key for extra extensions passed programmatically.
+var ExtraExtensionsKey = contextKey{}
+
+// ContextWithExtraExtensions creates a context carrying extra extensions.
+func ContextWithExtraExtensions(ctx context.Context, extensions []core.Extension) context.Context {
+	return context.WithValue(ctx, ExtraExtensionsKey, extensions)
+}
 
 type CommonFlags struct {
 	WorkingDirectory string
@@ -52,9 +64,9 @@ func Analyze(command *cobra.Command) (*core.Results, error) {
 		}
 		archstatsExtensions = append(archstatsExtensions, initializer)
 	}
-	var extraExtensions = command.Context().Value("extraExtensions").([]core.Extension)
-
-	archstatsExtensions = append(archstatsExtensions, extraExtensions...)
+	if extra, ok := command.Context().Value(ExtraExtensionsKey).([]core.Extension); ok {
+		archstatsExtensions = append(archstatsExtensions, extra...)
+	}
 
 	allResults, err := core.New(&core.Config{
 		RootPath:   rootDir,
@@ -68,3 +80,4 @@ type emptyExtension struct {
 }
 
 func (e *emptyExtension) Init(settings core.Analyzer) error { return nil }
+

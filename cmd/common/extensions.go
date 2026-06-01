@@ -12,6 +12,7 @@ import (
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
 	"github.com/archstats/archstats/extensions/treesitter/java"
+	"github.com/archstats/archstats/extensions/treesitter/kotlin"
 )
 
 func Optional() []*config.CLIConfiguredExtension {
@@ -19,9 +20,14 @@ func Optional() []*config.CLIConfiguredExtension {
 		java.CLIExtension(),
 		git.CLIExtension(),
 		config.CreateEmptyCLIExtension("csharp", &csharp.Extension{}),
+		config.CreateEmptyCLIExtension("kotlin", &kotlin.Extension{}),
 		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {
+		// Skip kotlin — the tree-sitter extension above supersedes the regex one
+		if name == "kotlin" {
+			continue
+		}
 		extensions = append(extensions, config.CreateEmptyCLIExtension(name, extension))
 	}
 	return extensions

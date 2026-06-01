@@ -23,10 +23,12 @@ func TestBasicGitParsing(t *testing.T) {
 		t.Error(err)
 	}
 
-	log, err := parseGitLog(filepath.Clean("./temp_testdata/"))
+	e := &extension{}
+	log, err := e.parseGitLog(filepath.Clean("./temp_testdata/"))
 	if err != nil {
 		t.Error(err)
 	}
 
 	assert.Len(t, log, 46)
 }
+

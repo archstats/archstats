@@ -23,4 +23,4 @@ extensions:
     - namespace (?P<modularity__component__declarations>.*);
     - (use|import) (?P<modularity__component__imports>.*)\\.*;
     - (abstract class|interface|trait) (?P<modularity__types__abstract>\w+)
-    - (class|interface|trait) (?P<modularity__types__total>\\w+)
+    - (class|interface|trait) (?P<modularity__types__total>\w+)

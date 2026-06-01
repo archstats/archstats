@@ -53,6 +53,7 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 		CommitCount:                len(commits),
 		AdditionCount:              totalAdditionCount,
 		DeletionCount:              totalDeletionCount,
+		OldestCommitAgeInDays:      oldestCommitAgeInDays,
 		UniqueFileChangeCount:      len(files),
 		UniqueDirectoryChangeCount: len(directories),
 		UniqueComponentChangeCount: len(components),

@@ -218,31 +218,12 @@ func mergeFileResults(results []*file.Results) *file.Results {
 func mapDirectoryToFiles(files []string) map[string][]string {
 	directoryFiles := make(map[string][]string)
 
-	allDirs := getAllDirectories(files)
-
-	for _, dir := range allDirs {
-		directoryFiles[dir] = make([]string, 0)
-	}
-
-	for _, file := range files {
-		for _, dir := range allDirs {
-			if strings.HasPrefix(file, dir) {
-				directoryFiles[dir] = append(directoryFiles[dir], file)
-			}
+	for _, f := range files {
+		for _, dir := range getParentDirectories(f) {
+			directoryFiles[dir] = append(directoryFiles[dir], f)
 		}
 	}
 	return directoryFiles
-}
-
-func getAllDirectories(files []string) []string {
-	var directories []string
-	for _, file := range files {
-		directories = append(directories, getParentDirectories(file)...)
-	}
-	//Remove empty strings, and duplicates if any.
-	uniqueDirs := lo.Uniq(directories)
-
-	return uniqueDirs
 }
 
 // getParentDirectories returns all parent directories of the given path.
@@ -255,8 +236,5 @@ func getParentDirectories(path string) []string {
 		dir = filepath.Dir(dir)
 	}
 
-	//Remove empty strings, and duplicates if any.
-	uniqueDirs := lo.Uniq(dirs)
-
-	return uniqueDirs
+	return dirs
 }

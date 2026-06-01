@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	filepath "path"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -17,19 +18,31 @@ func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file file.Fi
 	WalkFiles(dirFS, allFiles, visitor)
 }
 
+// maxWorkers returns a bounded concurrency limit: min(runtime.NumCPU()*2, 32).
+func maxWorkers() int {
+	n := runtime.NumCPU() * 2
+	if n > 32 {
+		return 32
+	}
+	return n
+}
+
 func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(file file.File)) {
 	wg := &sync.WaitGroup{}
+	sem := make(chan struct{}, maxWorkers())
 	wg.Add(len(allFiles))
-	log.Debug().Msgf("Walking & reading %d files", len(allFiles))
+	log.Debug().Msgf("Walking & reading %d files (max %d workers)", len(allFiles), maxWorkers())
 	for _, theFile := range allFiles {
+		sem <- struct{}{} // acquire slot
 		go func(file PathToFile, group *sync.WaitGroup) {
+			defer func() { <-sem }() // release slot
 			start := time.Now()
-			//TODO cleanup error handling
 			content, err := fileSystem.ReadFile(filepath.Clean(file.Path()))
 
 			if err != nil {
-				log.Error().Err(err).Msgf("Error reading file %s", file.Path())
-				panic(err)
+				log.Warn().Err(err).Msgf("Skipping unreadable file %s", file.Path())
+				group.Done()
+				return
 			}
 			openedFile := &openedFile{
 				path:    file.Path(),
@@ -80,6 +93,10 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 
 		if entry.IsDir() {
 			path += separator
+			if shouldIgnore(path, gitIgnore) {
+				ignoredFiles = append(ignoredFiles, path)
+				continue
+			}
 			allFiles := getAllFiles(fileSystem, path, depth+1, ignoreCtx)
 			foundFiles = append(foundFiles, allFiles.FoundFiles...)
 			ignoredFiles = append(ignoredFiles, allFiles.IgnoredFiles...)

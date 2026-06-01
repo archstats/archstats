@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"github.com/archstats/archstats/cmd/config"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
@@ -19,8 +20,7 @@ func GetEnabledExtensions(cmd *cobra.Command) ([]*config.CLIConfiguredExtension,
 	})
 	for _, extension := range wantToEnableExtensions {
 		if _, ok := optionalExtensions[extension]; !ok {
-			log.Error().Msgf("Unknown extension %s", extension)
-			return nil, err
+			return nil, fmt.Errorf("unknown extension: %s", extension)
 		}
 		enabledExtensions = append(enabledExtensions, optionalExtensions[extension])
 	}
