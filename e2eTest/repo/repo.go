@@ -28,7 +28,7 @@ func EnsureCloned(repo, commit string) (*Repo, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = exec.Command("git", "checkout", "-C", repoLocation, commit).Run()
+	err = exec.Command("git", "-C", repoLocation, "checkout", commit).Run()
 	return &Repo{
 		Location: repoLocation,
 		URL:      repo,

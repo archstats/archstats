@@ -10,7 +10,8 @@ import (
 )
 
 func TestElepy(t *testing.T) {
-	theRepo, _ := repo.EnsureCloned("https://github.com/RyanSusana/elepy", "83d3069")
+	theRepo, err := repo.EnsureCloned("https://github.com/RyanSusana/elepy", "83d3069")
+	assert.NoError(t, err)
 
 	db, err := theRepo.GetExportedDB(&repo.ExportDBCommand{
 		Extensions: []string{"java", "indentations"},
