@@ -77,7 +77,7 @@ func AlwaysEnabled() []*config.CLIConfiguredExtension {
 		config.CreateEmptyCLIExtension("basic", basic.Extension()),
 		config.CreateEmptyCLIExtension("components", components.Extension()),
 		config.CreateEmptyCLIExtension("lines", lines.Extension()),
-		config.CreateEmptyCLIExtension("declbased", declbased.Extension()),
+		declbased.CLIExtension(),
 		config.CreateEmptyCLIExtension("codesmells", codesmells.Extension()),
 	}
 }

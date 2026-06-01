@@ -24,3 +24,23 @@ extensions:
     - (use|import) (?P<modularity__component__imports>.*)\\.*;
     - (abstract class|interface|trait) (?P<modularity__types__abstract>\w+)
     - (class|interface|trait) (?P<modularity__types__total>\w+)
+
+  javascript:
+    file_glob: "**/*.{js,jsx,mjs,cjs}"
+    patterns:
+    - (?:from|import)\s+["'](?P<modularity__component__imports>[^"']+)["']
+    - class\s+(?P<modularity__types__total>[a-zA-Z0-9_]+)
+
+  typescript:
+    file_glob: "**/*.{ts,tsx,mts,cts}"
+    patterns:
+    - (?:from|import)\s+["'](?P<modularity__component__imports>[^"']+)["']
+    - interface\s+(?P<modularity__types__abstract>[a-zA-Z0-9_]+)
+    - abstract\s+class\s+(?P<modularity__types__abstract>[a-zA-Z0-9_]+)
+    - (?:class|interface)\s+(?P<modularity__types__total>[a-zA-Z0-9_]+)
+
+  python:
+    file_glob: "**/*.py"
+    patterns:
+    - (?:import\s+|from\s+)(?P<modularity__component__imports>[a-zA-Z0-9_.]+)
+    - class\s+(?P<modularity__types__total>[a-zA-Z0-9_]+)
