@@ -1,0 +1,4 @@
+id: codesmells__code_health
+name: Code Health
+short: A rating from 1 to 10 of code health.
+long: A rating from 1 to 10 of code health, computed by subtracting points for size (LOC > 500), complex nesting (max indentation > 4), and deep average nesting (avg indentation > 1.5).

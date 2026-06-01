@@ -99,6 +99,12 @@ func (e *extension) AnalyzeFile(fileE file.File) *file.Results {
 	repo := getRepoFromFile(e.repositories, path)
 	commitsByFile := e.splittedCommits.SplitByFile()
 	commitsForFile := commitsByFile[path]
+
+	// Skip files with no commit history
+	if len(commitsForFile) == 0 {
+		return nil
+	}
+
 	splittedByDay := commits.Split(e.BasedOn, e.DayBuckets, commitsForFile).DayBuckets()
 
 	var recordsToReturn []*stats.Record

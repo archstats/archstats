@@ -1,0 +1,4 @@
+id: codesmells__bumpy_road
+name: Bumpy Road
+short: Count of files with complex nesting structures.
+long: Indicates if a file has complex nesting structures (e.g. max indentation > 4 and avg indentation > 1.5), representing potential read and maintainability issues.
