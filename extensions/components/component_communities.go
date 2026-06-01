@@ -10,6 +10,10 @@ import (
 func CommunitiesView(results *core.Results) *core.View {
 	theGraph := results.ComponentGraph
 
+	if theGraph == nil || theGraph.Nodes().Len() < 3 {
+		return core.CreateViewFromRows("component_communities", nil)
+	}
+
 	louvain := community.Modularize(theGraph, 1.0, nil)
 
 	var rows []*core.Row

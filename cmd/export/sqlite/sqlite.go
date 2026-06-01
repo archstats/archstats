@@ -404,7 +404,11 @@ func ensureTableExists(db *sql.DB, view *core.View) error {
 }
 
 func tableDDL(view *core.View) string {
-	return "CREATE TABLE IF NOT EXISTS `" + view.Name + "` (" + columnsDDL(view) + ", report_id TEXT, timestamp DATE)"
+	colsDDL := columnsDDL(view)
+	if colsDDL == "" {
+		return "CREATE TABLE IF NOT EXISTS `" + view.Name + "` (report_id TEXT, timestamp DATE)"
+	}
+	return "CREATE TABLE IF NOT EXISTS `" + view.Name + "` (" + colsDDL + ", report_id TEXT, timestamp DATE)"
 }
 
 func columnsDDL(view *core.View) string {

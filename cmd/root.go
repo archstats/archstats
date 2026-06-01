@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/archstats/archstats/cmd/common"
 	"github.com/archstats/archstats/cmd/config"
+	"github.com/archstats/archstats/cmd/assert"
 	"github.com/archstats/archstats/cmd/definitions"
 	"github.com/archstats/archstats/cmd/export"
 	"github.com/archstats/archstats/cmd/view"
@@ -46,6 +47,7 @@ func Cmd() (*cobra.Command, error) {
 	cmd.AddCommand(view.Cmd())
 	cmd.AddCommand(export.Cmd())
 	cmd.AddCommand(definitions.Cmd())
+	cmd.AddCommand(assert.Cmd())
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	err := setupAlwaysEnabledExtensions(cmd)
