@@ -1,0 +1,6 @@
+id: cycles__short__max
+name: Short Cycle Maximum Size
+short_description: Length of the longest shortest cycle this component participates in.
+long_description: |
+  The maximum number of components in any shortest cycle that includes this component. A high max cycle size indicates involvement in a broad circular dependency chain spanning many components.
+category: "Dependency Graph & Cycles"

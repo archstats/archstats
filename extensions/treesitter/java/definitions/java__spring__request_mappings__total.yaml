@@ -1,0 +1,7 @@
+id: java__spring__request_mappings__total
+name: Spring Request Mappings (Total)
+short_description: The total number of web endpoints (using @RequestMapping, @GetMapping, @PostMapping, etc.) in your application. It measures how many web entry points you have.
+long_description: |
+  Total number of HTTP endpoints exposed by Spring MVC/WebFlux controllers.
+  Indicates the size of the application's external API surface.
+category: "Java & Spring Treesitter Specific"

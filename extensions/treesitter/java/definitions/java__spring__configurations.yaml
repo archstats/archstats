@@ -1,0 +1,6 @@
+id: java__spring__configurations
+name: Spring Configurations
+short_description: The number of Spring configuration classes (annotated with @Configuration). These classes set up and customize the beans and settings in your application.
+long_description: |
+  Indicates that a class declares one or more @Bean methods and may be processed by the Spring container to generate bean definitions and service requests at runtime.
+category: "Java & Spring Treesitter Specific"

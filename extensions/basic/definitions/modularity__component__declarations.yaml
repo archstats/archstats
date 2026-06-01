@@ -1,0 +1,7 @@
+id: modularity__component__declarations
+name: Component Declaration
+short_description: A mark that defines where a new component starts, such as a package header in Java/Kotlin or a namespace in C#. This helps identify different parts of your code.
+long_description: |
+  Component declarations establish the logical boundaries of the system. For instance, package headers or namespace definitions.
+  They are used to map source files into logical components for coupling and architectural analysis.
+category: "Modularity & Component Structure"

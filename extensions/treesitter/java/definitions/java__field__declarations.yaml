@@ -1,0 +1,7 @@
+id: java__field__declarations
+name: Java Field Declarations
+short_description: The total number of fields (variables inside a class) declared in your Java files. This measures how much state or data your classes hold.
+long_description: |
+  Fields are variables declared inside a class block.
+  A very high number of fields in a single class might suggest that the class is taking on too many responsibilities (a God Class or high state complexity).
+category: "Java & Spring Treesitter Specific"

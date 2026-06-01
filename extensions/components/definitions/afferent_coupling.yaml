@@ -1,0 +1,8 @@
+id: modularity__coupling__afferent
+name: Afferent Coupling
+short_description: Number of components that depend on this component.
+long_description: |
+  Afferent coupling (Ca) measures the number of other components that depend on this component. A high afferent coupling means many other components rely on this one, making it a responsibility hub.
+  
+  Components with high afferent coupling should be stable and well-tested, as changes to them cascade to many dependents.
+category: "Modularity & Component Structure"

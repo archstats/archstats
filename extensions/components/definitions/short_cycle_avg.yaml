@@ -1,0 +1,6 @@
+id: cycles__short__avg
+name: Short Cycle Average Size
+short_description: Average length of shortest cycles this component participates in.
+long_description: |
+  The mean number of components in the shortest cycles that include this component. Smaller average cycle sizes indicate tight local coupling, while larger cycles suggest broader circular dependency chains.
+category: "Dependency Graph & Cycles"

@@ -1,9 +1,10 @@
 package java
 
 import (
-	_ "embed"
+	"embed"
 	"fmt"
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/extensions/treesitter/common"
 	"github.com/samber/lo"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
@@ -21,7 +22,16 @@ func (e *Extension) typeAssert() core.Extension {
 	return e
 }
 
+//go:embed definitions/**
+var javaDefs embed.FS
+
 func (e *Extension) Init(settings core.Analyzer) error {
+	loadedDefs, err := definitions.LoadYamlFiles(javaDefs)
+	if err == nil {
+		for _, def := range loadedDefs {
+			settings.AddDefinition(def)
+		}
+	}
 	settings.RegisterFileAnalyzer(e.createJavaLanguagePack())
 	return nil
 }

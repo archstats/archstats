@@ -1,0 +1,7 @@
+id: java__spring__services
+name: Spring Services
+short_description: The number of Spring service classes (annotated with @Service). These classes hold your application's business logic and rules.
+long_description: |
+  Spring service classes orchestrate domain logic, communicate with repositories, and manage transactions.
+  They represent the core business layer of your application.
+category: "Java & Spring Treesitter Specific"

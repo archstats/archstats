@@ -1,0 +1,8 @@
+id: graph__betweenness
+name: Betweenness Centrality
+short_description: How often a component lies on the shortest path between other components.
+long_description: |
+  Betweenness centrality measures the fraction of shortest paths between all pairs of components that pass through a given component. Components with high betweenness act as bridges or bottlenecks in the dependency graph.
+  
+  Removing or modifying a high-betweenness component is likely to disrupt communication between many other parts of the system.
+category: "Dependency Graph & Cycles"

@@ -1,0 +1,7 @@
+id: java__import__declaration
+name: Java Import Declarations
+short_description: The number of import statements in your Java files. This shows how many external or internal classes your code references.
+long_description: |
+  Tracks individual import statements in Java files.
+  Used to determine imports of a file, excluding ignored packages like standard java.* libraries if configured.
+category: "Java & Spring Treesitter Specific"

@@ -1,0 +1,8 @@
+id: complexity__indentation__count
+name: Indentation Count
+short_description: Total number of indentation units across all lines in a file.
+long_description: |
+  Sums the indentation level of every non-empty line in a file. This gives a raw measure of structural depth: a file with many deeply nested lines will have a high count even if the maximum depth is moderate.
+  
+  Useful for comparing overall structural complexity between files of similar size.
+category: "Size & Indentation Complexity"

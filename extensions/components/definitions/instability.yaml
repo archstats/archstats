@@ -1,0 +1,11 @@
+id: modularity__instability
+name: Instability
+short_description: "Ratio of efferent to total coupling: Ce / (Ce + Ca). Range: 0 (stable) to 1 (unstable)."
+long_description: |
+  Instability is calculated as Ce / (Ce + Ca), where Ce is efferent coupling and Ca is afferent coupling.
+  
+  - I = 0: Maximally stable — the component has no outgoing dependencies. Changes to other components cannot affect it.
+  - I = 1: Maximally unstable — the component only has outgoing dependencies. It is entirely dependent on others and likely to be affected by external changes.
+  
+  The Stable Dependencies Principle (SDP) states that components should depend in the direction of stability: unstable components should depend on stable ones.
+category: "Modularity & Component Structure"

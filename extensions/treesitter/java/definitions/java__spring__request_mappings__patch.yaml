@@ -1,0 +1,6 @@
+id: java__spring__request_mappings__patch
+name: Spring PATCH Mappings
+short_description: The number of PATCH request endpoints (using @PatchMapping or @RequestMapping with PATCH). These are web entry points used to make partial updates to data.
+long_description: |
+  HTTP PATCH endpoints are used to apply partial modifications to a resource.
+category: "Java & Spring Treesitter Specific"

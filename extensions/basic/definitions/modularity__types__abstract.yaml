@@ -1,0 +1,7 @@
+id: modularity__types__abstract
+name: Abstract Types
+short_description: The number of abstract types (like interfaces or abstract classes) in a file or component. These are templates that other classes must fill in.
+long_description: |
+  Abstract types represent extensible points in your codebase.
+  A high proportion of abstract types allows components to be easily extended without modifying their core logic, promoting the Open-Closed Principle.
+category: "Modularity & Component Structure"

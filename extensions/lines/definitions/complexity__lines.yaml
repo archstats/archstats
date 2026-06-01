@@ -1,0 +1,7 @@
+id: complexity__lines
+name: Line Count
+short_description: The total number of lines in a file or component, including code, comments, and empty lines.
+long_description: |
+  A simple and universal measure of the size of your code.
+  Higher line counts often indicate larger, more complex files or components.
+category: "Size & Indentation Complexity"

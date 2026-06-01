@@ -1,0 +1,8 @@
+id: git__additions__total
+name: Addition Count
+short_description: Total number of lines added to this file or component across all commits.
+long_description: |
+  Sums the number of added lines across all commits that touched a file. At the component level, additions from all files are summed.
+  
+  Combined with deletion count, this reveals the churn profile of a file: high additions with low deletions suggest growth, while balanced additions and deletions suggest refactoring.
+category: "Git History & Churn"

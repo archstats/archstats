@@ -1,6 +1,8 @@
 package git
 
 import (
+	"embed"
+	"fmt"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
@@ -13,6 +15,10 @@ import (
 	"strings"
 	"time"
 )
+
+//go:embed definitions/**
+var gitDefs embed.FS
+
 
 const (
 	AuthorCount                = "git__authors"
@@ -137,6 +143,14 @@ func (e *extension) AnalyzeFile(fileE file.File) *file.Results {
 func (e *extension) Init(settings core.Analyzer) error {
 	settings.RegisterResultsEditor(e)
 
+	loadedDefs, err := definitions.LoadYamlFiles(gitDefs)
+	if err != nil {
+		return err
+	}
+	for _, def := range loadedDefs {
+		settings.AddDefinition(def)
+	}
+
 	settings.RegisterStatAccumulator(Repository, stats.MostCommonStatMerger)
 	settings.RegisterStatAccumulator(AgeInDays, stats.MostCommonStatMerger)
 	settings.RegisterStatAccumulator(toTotalStat(AuthorCount), UniqueAuthors)
@@ -151,6 +165,42 @@ func (e *extension) Init(settings core.Analyzer) error {
 		settings.RegisterStatAccumulator(toDayStat(UniqueFileChangeCount, bucket), UniqueFiles)
 		settings.RegisterStatAccumulator(toDayStat(AdditionCount, bucket), TotalAdditions)
 		settings.RegisterStatAccumulator(toDayStat(DeletionCount, bucket), TotalDeletions)
+
+		settings.AddDefinition(&definitions.Definition{
+			Id:               toDayStat(AdditionCount, bucket),
+			Name:             fmt.Sprintf("Addition Count (Last %d Days)", bucket),
+			ShortDescription: fmt.Sprintf("Number of lines of code added to this file or component in the last %d days.", bucket),
+			LongDescription:  fmt.Sprintf("Counts how many new lines of code were added in git commits over the last %d days. Helps identify recently active or growing files.", bucket),
+			Category:         "Git History & Churn",
+		})
+		settings.AddDefinition(&definitions.Definition{
+			Id:               toDayStat(DeletionCount, bucket),
+			Name:             fmt.Sprintf("Deletion Count (Last %d Days)", bucket),
+			ShortDescription: fmt.Sprintf("Number of lines of code deleted from this file or component in the last %d days.", bucket),
+			LongDescription:  fmt.Sprintf("Counts how many lines of code were deleted in git commits over the last %d days. Helps identify recently refactored or cleaned-up files.", bucket),
+			Category:         "Git History & Churn",
+		})
+		settings.AddDefinition(&definitions.Definition{
+			Id:               toDayStat(CommitCount, bucket),
+			Name:             fmt.Sprintf("Commit Count (Last %d Days)", bucket),
+			ShortDescription: fmt.Sprintf("Number of unique git commits modifying this file or component in the last %d days.", bucket),
+			LongDescription:  fmt.Sprintf("Counts how many times this file or component was modified in a git commit over the last %d days. A high count suggests a recent hot spot of activity.", bucket),
+			Category:         "Git History & Churn",
+		})
+		settings.AddDefinition(&definitions.Definition{
+			Id:               toDayStat(AuthorCount, bucket),
+			Name:             fmt.Sprintf("Author Count (Last %d Days)", bucket),
+			ShortDescription: fmt.Sprintf("Number of unique authors who modified this file or component in the last %d days.", bucket),
+			LongDescription:  fmt.Sprintf("Counts how many different developers made changes to this file or component in the last %d days. High author count can indicate a risk of coordination issues.", bucket),
+			Category:         "Git History & Churn",
+		})
+		settings.AddDefinition(&definitions.Definition{
+			Id:               toDayStat(UniqueFileChangeCount, bucket),
+			Name:             fmt.Sprintf("Unique File Changes (Last %d Days)", bucket),
+			ShortDescription: fmt.Sprintf("Number of unique files changed in commits that touched this file or component in the last %d days.", bucket),
+			LongDescription:  fmt.Sprintf("Measures co-changes over the last %d days: how many other files were modified in the same commits as this one. Helps find implicit logical coupling.", bucket),
+			Category:         "Git History & Churn",
+		})
 	}
 
 	settings.RegisterFileAnalyzer(e)

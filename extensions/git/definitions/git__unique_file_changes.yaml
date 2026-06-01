@@ -1,0 +1,8 @@
+id: git__unique_file_changes__total
+name: Unique File Changes
+short_description: Number of unique files changed in commits that touched this file or component.
+long_description: |
+  Counts the number of distinct files that were modified alongside this file across all its commits. At the component level, this counts unique files changed in commits that touched any file in the component.
+  
+  This metric reveals co-change patterns: a high count suggests the file is coupled to many other files at the change level.
+category: "Git History & Churn"

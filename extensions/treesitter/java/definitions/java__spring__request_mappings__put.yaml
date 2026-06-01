@@ -1,0 +1,6 @@
+id: java__spring__request_mappings__put
+name: Spring PUT Mappings
+short_description: The number of PUT request endpoints (using @PutMapping or @RequestMapping with PUT). These are web entry points used to update or replace existing data.
+long_description: |
+  HTTP PUT endpoints are used to upsert or replace resources.
+category: "Java & Spring Treesitter Specific"

@@ -1,0 +1,6 @@
+id: git__repository
+name: Git Repository
+short_description: The git repository root path relative to the analysis root.
+long_description: |
+  Identifies which git repository a file belongs to. In monorepo setups with multiple nested .git directories, this distinguishes which repository root owns each file.
+category: "Git History & Churn"

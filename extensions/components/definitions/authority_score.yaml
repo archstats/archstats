@@ -1,0 +1,6 @@
+id: graph__hits__authority_score
+name: Authority Score (HITS)
+short_description: How much a component is depended upon by important hubs.
+long_description: |
+  Part of the HITS (Hyperlink-Induced Topic Search) algorithm. A good authority is a component that is depended upon by many good hubs. In a dependency graph, a high authority score indicates a foundational component that provides core functionality relied upon by orchestrating modules.
+category: "Dependency Graph & Cycles"

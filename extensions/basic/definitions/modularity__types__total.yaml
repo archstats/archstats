@@ -1,0 +1,7 @@
+id: modularity__types__total
+name: Total Types
+short_description: The total number of types (like classes, interfaces, structs, or records) declared in a file or component. It measures how many structural blocks you have.
+long_description: |
+  Total types measures the size of a component in terms of raw structural declarations.
+  It acts as the denominator when calculating abstractness (abstract types / total types).
+category: "Modularity & Component Structure"

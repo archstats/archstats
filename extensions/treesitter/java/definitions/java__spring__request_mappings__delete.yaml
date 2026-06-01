@@ -1,0 +1,6 @@
+id: java__spring__request_mappings__delete
+name: Spring DELETE Mappings
+short_description: The number of DELETE request endpoints (using @DeleteMapping or @RequestMapping with DELETE). These are web entry points used to remove data.
+long_description: |
+  HTTP DELETE endpoints are used to delete resource representations.
+category: "Java & Spring Treesitter Specific"

@@ -1,0 +1,6 @@
+id: modularity__coupling__dependents
+name: Direct Dependent Count
+short_description: Number of components that directly depend on this component.
+long_description: |
+  Counts the number of components that have a direct dependency edge pointing to this component in the dependency graph. Unlike afferent coupling which counts unique coupling relationships, dependents counts all direct incoming dependency edges.
+category: "Modularity & Component Structure"

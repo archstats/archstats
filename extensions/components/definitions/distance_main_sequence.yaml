@@ -1,0 +1,10 @@
+id: modularity__distance_main_sequence
+name: Distance from Main Sequence
+short_description: "Distance from the ideal balance of abstractness and stability: |A + I - 1|."
+long_description: |
+  The main sequence is the ideal line where A + I = 1 (abstractness + instability = 1). The distance from this line measures how well a component balances stability with abstractness.
+  
+  - D = 0: On the main sequence — ideal balance.
+  - High D near (0,0): Zone of Pain — stable and concrete. Hard to change.
+  - High D near (1,1): Zone of Uselessness — unstable and abstract. Over-engineered.
+category: "Modularity & Component Structure"

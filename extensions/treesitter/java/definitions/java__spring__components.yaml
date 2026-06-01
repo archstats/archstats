@@ -1,0 +1,6 @@
+id: java__spring__components
+name: Spring Components
+short_description: The number of basic Spring component classes (annotated with @Component). These are helper classes that Spring manages for dependency injection.
+long_description: |
+  A generic stereotype for any Spring-managed component when no more specific stereotype (like Service, Controller, or Repository) applies.
+category: "Java & Spring Treesitter Specific"

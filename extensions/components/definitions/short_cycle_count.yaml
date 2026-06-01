@@ -1,0 +1,8 @@
+id: cycles__short__count
+name: Short Cycle Count
+short_description: Number of shortest dependency cycles this component participates in.
+long_description: |
+  Counts the number of shortest (minimum-length) cycles that include this component in the dependency graph. Cycles indicate circular dependencies, which can make the system harder to understand, test, and deploy independently.
+  
+  A component with many short cycles is tightly entangled with its neighbors.
+category: "Dependency Graph & Cycles"

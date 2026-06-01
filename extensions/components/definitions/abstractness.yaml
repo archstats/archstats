@@ -1,0 +1,8 @@
+id: modularity__abstractness
+name: Abstractness
+short_description: Ratio of abstract declarations to total declarations in a component.
+long_description: |
+  Abstractness measures the proportion of abstract types (interfaces, abstract classes) relative to all declarations in a component. Range is 0 (fully concrete) to 1 (fully abstract).
+  
+  Used together with instability to compute distance from the main sequence.
+category: "Modularity & Component Structure"

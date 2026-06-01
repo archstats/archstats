@@ -1,0 +1,7 @@
+id: modularity__component__imports
+name: Component Import
+short_description: A connection that brings in code from another component. It shows when one package or namespace relies on another to work.
+long_description: |
+  Component imports represent dependency edges between different parts of the system.
+  Analyzing these imports allows us to build a dependency graph and calculate coupling metrics like afferent and efferent coupling.
+category: "Modularity & Component Structure"

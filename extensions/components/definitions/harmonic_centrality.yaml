@@ -1,0 +1,8 @@
+id: graph__harmonic_centrality
+name: Harmonic Centrality
+short_description: Average inverse distance to all other components in the dependency graph.
+long_description: |
+  Harmonic centrality is defined as the sum of reciprocals of shortest path distances from a component to all other components. Unlike closeness centrality, it handles disconnected graphs gracefully by treating unreachable nodes as having infinite distance (reciprocal = 0).
+  
+  High harmonic centrality indicates a component that can reach most other components in few hops.
+category: "Dependency Graph & Cycles"

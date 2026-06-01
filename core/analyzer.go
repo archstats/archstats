@@ -39,7 +39,7 @@ type analyzer struct {
 }
 
 func (analyzer *analyzer) AddDefinition(definition *definitions.Definition) {
-	analyzer.definitions[definition.Name] = definition
+	analyzer.definitions[definition.Id] = definition
 }
 
 func (analyzer *analyzer) typeAssertion() Analyzer {

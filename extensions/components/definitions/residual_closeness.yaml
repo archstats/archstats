@@ -1,0 +1,8 @@
+id: graph__residual_closeness
+name: Residual Closeness
+short_description: How close a component remains to the rest of the graph if it were removed.
+long_description: |
+  Residual closeness measures a component's centrality by evaluating how much the overall closeness of the graph would decrease if the component were removed. It captures the structural importance of a component beyond simple distance measures.
+  
+  A high residual closeness indicates that the component is a critical connector whose removal would significantly increase distances between other components.
+category: "Dependency Graph & Cycles"

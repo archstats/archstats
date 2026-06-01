@@ -1,0 +1,6 @@
+id: java__jpa__entities
+name: JPA Entities
+short_description: The number of JPA entity classes (annotated with @Entity). These classes represent tables in your database and hold database records.
+long_description: |
+  JPA Entities are lightweight persistent domain objects. Typically associated with a table in a relational database.
+category: "Java & Spring Treesitter Specific"

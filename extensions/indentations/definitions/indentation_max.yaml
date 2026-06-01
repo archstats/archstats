@@ -1,0 +1,8 @@
+id: complexity__indentation__max
+name: Maximum Indentation
+short_description: Deepest indentation level found in a file.
+long_description: |
+  Records the maximum indentation depth (number of indentation units) found on any single line in a file. A high maximum indentation indicates deeply nested control flow, which is a strong indicator of complex, hard-to-read code.
+  
+  When aggregated to directory or component level, the maximum across all files is taken.
+category: "Size & Indentation Complexity"

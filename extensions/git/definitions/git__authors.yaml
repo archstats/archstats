@@ -1,0 +1,8 @@
+id: git__authors__total
+name: Author Count
+short_description: Number of unique authors who modified this file or component.
+long_description: |
+  Counts the number of distinct commit authors (by email) who have modified a file. At the component level, unique authors across all files are counted.
+  
+  A high author count may indicate shared ownership or high-traffic code that warrants extra review attention.
+category: "Git History & Churn"

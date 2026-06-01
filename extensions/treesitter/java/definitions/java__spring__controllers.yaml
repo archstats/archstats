@@ -1,0 +1,7 @@
+id: java__spring__controllers
+name: Spring Controllers
+short_description: The number of Spring controller classes (annotated with @Controller or @RestController). These classes handle incoming web requests and direct them to the right places.
+long_description: |
+  Spring controller classes process HTTP requests, bind user input, and return responses (often JSON or HTML).
+  A high density of controllers in one area indicates a major API entry-point area.
+category: "Java & Spring Treesitter Specific"

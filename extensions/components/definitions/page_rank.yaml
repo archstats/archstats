@@ -1,0 +1,8 @@
+id: graph__page_rank
+name: PageRank
+short_description: Importance score based on the dependency graph structure.
+long_description: |
+  PageRank assigns a score to each component based on the number and importance of components that depend on it. A component depended upon by many important components receives a higher score.
+  
+  In a dependency graph, high PageRank indicates a core component that is critical to the system's architecture.
+category: "Dependency Graph & Cycles"

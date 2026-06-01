@@ -1,0 +1,6 @@
+id: java__spring__request_mappings__post
+name: Spring POST Mappings
+short_description: The number of POST request endpoints (using @PostMapping or @RequestMapping with POST). These are web entry points used to create new data.
+long_description: |
+  HTTP POST endpoints are used to submit data to be processed or to create resources.
+category: "Java & Spring Treesitter Specific"

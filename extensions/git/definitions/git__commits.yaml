@@ -1,0 +1,8 @@
+id: git__commits__total
+name: Commit Count
+short_description: Total number of unique commits that modified this file or component.
+long_description: |
+  Counts the number of distinct git commits that touched a file. At the component level, this counts unique commits across all files in the component (a single commit touching multiple files is counted once).
+  
+  High commit counts indicate frequently changed code, which is a key input for hotspot analysis.
+category: "Git History & Churn"

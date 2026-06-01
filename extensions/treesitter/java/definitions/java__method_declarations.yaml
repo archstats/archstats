@@ -1,0 +1,7 @@
+id: java__method_declarations
+name: Java Method Declarations
+short_description: The total number of methods (functions inside a class) declared in your Java files. This measures the number of actions your classes can perform.
+long_description: |
+  The total number of methods declared in the Java source files.
+  A large number of method declarations indicates high behavioral size/complexity.
+category: "Java & Spring Treesitter Specific"

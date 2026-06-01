@@ -1,0 +1,7 @@
+id: complexity__files
+name: File Count
+short_description: The total number of files in a component or directory. This is the simplest way to measure size and scope.
+long_description: |
+  Counts all source code files matched during the analysis.
+  Helpful for understanding component scale and distributing resource metrics.
+category: "Size & Indentation Complexity"

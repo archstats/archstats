@@ -1,0 +1,6 @@
+id: java__spring__repositories
+name: Spring Repositories
+short_description: The number of Spring repository classes (annotated with @Repository). These classes handle talk to the database to save and load your data.
+long_description: |
+  Spring repositories encapsulate storage, retrieval, and search behavior, typically wrapping a relational database using JPA or JDBC.
+category: "Java & Spring Treesitter Specific"

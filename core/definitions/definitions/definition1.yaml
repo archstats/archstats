@@ -1,4 +1,5 @@
 id: definition1
 name: Definition 1
-short: short1
-long: long1
+short_description: short1
+long_description: long1
+category: "Other"

@@ -1,0 +1,8 @@
+id: git__deletions__total
+name: Deletion Count
+short_description: Total number of lines deleted from this file or component across all commits.
+long_description: |
+  Sums the number of deleted lines across all commits that touched a file. At the component level, deletions from all files are summed.
+  
+  High deletion counts alongside high addition counts indicate active refactoring or rewrites.
+category: "Git History & Churn"

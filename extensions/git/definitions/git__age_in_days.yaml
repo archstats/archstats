@@ -1,0 +1,6 @@
+id: git__age_in_days
+name: Age in Days
+short_description: Number of days since the file was last modified in git.
+long_description: |
+  Measures the age of a file based on the most recent commit that touched it. Higher values indicate stale or stable code. When combined with other metrics like commit count and code health, age helps identify dormant hotspots.
+category: "Git History & Churn"

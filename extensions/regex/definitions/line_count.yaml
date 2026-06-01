@@ -1,0 +1,6 @@
+id: complexity__lines
+name: Line Count
+short_description: The number of lines in the file.
+long_description: |
+  Counts the total number of lines in a file by counting newline characters. This is the most basic size metric and is used as an input to other derived metrics like code health and hotspot score.
+category: "Size & Indentation Complexity"

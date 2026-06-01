@@ -1,0 +1,6 @@
+id: graph__hits__hub_score
+name: Hub Score (HITS)
+short_description: How well a component connects to important authorities.
+long_description: |
+  Part of the HITS (Hyperlink-Induced Topic Search) algorithm. A good hub is a component that depends on many good authorities. In a dependency graph, a high hub score indicates a component that aggregates or orchestrates many important dependencies.
+category: "Dependency Graph & Cycles"

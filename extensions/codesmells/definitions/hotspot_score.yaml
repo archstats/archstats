@@ -1,4 +1,5 @@
 id: codesmells__hotspot_score
 name: Hotspot Score
-short: An index between 0 and 100 showing hotspot risk.
-long: An index between 0 and 100 showing hotspot risk. Highly modified files (high Git commits) that also have high size (LOC) are calculated as major hotspots.
+short_description: An index between 0 and 100 showing hotspot risk.
+long_description: An index between 0 and 100 showing hotspot risk. Highly modified files (high Git commits) that also have high size (LOC) are calculated as major hotspots.
+category: "Code Scene Style Code Smells"

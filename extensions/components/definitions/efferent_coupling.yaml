@@ -1,0 +1,8 @@
+id: modularity__coupling__efferent
+name: Efferent Coupling
+short_description: Number of components that this component depends on.
+long_description: |
+  Efferent coupling (Ce) measures the number of other components that this component depends on. A high efferent coupling means this component relies on many external dependencies.
+  
+  Components with high efferent coupling are more likely to be affected by changes in their dependencies, making them less stable.
+category: "Modularity & Component Structure"

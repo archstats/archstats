@@ -1,0 +1,7 @@
+id: java__spring__request_mappings__get
+name: Spring GET Mappings
+short_description: The number of GET request endpoints (using @GetMapping or @RequestMapping with GET). These are web entry points used to retrieve data.
+long_description: |
+  HTTP GET endpoints are used to fetch resources.
+  A high proportion of GET requests indicates a read-heavy controller.
+category: "Java & Spring Treesitter Specific"

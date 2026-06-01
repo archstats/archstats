@@ -1,0 +1,7 @@
+id: java__spring__beans
+name: Spring Beans
+short_description: The total number of Spring-managed beans (classes annotated with @Component, @Service, @Repository, @Controller, etc.). These are the building blocks of a Spring app.
+long_description: |
+  Sums up all stereotypic Spring component/bean annotations in the component or file.
+  A high count suggests heavily Spring-managed business or framework layers.
+category: "Java & Spring Treesitter Specific"

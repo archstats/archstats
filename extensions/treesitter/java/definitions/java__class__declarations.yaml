@@ -1,0 +1,6 @@
+id: java__class__declarations
+name: Java Class Declarations
+short_description: The number of class declarations found in your Java files. This measures the total number of classes defined in the codebase.
+long_description: |
+  The total number of classes defined within the file or component.
+category: "Java & Spring Treesitter Specific"

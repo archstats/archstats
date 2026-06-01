@@ -1,7 +1,9 @@
 package components
 
 import (
+	"embed"
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/definitions"
 )
 
 func Extension() core.Extension {
@@ -10,7 +12,18 @@ func Extension() core.Extension {
 
 type extension struct{}
 
+//go:embed definitions/**
+var componentDefs embed.FS
+
 func (extension) Init(settings core.Analyzer) error {
+	loadedDefs, err := definitions.LoadYamlFiles(componentDefs)
+	if err != nil {
+		return err
+	}
+	for _, def := range loadedDefs {
+		settings.AddDefinition(def)
+	}
+
 	settings.RegisterView(&core.ViewFactory{
 		Name:           "components",
 		CreateViewFunc: MainView,

@@ -1,4 +1,5 @@
 id: codesmells__static_complexity_score
 name: Static Complexity Score
-short: Static complexity metric (lines * nesting).
-long: Calculated purely from static file analysis by multiplying file size (LOC) by maximum nesting indentation level. Used as a hotspot fallback when git historical metrics are absent.
+short_description: Static complexity metric (lines * nesting).
+long_description: Calculated purely from static file analysis by multiplying file size (LOC) by maximum nesting indentation level. Used as a hotspot fallback when git historical metrics are absent.
+category: "Code Scene Style Code Smells"

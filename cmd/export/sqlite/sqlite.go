@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/archstats/archstats/cmd/common"
 	"github.com/archstats/archstats/core"
+	definitions2 "github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog/log"
@@ -13,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -83,7 +85,7 @@ func Cmd() *cobra.Command {
 				DatabaseName: dbPath,
 				ReportId:     reportId,
 				ScanTime:     reportDate,
-			}, viewSlice)
+			}, results, viewSlice)
 
 			if err != nil {
 				log.Error().Err(err).Msg("Error exporting to SQLite")
@@ -144,7 +146,7 @@ type SqlOptions struct {
 	ScanTime time.Time
 }
 
-func SaveToDB(options *SqlOptions, views []*core.View) error {
+func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) error {
 	// check DB exists. If not, create it. If so, check tables exist.
 
 	var db *sql.DB
@@ -163,6 +165,7 @@ func SaveToDB(options *SqlOptions, views []*core.View) error {
 			return err
 		}
 	}
+	defer db.Close()
 
 	err = ensureAllTablesExist(views, db)
 	if err != nil {
@@ -181,8 +184,56 @@ func SaveToDB(options *SqlOptions, views []*core.View) error {
 	}
 
 	err = insertRowsForAllViews(options, views, db)
+	if err != nil {
+		return err
+	}
+
+	err = saveMetricDefinitions(db, results, options)
 
 	return err
+}
+
+func saveMetricDefinitions(db *sql.DB, results *core.Results, options *SqlOptions) error {
+	// Create table
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS _metric_definitions (
+		id TEXT,
+		name TEXT,
+		short_description TEXT,
+		long_description TEXT,
+		report_id TEXT,
+		timestamp DATE,
+		PRIMARY KEY (id, report_id)
+	)`)
+	if err != nil {
+		return err
+	}
+
+	// Delete existing definitions for this report_id
+	_, err = db.Exec("DELETE FROM _metric_definitions WHERE report_id = ?", options.ReportId)
+	if err != nil {
+		return err
+	}
+
+	// Insert all definitions
+	allDefs := results.GetDefinitions()
+	var defSlice []*definitions2.Definition
+	for _, d := range allDefs {
+		defSlice = append(defSlice, d)
+	}
+
+	// Sort by ID for stable insert order
+	sort.Slice(defSlice, func(i, j int) bool {
+		return defSlice[i].Id < defSlice[j].Id
+	})
+
+	for _, def := range defSlice {
+		_, err = db.Exec(`INSERT INTO _metric_definitions (id, name, short_description, long_description, report_id, timestamp)
+			VALUES (?, ?, ?, ?, ?, ?)`, def.Id, def.Name, def.ShortDescription, def.LongDescription, options.ReportId, options.ScanTime)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // MaxParameters SQLITE_LIMIT_VARIABLE_NUMBER, see https://www.sqlite.org/limits.html#max_variable_number

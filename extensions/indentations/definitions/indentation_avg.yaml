@@ -1,0 +1,8 @@
+id: complexity__indentation__avg
+name: Average Indentation
+short_description: Average indentation depth across all lines in a file.
+long_description: |
+  Measures the mean indentation level of all non-empty lines in a file. Higher average indentation suggests code that spends more time inside nested blocks (loops, conditionals, callbacks), which can reduce readability and increase cognitive load.
+  
+  When aggregated to directory or component level, this metric is averaged across files.
+category: "Size & Indentation Complexity"
