@@ -51,6 +51,7 @@ func PackFromTemplate(template *LanguagePackTemplate) (*LanguagePack, error) {
 
 	lp.QueriesForStats = queriesForStats
 	lp.QueriesForSnippets = queriesForSnippets
+	lp.SnippetTransformers = template.SnippetTransformers
 	lp.ComponentResolution = GetComponentResolutionFromTemplate(template)
 	return lp, nil
 }
@@ -85,13 +86,25 @@ func (lp *LanguagePack) AnalyzeFile(f file.File) *file.Results {
 	return lp.AnalyzeFileContent(f.Path(), f.Content())
 }
 
+func (lp *LanguagePack) transformSnippets(snippets []*file.Snippet) []*file.Snippet {
+	if len(lp.SnippetTransformers) == 0 {
+		return snippets
+	}
+	for i, snippet := range snippets {
+		if transformer, has := lp.SnippetTransformers[snippet.Type]; has {
+			snippets[i] = transformer(snippet)
+		}
+	}
+	return snippets
+}
+
 func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Results {
 	start := time.Now()
 	if !lp.FileGlob.Match(path) {
 		return nil
 	}
-	snippetsForStats := analyzeFileContent(path, content, lp.Language, lp.QueriesForStats)
-	snippetsForSnippets := analyzeFileContent(path, content, lp.Language, lp.QueriesForSnippets)
+	snippetsForStats := lp.transformSnippets(analyzeFileContent(path, content, lp.Language, lp.QueriesForStats))
+	snippetsForSnippets := lp.transformSnippets(analyzeFileContent(path, content, lp.Language, lp.QueriesForSnippets))
 	allSnippets := append(snippetsForStats, snippetsForSnippets...)
 	results := &file.Results{
 		Snippets: allSnippets,

@@ -1,0 +1,77 @@
+package typescript
+
+import (
+	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/extensions/treesitter/common"
+	tree_sitter "github.com/tree-sitter/go-tree-sitter"
+	typescript "github.com/tree-sitter/tree-sitter-typescript/bindings/go"
+)
+
+type Extension struct {
+}
+
+func (e *Extension) Init(settings core.Analyzer) error {
+	settings.RegisterFileAnalyzer(createTypeScriptLanguagePack(false)) // regular typescript
+	settings.RegisterFileAnalyzer(createTypeScriptLanguagePack(true))  // TSX
+	return nil
+}
+
+func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
+	var language *tree_sitter.Language
+	var globPattern string
+
+	if isTsx {
+		language = tree_sitter.NewLanguage(typescript.LanguageTSX())
+		globPattern = "**/*.tsx"
+	} else {
+		language = tree_sitter.NewLanguage(typescript.LanguageTypescript())
+		globPattern = "**/*.{ts,mts,cts}"
+	}
+
+	template := &common.LanguagePackTemplate{
+		FileGlob: globPattern,
+		Language: language,
+		QueriesForStats: []string{
+			// Imports: capture string inside import/export statements
+			`(import_statement source: (string) @modularity__component__imports)`,
+			`(export_statement source: (string) @modularity__component__imports)`,
+			// Classes (total types)
+			`(class_declaration name: (type_identifier) @modularity__types__total)`,
+			`(abstract_class_declaration name: (type_identifier) @modularity__types__total)`,
+			// Interfaces (total types & abstract types)
+			`(interface_declaration name: (type_identifier) @modularity__types__total)`,
+			`(interface_declaration name: (type_identifier) @modularity__types__abstract)`,
+			// Abstract class declarations
+			`(abstract_class_declaration name: (type_identifier) @modularity__types__abstract)`,
+			// React Functional Components: functions starting with uppercase
+			`(function_declaration name: (identifier) @ts__react__components (#match? @ts__react__components "^[A-Z]"))`,
+			// React Arrow Components
+			`(lexical_declaration (variable_declarator name: (identifier) @ts__react__components value: (arrow_function)) (#match? @ts__react__components "^[A-Z]"))`,
+			// React Hooks
+			`(call_expression function: (identifier) @ts__react__hooks (#match? @ts__react__hooks "^use[A-Z]"))`,
+			// Angular Decorators
+			`((decorator [ (identifier) @ts__angular__components (call_expression function: (identifier) @ts__angular__components) ]) (#match? @ts__angular__components "^Component$"))`,
+			`((decorator [ (identifier) @ts__angular__services (call_expression function: (identifier) @ts__angular__services) ]) (#match? @ts__angular__services "^Injectable$"))`,
+			`((decorator [ (identifier) @ts__angular__directives (call_expression function: (identifier) @ts__angular__directives) ]) (#match? @ts__angular__directives "^Directive$"))`,
+			`((decorator [ (identifier) @ts__angular__pipes (call_expression function: (identifier) @ts__angular__pipes) ]) (#match? @ts__angular__pipes "^Pipe$"))`,
+		},
+		SnippetTransformers: map[string]func(*file.Snippet) *file.Snippet{
+			"modularity__component__imports": stripQuotes,
+		},
+	}
+
+	pack, err := common.PackFromTemplate(template)
+	if err != nil {
+		panic(err)
+	}
+	return pack
+}
+
+func stripQuotes(s *file.Snippet) *file.Snippet {
+	val := s.Value
+	if len(val) >= 2 && ((val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'') || (val[0] == '`' && val[len(val)-1] == '`')) {
+		s.Value = val[1 : len(val)-1]
+	}
+	return s
+}

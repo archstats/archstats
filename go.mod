@@ -5,10 +5,12 @@ go 1.23.0
 toolchain go1.23.4
 
 require (
+	github.com/fwcd/tree-sitter-kotlin v0.0.0-20241009173401-76f53c48d29e
 	github.com/gobwas/glob v0.2.3
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/jszwec/csvutil v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.17
+	github.com/rs/zerolog v1.33.0
 	github.com/ryanuber/columnize v2.1.2+incompatible
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/samber/lo v1.38.1
@@ -16,16 +18,17 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/tree-sitter/go-tree-sitter v0.24.0
 	github.com/tree-sitter/tree-sitter-java v0.23.4
+	github.com/tree-sitter/tree-sitter-javascript v0.23.0
+	github.com/tree-sitter/tree-sitter-python v0.23.0
+	github.com/tree-sitter/tree-sitter-typescript v0.23.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	gonum.org/v1/gonum v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/fwcd/tree-sitter-kotlin v0.0.0-20241009173401-76f53c48d29e // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/rs/zerolog v1.33.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 )
 
