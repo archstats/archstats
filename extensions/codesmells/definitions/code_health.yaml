@@ -1,5 +1,5 @@
 id: codesmells__code_health
 name: Code Health
-short_description: A rating from 1 to 10 of code health.
-long_description: A rating from 1 to 10 of code health, computed by subtracting points for size (LOC > 500), complex nesting (max indentation > 4), and deep average nesting (avg indentation > 1.5).
+short_description: A rating from 1.0 to 10.0 of structural maintainability.
+long_description: Rated on a scale of 1.0 (lowest) to 10.0 (highest). Deducts points for file size (lines > 500), max nesting depth, and average nesting depth. JavaScript/TypeScript files receive a relaxed indentation threshold, while non-code files (JSON/YAML/lockfiles/markdown) are excluded from code health analysis to prevent distortion. Component scores are aggregated using a size-weighted average to avoid masking large God Files.
 category: "Code Scene Style Code Smells"

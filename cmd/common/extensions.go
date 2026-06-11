@@ -10,6 +10,7 @@ import (
 	"github.com/archstats/archstats/extensions/git"
 	"github.com/archstats/archstats/extensions/indentations"
 	"github.com/archstats/archstats/extensions/lines"
+	"github.com/archstats/archstats/extensions/matrix"
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
 	"github.com/archstats/archstats/extensions/treesitter/java"
@@ -100,6 +101,7 @@ func AlwaysEnabled() []*config.CLIConfiguredExtension {
 		config.CreateEmptyCLIExtension("lines", lines.Extension()),
 		declbased.CLIExtension(),
 		config.CreateEmptyCLIExtension("codesmells", codesmells.Extension()),
+		config.CreateEmptyCLIExtension("matrix", matrix.Extension()),
 	}
 }
 

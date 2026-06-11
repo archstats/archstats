@@ -5,6 +5,9 @@ import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/stats"
+	"math"
+	"path/filepath"
+	"strings"
 )
 
 const (
@@ -38,8 +41,8 @@ func (e *extension) Init(settings core.Analyzer) error {
 
 	// Register accumulators
 	settings.RegisterStatAccumulator(CodeHealth, averageAccumulator)
-	settings.RegisterStatAccumulator(HotspotScore, sumAccumulator)
-	settings.RegisterStatAccumulator(BumpyRoad, sumAccumulator)
+	settings.RegisterStatAccumulator(HotspotScore, averageAccumulator)
+	settings.RegisterStatAccumulator(BumpyRoad, averageAccumulator)
 	settings.RegisterStatAccumulator(StaticComplexityScore, sumAccumulator)
 
 	return nil
@@ -51,13 +54,14 @@ type fileMetrics struct {
 	commits        int
 	maxIndentation int
 	avgIndentation float64
+	volatility     int
 }
 
 // calculatedMetrics holds the computed codesmell outputs for a single file.
 type calculatedMetrics struct {
 	codeHealth            float64
 	hotspotScore          float64
-	bumpyRoad             int
+	bumpyRoad             float64
 	staticComplexityScore float64
 }
 
@@ -89,11 +93,77 @@ func extractFileMetrics(fileStats *stats.Stats) fileMetrics {
 			m.avgIndentation = float64(i)
 		}
 	}
+	if val, exists := (*fileStats)["complexity__indentation__volatility"]; exists {
+		if i, ok := val.(int); ok {
+			m.volatility = i
+		}
+	}
 	return m
 }
 
+// getLanguageThresholds returns relaxed indentation limits for nested languages.
+func getLanguageThresholds(ext string) (maxIndentThreshold int, avgIndentThreshold float64) {
+	ext = strings.ToLower(ext)
+	switch ext {
+	case ".js", ".jsx", ".ts", ".tsx":
+		return 6, 2.5 // higher allowance for JavaScript/TypeScript due to callbacks/nested closures
+	case ".go":
+		return 4, 1.5 // Go standards
+	default:
+		return 4, 1.5 // general default
+	}
+}
+
+// isExcludedFromCodeSmells identifies non-code/configuration files to ignore.
+func isExcludedFromCodeSmells(path string) bool {
+	lowerPath := strings.ToLower(path)
+
+	// Check standard exclusions
+	exclusions := []string{
+		"node_modules/",
+		"vendor/",
+		"dist/",
+		"build/",
+		"target/",
+		".git/",
+		".github/",
+		"package-lock.json",
+		"yarn.lock",
+		"pnpm-lock.yaml",
+		"go.sum",
+		"cargo.lock",
+		"composer.lock",
+	}
+	for _, excl := range exclusions {
+		if strings.Contains(lowerPath, excl) {
+			return true
+		}
+	}
+
+	// Check file extensions to ignore
+	ext := filepath.Ext(lowerPath)
+	ignoredExts := map[string]bool{
+		".json": true,
+		".yaml": true,
+		".yml":  true,
+		".md":   true,
+		".txt":  true,
+		".lock": true,
+		".xml":  true,
+		".toml": true,
+		".ini":  true,
+		".conf": true,
+		".csv":  true,
+	}
+	if ignoredExts[ext] {
+		return true
+	}
+
+	return false
+}
+
 // calculateCodeHealth computes a 1.0–10.0 code health score.
-func calculateCodeHealth(m fileMetrics) float64 {
+func calculateCodeHealth(m fileMetrics, ext string) float64 {
 	health := 10.0
 
 	// Size deduction (God File): up to 3 points
@@ -105,9 +175,11 @@ func calculateCodeHealth(m fileMetrics) float64 {
 		health -= deduction
 	}
 
-	// Nesting deduction (Bumpy Road): up to 3 points
-	if m.maxIndentation > 4 {
-		deduction := float64(m.maxIndentation-4) * 0.5
+	maxIndentThreshold, avgIndentThreshold := getLanguageThresholds(ext)
+
+	// Nesting deduction (Max Indentation): up to 3 points
+	if m.maxIndentation > maxIndentThreshold {
+		deduction := float64(m.maxIndentation-maxIndentThreshold) * 0.5
 		if deduction > 3.0 {
 			deduction = 3.0
 		}
@@ -115,8 +187,8 @@ func calculateCodeHealth(m fileMetrics) float64 {
 	}
 
 	// Average Nesting deduction: up to 3 points
-	if m.avgIndentation > 1.5 {
-		deduction := (m.avgIndentation - 1.5) * 1.5
+	if m.avgIndentation > avgIndentThreshold {
+		deduction := (m.avgIndentation - avgIndentThreshold) * 1.5
 		if deduction > 3.0 {
 			deduction = 3.0
 		}
@@ -129,17 +201,21 @@ func calculateCodeHealth(m fileMetrics) float64 {
 	return health
 }
 
-// calculateBumpyRoad returns 1 if the file exhibits bumpy road characteristics, 0 otherwise.
-func calculateBumpyRoad(m fileMetrics) int {
-	if m.maxIndentation > 4 && m.avgIndentation > 1.5 {
-		return 1
+// calculateBumpyRoad returns the volatility per non-empty line of code.
+func calculateBumpyRoad(m fileMetrics) float64 {
+	if m.lines == 0 {
+		return 0.0
 	}
-	return 0
+	return float64(m.volatility) / float64(m.lines)
 }
 
-// calculateStaticComplexity returns lines * maxIndentation.
+// calculateStaticComplexity returns lines * (1 + avgIndentation) with capped avgIndentation.
 func calculateStaticComplexity(m fileMetrics) float64 {
-	return float64(m.lines * m.maxIndentation)
+	avg := m.avgIndentation
+	if avg > 8.0 {
+		avg = 8.0
+	}
+	return float64(m.lines) * (1.0 + avg)
 }
 
 // calculateHotspotScore normalises the raw hotspot (commits*lines) to 0–100.
@@ -160,10 +236,14 @@ func (e *extension) EditResults(results *core.Results) {
 	var maxRawHotspot float64
 
 	for file, records := range results.StatRecordsByFile {
+		if isExcludedFromCodeSmells(file) {
+			continue // skip excluded files entirely from codesmell evaluations
+		}
 		fileStats := results.Calculate(records)
 		m := extractFileMetrics(fileStats)
 
-		raw := float64(m.commits * m.lines)
+		// Log-scale commits: rawHotspot = log2(commits + 1) * lines
+		raw := math.Log2(float64(m.commits)+1.0) * float64(m.lines)
 		files[file] = &fileInfo{metrics: m, rawHotspot: raw}
 		if raw > maxRawHotspot {
 			maxRawHotspot = raw
@@ -173,7 +253,8 @@ func (e *extension) EditResults(results *core.Results) {
 	// Second pass: compute final metrics and append records
 	for file, info := range files {
 		m := info.metrics
-		health := calculateCodeHealth(m)
+		ext := filepath.Ext(file)
+		health := calculateCodeHealth(m, ext)
 		bumpyRoadVal := calculateBumpyRoad(m)
 		staticComplexity := calculateStaticComplexity(m)
 		hotspotVal := calculateHotspotScore(info.rawHotspot, maxRawHotspot, m.commits > 0)

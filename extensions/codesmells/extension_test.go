@@ -7,7 +7,7 @@ import (
 
 func TestCalculateCodeHealth_PerfectFile(t *testing.T) {
 	m := fileMetrics{lines: 100, maxIndentation: 2, avgIndentation: 1.0}
-	health := calculateCodeHealth(m)
+	health := calculateCodeHealth(m, ".go")
 	if health != 10.0 {
 		t.Errorf("Expected 10.0, got %f", health)
 	}
@@ -16,7 +16,7 @@ func TestCalculateCodeHealth_PerfectFile(t *testing.T) {
 func TestCalculateCodeHealth_GodFile(t *testing.T) {
 	// 800 lines: deduction = (800 - 500) * 0.01 = 3.0 (capped)
 	m := fileMetrics{lines: 800, maxIndentation: 2, avgIndentation: 1.0}
-	health := calculateCodeHealth(m)
+	health := calculateCodeHealth(m, ".go")
 	if health != 7.0 {
 		t.Errorf("Expected 7.0, got %f", health)
 	}
@@ -25,7 +25,7 @@ func TestCalculateCodeHealth_GodFile(t *testing.T) {
 func TestCalculateCodeHealth_DeepNesting(t *testing.T) {
 	// max indent 8: deduction = (8 - 4) * 0.5 = 2.0
 	m := fileMetrics{lines: 100, maxIndentation: 8, avgIndentation: 1.0}
-	health := calculateCodeHealth(m)
+	health := calculateCodeHealth(m, ".go")
 	if health != 8.0 {
 		t.Errorf("Expected 8.0, got %f", health)
 	}
@@ -34,9 +34,31 @@ func TestCalculateCodeHealth_DeepNesting(t *testing.T) {
 func TestCalculateCodeHealth_HighAvgNesting(t *testing.T) {
 	// avg indent 3.5: deduction = (3.5 - 1.5) * 1.5 = 3.0 (capped)
 	m := fileMetrics{lines: 100, maxIndentation: 2, avgIndentation: 3.5}
-	health := calculateCodeHealth(m)
+	health := calculateCodeHealth(m, ".go")
 	if health != 7.0 {
 		t.Errorf("Expected 7.0, got %f", health)
+	}
+}
+
+func TestCalculateCodeHealth_JavaScriptRelaxation(t *testing.T) {
+	// In JavaScript/TypeScript, max indentation up to 6 and avg up to 2.5 are allowed with 0 deductions.
+	m := fileMetrics{lines: 100, maxIndentation: 6, avgIndentation: 2.5}
+	healthJS := calculateCodeHealth(m, ".js")
+	healthTS := calculateCodeHealth(m, ".tsx")
+	healthGo := calculateCodeHealth(m, ".go")
+
+	if healthJS != 10.0 {
+		t.Errorf("Expected JS health to be 10.0, got %f", healthJS)
+	}
+	if healthTS != 10.0 {
+		t.Errorf("Expected TSX health to be 10.0, got %f", healthTS)
+	}
+	// Go should get nesting deductions:
+	// max: (6-4)*0.5 = 1.0
+	// avg: (2.5-1.5)*1.5 = 1.5
+	// total = 2.5 -> health = 7.5
+	if healthGo != 7.5 {
+		t.Errorf("Expected Go health to be 7.5, got %f", healthGo)
 	}
 }
 
@@ -46,8 +68,10 @@ func TestCalculateCodeHealth_AllDeductions(t *testing.T) {
 	// Avg nesting: (3.5 - 1.5) * 1.5 = 3.0
 	// Total deductions = 3.0 + 2.0 + 3.0 = 8.0
 	// health = 10.0 - 8.0 = 2.0
-	m := fileMetrics{lines: 1000, maxIndentation: 8, avgIndentation: 3.5}
-	health := calculateCodeHealth(m)
+	m := fileMetrics{lines: 100, maxIndentation: 8, avgIndentation: 3.5}
+	// Let's set lines to 1000 to get size deduction
+	m.lines = 1000
+	health := calculateCodeHealth(m, ".go")
 	if health != 2.0 {
 		t.Errorf("Expected 2.0, got %f", health)
 	}
@@ -60,43 +84,40 @@ func TestCalculateCodeHealth_FloorAtOne(t *testing.T) {
 	// Avg indent 100.0: (100.0-1.5)*1.5 = 147.75, capped at 3.0
 	// Total = 9.0 → health = 1.0
 	m := fileMetrics{lines: 10000, maxIndentation: 100, avgIndentation: 100.0}
-	health := calculateCodeHealth(m)
+	health := calculateCodeHealth(m, ".go")
 	if health != 1.0 {
 		t.Errorf("Expected 1.0, got %f", health)
 	}
 }
 
 func TestCalculateBumpyRoad(t *testing.T) {
-	// Both conditions met
-	m := fileMetrics{maxIndentation: 6, avgIndentation: 2.0}
-	if calculateBumpyRoad(m) != 1 {
-		t.Error("Expected bumpy road = 1")
+	// Volatility = 20, lines = 100 -> bumpy road density = 0.2
+	m := fileMetrics{lines: 100, volatility: 20}
+	bumpy := calculateBumpyRoad(m)
+	if bumpy != 0.2 {
+		t.Errorf("Expected bumpy road density 0.2, got %f", bumpy)
 	}
 
-	// Only max indentation high
-	m = fileMetrics{maxIndentation: 6, avgIndentation: 1.0}
-	if calculateBumpyRoad(m) != 0 {
-		t.Error("Expected bumpy road = 0 (avg too low)")
-	}
-
-	// Only avg indentation high
-	m = fileMetrics{maxIndentation: 3, avgIndentation: 2.0}
-	if calculateBumpyRoad(m) != 0 {
-		t.Error("Expected bumpy road = 0 (max too low)")
-	}
-
-	// Neither condition
-	m = fileMetrics{maxIndentation: 3, avgIndentation: 1.0}
-	if calculateBumpyRoad(m) != 0 {
-		t.Error("Expected bumpy road = 0")
+	// Empty file
+	m = fileMetrics{lines: 0, volatility: 20}
+	if calculateBumpyRoad(m) != 0.0 {
+		t.Error("Expected 0.0 bumpy road for zero lines")
 	}
 }
 
 func TestCalculateStaticComplexity(t *testing.T) {
-	m := fileMetrics{lines: 100, maxIndentation: 5}
+	// sc = lines * (1 + avgIndentation) = 100 * (1 + 2.5) = 350.0
+	m := fileMetrics{lines: 100, avgIndentation: 2.5}
 	sc := calculateStaticComplexity(m)
-	if sc != 500.0 {
-		t.Errorf("Expected 500.0, got %f", sc)
+	if sc != 350.0 {
+		t.Errorf("Expected 350.0, got %f", sc)
+	}
+
+	// Capping at 8.0: sc = 100 * (1 + 8) = 900.0
+	m = fileMetrics{lines: 100, avgIndentation: 12.0}
+	sc = calculateStaticComplexity(m)
+	if sc != 900.0 {
+		t.Errorf("Expected 900.0, got %f", sc)
 	}
 }
 
@@ -128,10 +149,11 @@ func TestCalculateHotspotScore(t *testing.T) {
 
 func TestExtractFileMetrics(t *testing.T) {
 	s := stats.Stats{
-		"complexity__lines":            100,
-		"complexity__indentation__max": 5,
-		"complexity__indentation__avg": 2.5,
-		"git__commits__total":                 42,
+		"complexity__lines":                  100,
+		"complexity__indentation__max":       5,
+		"complexity__indentation__avg":       2.5,
+		"complexity__indentation__volatility": 12,
+		"git__commits__total":                42,
 	}
 	m := extractFileMetrics(&s)
 	if m.lines != 100 {
@@ -145,6 +167,9 @@ func TestExtractFileMetrics(t *testing.T) {
 	}
 	if m.commits != 42 {
 		t.Errorf("Expected commits=42, got %d", m.commits)
+	}
+	if m.volatility != 12 {
+		t.Errorf("Expected volatility=12, got %d", m.volatility)
 	}
 }
 

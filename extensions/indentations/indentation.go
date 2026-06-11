@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	Max   = "complexity__indentation__max"
-	Count = "complexity__indentation__count"
-	Avg   = "complexity__indentation__avg"
+	Max        = "complexity__indentation__max"
+	Count      = "complexity__indentation__count"
+	Avg        = "complexity__indentation__avg"
+	Volatility = "complexity__indentation__volatility"
 )
 
 func FourTabs() *Extension {
@@ -53,6 +54,7 @@ func (i *Extension) Init(settings core.Analyzer) error {
 	settings.RegisterFileAnalyzer(i)
 	settings.RegisterStatAccumulator(Max, maxAccumulator)
 	settings.RegisterStatAccumulator(Avg, avgAccumulator)
+	settings.RegisterStatAccumulator(Volatility, sumAccumulator)
 	return nil
 }
 
@@ -77,6 +79,19 @@ func avgAccumulator(indentations []interface{}) interface{} {
 	return allIndentations / allLines
 }
 
+func sumAccumulator(values []interface{}) interface{} {
+	var sum int
+	for _, val := range values {
+		if val == nil {
+			continue
+		}
+		if i, ok := val.(int); ok {
+			sum += i
+		}
+	}
+	return sum
+}
+
 func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	bytesReader := bytes.NewReader(theFile.Content())
 
@@ -85,16 +100,32 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	var maxIndentations int
 	var totalIndentation int
 	var lineCount int
+	var volatility int
+	var lastIndentation int = -1
+
 	for {
 		line, err := fileReader.ReadBytes('\n')
-		lineCount++
+		if len(line) > 0 {
+			trimmed := strings.TrimSpace(string(line))
+			if trimmed != "" {
+				lineCount++
+				indentation := i.getLeadingIndentation(line)
+				totalIndentation += indentation
+				if indentation > maxIndentations {
+					maxIndentations = indentation
+				}
+				if lastIndentation != -1 {
+					diff := indentation - lastIndentation
+					if diff < 0 {
+						diff = -diff
+					}
+					volatility += diff
+				}
+				lastIndentation = indentation
+			}
+		}
 		if err != nil {
 			break
-		}
-		indentation := i.getLeadingIndentation(line)
-		totalIndentation += indentation
-		if indentation > maxIndentations {
-			maxIndentations = indentation
 		}
 	}
 
@@ -114,6 +145,10 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 					indentation: totalIndentation,
 					lines:       lineCount,
 				},
+			},
+			{
+				StatType: Volatility,
+				Value:    volatility,
 			},
 		},
 	}

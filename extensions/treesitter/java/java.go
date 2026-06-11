@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/definitions"
+	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/stats"
 	"github.com/archstats/archstats/extensions/treesitter/common"
 	"github.com/samber/lo"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	java "github.com/tree-sitter/tree-sitter-java/bindings/go"
+	"path/filepath"
 	"strings"
 )
 
@@ -25,6 +28,53 @@ func (e *Extension) typeAssert() core.Extension {
 //go:embed definitions/**
 var javaDefs embed.FS
 
+type javaAnalyzer struct {
+	lp *common.LanguagePack
+}
+
+func (ja *javaAnalyzer) AnalyzeFile(f file.File) *file.Results {
+	res := ja.lp.AnalyzeFile(f)
+	if res == nil {
+		return nil
+	}
+	// Post-process to find the package name and class name
+	var javaClass string
+	var javaPackage string
+
+	for _, snippet := range res.Snippets {
+		if snippet.Type == "modularity__component__declarations" {
+			javaPackage = snippet.Value
+		}
+		if snippet.Type == "java__type__declaration" {
+			if javaClass == "" {
+				javaClass = snippet.Value
+			}
+			base := filepath.Base(f.Path())
+			baseWithoutExt := strings.TrimSuffix(base, ".java")
+			if snippet.Value == baseWithoutExt {
+				javaClass = snippet.Value
+			}
+		}
+	}
+
+	if javaClass != "" {
+		res.Stats = append(res.Stats, &stats.Record{
+			StatType: "java_class",
+			Value:    javaClass,
+		})
+
+		javaFullClass := javaClass
+		if javaPackage != "" {
+			javaFullClass = javaPackage + "." + javaClass
+		}
+		res.Stats = append(res.Stats, &stats.Record{
+			StatType: "java_full_class",
+			Value:    javaFullClass,
+		})
+	}
+	return res
+}
+
 func (e *Extension) Init(settings core.Analyzer) error {
 	loadedDefs, err := definitions.LoadYamlFiles(javaDefs)
 	if err == nil {
@@ -32,7 +82,21 @@ func (e *Extension) Init(settings core.Analyzer) error {
 			settings.AddDefinition(def)
 		}
 	}
-	settings.RegisterFileAnalyzer(e.createJavaLanguagePack())
+	settings.RegisterStatAccumulator("java_class", stats.LastRecordStatMerger)
+	settings.RegisterStatAccumulator("java_full_class", stats.LastRecordStatMerger)
+
+	settings.RegisterFileAnalyzer(&javaAnalyzer{lp: e.createJavaLanguagePack()})
+
+	settings.RegisterView(&core.ViewFactory{
+		Name:           "java_class_connections_direct",
+		CreateViewFunc: ClassConnectionsDirectView,
+	})
+
+	settings.RegisterView(&core.ViewFactory{
+		Name:           "java_class_connections_indirect",
+		CreateViewFunc: ClassConnectionsIndirectView,
+	})
+
 	return nil
 }
 

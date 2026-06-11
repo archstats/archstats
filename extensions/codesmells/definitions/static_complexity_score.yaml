@@ -1,5 +1,5 @@
 id: codesmells__static_complexity_score
 name: Static Complexity Score
-short_description: Static complexity metric (lines * nesting).
-long_description: Calculated purely from static file analysis by multiplying file size (LOC) by maximum nesting indentation level. Used as a hotspot fallback when git historical metrics are absent.
+short_description: Structural density index derived from size and nesting.
+long_description: Measures structural complexity as Lines * (1 + averageIndentation). Capping the average indentation multiplier prevents single nested outliers from skewing the metrics, representing overall file nesting density.
 category: "Code Scene Style Code Smells"

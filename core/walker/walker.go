@@ -44,6 +44,13 @@ func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(fil
 				group.Done()
 				return
 			}
+
+			if isBinary(content) {
+				log.Debug().Msgf("Skipping binary file %s", file.Path())
+				group.Done()
+				return
+			}
+
 			openedFile := &openedFile{
 				path:    file.Path(),
 				content: content,
@@ -56,6 +63,19 @@ func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(fil
 	}
 	wg.Wait()
 	log.Debug().Msgf("Done reading %d files", len(allFiles))
+}
+
+func isBinary(content []byte) bool {
+	limit := len(content)
+	if limit > 8000 {
+		limit = 8000
+	}
+	for i := 0; i < limit; i++ {
+		if content[i] == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func GetAllFiles(dirAbsolutePath string) []PathToFile {

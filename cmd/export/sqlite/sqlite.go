@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ const (
 	FlagViews        = "views"
 	FlagExcludeViews = "exclude-views"
 	FlagReportId     = "report-id"
+	FlagStoreContent = "store-content"
 )
 
 func Cmd() *cobra.Command {
@@ -36,6 +38,10 @@ func Cmd() *cobra.Command {
 			var err error
 			commonFlags := common.GetCommonFlags(cmd)
 			reportId, err := cmd.Flags().GetString(FlagReportId)
+			if err != nil {
+				return err
+			}
+			storeContent, err := cmd.Flags().GetBool(FlagStoreContent)
 			if err != nil {
 				return err
 			}
@@ -85,6 +91,7 @@ func Cmd() *cobra.Command {
 				DatabaseName: dbPath,
 				ReportId:     reportId,
 				ScanTime:     reportDate,
+				StoreContent: storeContent,
 			}, results, viewSlice)
 
 			if err != nil {
@@ -99,6 +106,7 @@ func Cmd() *cobra.Command {
 	cmd.Flags().String(FlagReportId, "", "The report id")
 	cmd.Flags().StringSlice(FlagViews, []string{}, "The views to export")
 	cmd.Flags().StringSlice(FlagExcludeViews, []string{}, "The views to exclude from export")
+	cmd.Flags().Bool(FlagStoreContent, true, "Store file contents in the database")
 
 	return cmd
 }
@@ -140,11 +148,12 @@ func getViewsToShow(requested, excluded, possible []string) ([]string, error) {
 }
 
 type SqlOptions struct {
-	DatabaseName string
+		DatabaseName string
 
-	ReportId string
-	ScanTime time.Time
-}
+		ReportId     string
+		ScanTime     time.Time
+		StoreContent bool
+	}
 
 func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) error {
 	// check DB exists. If not, create it. If so, check tables exist.
@@ -189,6 +198,18 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 	}
 
 	err = saveMetricDefinitions(db, results, options)
+	if err != nil {
+		return err
+	}
+
+	if options.StoreContent {
+		err = saveFileContents(db, results, options)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = createIndexes(db, views)
 
 	return err
 }
@@ -436,4 +457,86 @@ func columnTypeDDL(column *core.Column) string {
 	default:
 		return "INTEGER"
 	}
+}
+
+func createIndexes(db *sql.DB, views []*core.View) error {
+	for _, view := range views {
+		switch view.Name {
+		case "snippets":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_snippets_file ON `snippets` (file)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_snippets_snippet_type ON `snippets` (snippet_type)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_snippets_component ON `snippets` (component)")
+		case "files":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_files_component ON `files` (component)")
+		case "git_commits":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_git_commits_file ON `git_commits` (file)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_git_commits_component ON `git_commits` (component)")
+		case "component_connections_direct":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_ccd_from ON `component_connections_direct` (`from`)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_ccd_to ON `component_connections_direct` (`to`)")
+		case "component_connections_indirect":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_cci_from ON `component_connections_indirect` (`from`)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_cci_to ON `component_connections_indirect` (`to`)")
+		case "git_component_shared_commits":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_gcsc_pair1 ON `git_component_shared_commits` (pair_1)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_gcsc_pair2 ON `git_component_shared_commits` (pair_2)")
+		}
+	}
+	return nil
+}
+
+func saveFileContents(db *sql.DB, results *core.Results, options *SqlOptions) error {
+	// Create table
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS file_contents (
+		file TEXT,
+		content TEXT,
+		report_id TEXT,
+		timestamp DATE,
+		PRIMARY KEY (file, report_id)
+	)`)
+	if err != nil {
+		return err
+	}
+
+	// Delete existing contents for this report_id
+	_, err = db.Exec("DELETE FROM file_contents WHERE report_id = ?", options.ReportId)
+	if err != nil {
+		return err
+	}
+
+	// Get all files from the analysis results
+	var files []string
+	for file := range results.StatRecordsByFile {
+		files = append(files, file)
+	}
+	sort.Strings(files)
+
+	// Insert in transaction for maximum speed
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`INSERT INTO file_contents (file, content, report_id, timestamp) VALUES (?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, file := range files {
+		fullPath := filepath.Join(results.RootDirectory, file)
+		contentBytes, err := os.ReadFile(fullPath)
+		if err != nil {
+			log.Warn().Err(err).Msgf("Could not read file content for DB export: %s", fullPath)
+			continue
+		}
+
+		_, err = stmt.Exec(file, string(contentBytes), options.ReportId, options.ScanTime)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
