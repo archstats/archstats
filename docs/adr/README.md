@@ -37,3 +37,4 @@ This script will:
 | 0014 | [Multi-Phase Analysis Pipeline](0014-multi-phase-analysis-pipeline.md) | Accepted | 2026-06-01 |
 | 0015 | [Dynamic CLI Configurable Extensions](0015-cli-extension-configuration.md) | Accepted | 2026-06-01 |
 
+| 0016 | [Filter Git Noise by Max Files Per Commit](0016-filter-git-noise-by-max-files-per-commit.md) | Proposed | 2026-06-14 |

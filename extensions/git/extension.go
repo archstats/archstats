@@ -63,6 +63,7 @@ func Extension() core.Extension {
 		GenerateComponentLogicalCouplingView: true,
 		GitAfter:                             "",
 		GitSince:                             "",
+		MaxChangesPerCommit:                  100,
 		BasedOn:                              time.Now(),
 	}
 }
@@ -85,6 +86,9 @@ type extension struct {
 	GitAfter string
 	// Passed to `git log --since`
 	GitSince string
+
+	// Filter out commits that modify more than this number of files
+	MaxChangesPerCommit int
 
 	// What is the base date for the stats? If this is set, the aggregated time stats will be relative to this date.
 	BasedOn time.Time
@@ -246,7 +250,22 @@ func (e *extension) Init(settings core.Analyzer) error {
 	if err != nil {
 		return err
 	}
-	e.commitParts = lo.FlatMap(rawCommits, func(commit *rawCommit, index int) []*commits.PartOfCommit {
+	var filteredCommits []*rawCommit
+	var excludedCount int
+	for _, commit := range rawCommits {
+		if e.MaxChangesPerCommit > 0 && len(commit.Files) > e.MaxChangesPerCommit {
+			log.Debug().Msgf("Skipped noisy commit %s (%d files changed): %s", commit.Hash, len(commit.Files), commit.Message)
+			excludedCount++
+			continue
+		}
+		filteredCommits = append(filteredCommits, commit)
+	}
+
+	if excludedCount > 0 {
+		log.Info().Msgf("Excluded %d noisy commits (modifying > %d files) out of %d total commits", excludedCount, e.MaxChangesPerCommit, len(rawCommits))
+	}
+
+	e.commitParts = lo.FlatMap(filteredCommits, func(commit *rawCommit, index int) []*commits.PartOfCommit {
 		return gitCommitToPartOfCommit(settings.RootPath(), commit)
 	})
 	e.splittedCommits = commits.Split(e.BasedOn, e.DayBuckets, e.commitParts)

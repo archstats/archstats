@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	GitSince = "git-since"
-	GitAfter = "git-after"
+	GitSince               = "git-since"
+	GitAfter               = "git-after"
+	GitMaxChangesPerCommit = "git-max-changes-per-commit"
 )
 
 func CLIExtension() *config.CLIConfiguredExtension {
@@ -28,6 +29,12 @@ func CLIExtension() *config.CLIConfiguredExtension {
 				Required:    false,
 				Type:        config.String,
 			},
+			GitMaxChangesPerCommit: {
+				Default:     100,
+				Description: "Filter out commits that modify more than this number of files (0 to disable)",
+				Required:    false,
+				Type:        config.Int,
+			},
 		},
 		Initializer: Init,
 	}
@@ -42,9 +49,14 @@ func Init(command *cobra.Command) (core.Extension, error) {
 	if err != nil {
 		return nil, err
 	}
+	gitMaxChanges, err := command.Flags().GetInt(GitMaxChangesPerCommit)
+	if err != nil {
+		return nil, err
+	}
 
 	ext := Extension().(*extension)
 	ext.GitSince = gitSince
 	ext.GitAfter = gitAfter
+	ext.MaxChangesPerCommit = gitMaxChanges
 	return ext, nil
 }
