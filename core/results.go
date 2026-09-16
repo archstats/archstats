@@ -180,11 +180,11 @@ func (r *Results) GetDefinition(str string) *definitions2.Definition {
 	return r.definitions[str]
 }
 
-func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) []*file.Results {
+func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) ([]*file.Results, error) {
 	var allFileResults []*file.Results
 
 	lock := sync.Mutex{}
-	walker.WalkDirectoryConcurrently(rootPath, func(theFile file.File) {
+	err := walker.WalkDirectoryConcurrently(rootPath, func(theFile file.File) {
 		var currentFileResultsToMerge []*file.Results
 		for _, provider := range fileAnalyzers {
 			analyzeFile := provider.AnalyzeFile(theFile)
@@ -200,7 +200,10 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) []*file.Re
 		allFileResults = append(allFileResults, currentFileResults)
 		lock.Unlock()
 	})
-	return allFileResults
+	if err != nil {
+		return nil, err
+	}
+	return allFileResults, nil
 }
 
 func mergeFileResults(results []*file.Results) *file.Results {

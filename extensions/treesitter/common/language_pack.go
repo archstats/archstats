@@ -103,8 +103,18 @@ func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Re
 	if !lp.FileGlob.Match(path) {
 		return nil
 	}
-	snippetsForStats := lp.transformSnippets(analyzeFileContent(path, content, lp.Language, lp.QueriesForStats))
-	snippetsForSnippets := lp.transformSnippets(analyzeFileContent(path, content, lp.Language, lp.QueriesForSnippets))
+	rawSnippetsForStats, err := analyzeFileContent(path, content, lp.Language, lp.QueriesForStats)
+	if err != nil {
+		log.Warn().Err(err).Msgf("[treesitter] Skipping file %s", path)
+		return nil
+	}
+	rawSnippetsForSnippets, err := analyzeFileContent(path, content, lp.Language, lp.QueriesForSnippets)
+	if err != nil {
+		log.Warn().Err(err).Msgf("[treesitter] Skipping file %s", path)
+		return nil
+	}
+	snippetsForStats := lp.transformSnippets(rawSnippetsForStats)
+	snippetsForSnippets := lp.transformSnippets(rawSnippetsForSnippets)
 	allSnippets := append(snippetsForStats, snippetsForSnippets...)
 	results := &file.Results{
 		Snippets: allSnippets,
@@ -119,12 +129,12 @@ func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Re
 	return results
 }
 
-func analyzeFileContent(filePath string, content []byte, language *sitter.Language, queries []*sitter.Query) []*file.Snippet {
+func analyzeFileContent(filePath string, content []byte, language *sitter.Language, queries []*sitter.Query) ([]*file.Snippet, error) {
 	parser := sitter.NewParser()
 
 	err := parser.SetLanguage(language)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	tree := parser.ParseCtx(context.Background(), content, nil)
 	var snippetsToReturn []*file.Snippet
@@ -132,7 +142,7 @@ func analyzeFileContent(filePath string, content []byte, language *sitter.Langua
 		snippets := execQuery(filePath, qr, tree, content)
 		snippetsToReturn = append(snippetsToReturn, snippets...)
 	}
-	return snippetsToReturn
+	return snippetsToReturn, nil
 }
 
 func execQuery(filePath string, query *sitter.Query, ctx *sitter.Tree, content []byte) []*file.Snippet {

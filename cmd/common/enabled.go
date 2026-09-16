@@ -44,7 +44,10 @@ func GetEnabledExtensions(cmd *cobra.Command) ([]*config.CLIConfiguredExtension,
 	rootDir, _ = filepath.Abs(rootDir)
 
 	// Recursively get all unignored files using the existing walker
-	unignoredFiles := walker.GetAllFiles(rootDir)
+	unignoredFiles, err := walker.GetAllFiles(rootDir)
+	if err != nil {
+		return nil, err
+	}
 	var filePaths []string
 	for _, f := range unignoredFiles {
 		filePaths = append(filePaths, f.Path())

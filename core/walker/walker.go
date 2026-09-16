@@ -1,6 +1,7 @@
 package walker
 
 import (
+	"fmt"
 	"github.com/archstats/archstats/core/file"
 	"github.com/rs/zerolog/log"
 	"io/fs"
@@ -11,11 +12,15 @@ import (
 	"time"
 )
 
-func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file file.File)) {
+func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file file.File)) error {
 	dirFS := os.DirFS(dirAbsolutePath).(fs.ReadFileFS)
 
-	allFiles := GetAllFiles(dirAbsolutePath)
+	allFiles, err := GetAllFiles(dirAbsolutePath)
+	if err != nil {
+		return err
+	}
 	WalkFiles(dirFS, allFiles, visitor)
+	return nil
 }
 
 // maxWorkers returns a bounded concurrency limit: min(runtime.NumCPU()*2, 32).
@@ -35,19 +40,24 @@ func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(fil
 	for _, theFile := range allFiles {
 		sem <- struct{}{} // acquire slot
 		go func(file PathToFile, group *sync.WaitGroup) {
+			defer group.Done()
 			defer func() { <-sem }() // release slot
+			defer func() {
+				// Safety net: a panicking visitor (e.g. an extension) must not kill the process.
+				if r := recover(); r != nil {
+					log.Warn().Msgf("Recovered from panic while processing %s, skipping file: %v", file.Path(), r)
+				}
+			}()
 			start := time.Now()
 			content, err := fileSystem.ReadFile(filepath.Clean(file.Path()))
 
 			if err != nil {
 				log.Warn().Err(err).Msgf("Skipping unreadable file %s", file.Path())
-				group.Done()
 				return
 			}
 
 			if isBinary(content) {
 				log.Debug().Msgf("Skipping binary file %s", file.Path())
-				group.Done()
 				return
 			}
 
@@ -58,7 +68,6 @@ func WalkFiles(fileSystem fs.ReadFileFS, allFiles []PathToFile, visitor func(fil
 
 			visitor(openedFile)
 			log.Debug().Msgf("Finished reading %s in %s", file.Path(), time.Since(start))
-			group.Done()
 		}(theFile, wg)
 	}
 	wg.Wait()
@@ -78,14 +87,17 @@ func isBinary(content []byte) bool {
 	return false
 }
 
-func GetAllFiles(dirAbsolutePath string) []PathToFile {
+func GetAllFiles(dirAbsolutePath string) ([]PathToFile, error) {
 	log.Debug().Msgf("Finding unignored files in %s", dirAbsolutePath)
 
-	files := getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, ignoreContext{})
+	files, err := getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, ignoreContext{})
+	if err != nil {
+		return nil, fmt.Errorf("error reading root directory %s: %w", dirAbsolutePath, err)
+	}
 
 	log.Debug().Msgf("Found %d files, %d files/directories ignored ", len(files.FoundFiles), len(files.IgnoredFiles))
 
-	return files.FoundFiles
+	return files.FoundFiles, nil
 }
 
 type FileResults struct {
@@ -93,7 +105,7 @@ type FileResults struct {
 	IgnoredFiles []string
 }
 
-func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ignoreCtx ignoreContext) *FileResults {
+func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ignoreCtx ignoreContext) (*FileResults, error) {
 	separator := "/"
 
 	dirAbsolutePath = filepath.Clean(dirAbsolutePath)
@@ -102,7 +114,12 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 
 	files, err := fileSystem.ReadDir(dirAbsolutePath)
 	if err != nil {
-		log.Fatal().Err(err).Msgf("Error reading directory %s", dirAbsolutePath)
+		if depth == 0 {
+			// An unreadable root is an error the caller should see.
+			return nil, err
+		}
+		log.Warn().Err(err).Msgf("Skipping unreadable directory %s", dirAbsolutePath)
+		return &FileResults{}, nil
 	}
 
 	ignoreCtx.addIgnoreLines(fileSystem, dirAbsolutePath, files)
@@ -117,7 +134,7 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 				ignoredFiles = append(ignoredFiles, path)
 				continue
 			}
-			allFiles := getAllFiles(fileSystem, path, depth+1, ignoreCtx)
+			allFiles, _ := getAllFiles(fileSystem, path, depth+1, ignoreCtx) // never errors at depth > 0
 			foundFiles = append(foundFiles, allFiles.FoundFiles...)
 			ignoredFiles = append(ignoredFiles, allFiles.IgnoredFiles...)
 		} else {
@@ -132,14 +149,14 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 					info: info,
 				})
 			} else {
-				log.Fatal().Err(err).Msgf("Error getting file info for %s", path)
+				log.Warn().Err(err).Msgf("Skipping file %s, error getting file info", path)
 			}
 		}
 	}
 	return &FileResults{
 		FoundFiles:   foundFiles,
 		IgnoredFiles: ignoredFiles,
-	}
+	}, nil
 }
 
 type PathToFile interface {

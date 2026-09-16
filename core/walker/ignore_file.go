@@ -3,6 +3,7 @@ package walker
 import (
 	"bufio"
 	ignore "github.com/sabhiram/go-gitignore"
+	"github.com/rs/zerolog/log"
 	"io/fs"
 	filepath "path"
 
@@ -43,7 +44,8 @@ func getIgnoreLinesInFile(fileSystem fs.FS, path string, fileInfo fs.DirEntry) [
 	fullPath := filepath.Clean(path + "/" + fileInfo.Name())
 	file, err := fileSystem.Open(fullPath)
 	if err != nil {
-		panic(err)
+		log.Warn().Err(err).Msgf("Skipping unreadable ignore file %s", fullPath)
+		return nil
 	}
 
 	defer file.Close()

@@ -82,7 +82,10 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 	}
 
 	// Get Snippets and Stats from the files
-	fileResults := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers)
+	fileResults, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers)
+	if err != nil {
+		return nil, err
+	}
 	log.Debug().Msgf("Finished collecting individual file results")
 
 	// Edit file results
