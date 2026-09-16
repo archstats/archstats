@@ -1,41 +1,123 @@
 name: Release Archstats
+
+# Two entry points:
+#   - Publishing a GitHub Release (tag vX.Y.Z) builds every target, smoke-tests
+#     the binaries, and uploads the archives + a SHA-256 checksums.txt to it.
+#   - workflow_dispatch does the same build + smoke test and only uploads
+#     workflow artifacts — for verifying the pipeline without cutting a release.
 on:
   release:
-    types: [ published ]
+    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: write
-  packages: write
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  get-version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get-version.outputs.version }}
-    steps:
-      - id: get-version
-        name: Get version
-        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
-
-  releases:
-    name: ${{ matrix.goos }} ${{ matrix.goarch }} ${{ needs.get-version.outputs.version }}
-    uses: ./.github/workflows/build.yml
-    needs:
-      - get-version
+  build:
+    name: ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { goos: "linux", goarch: "386", runson: "ubuntu-latest" }
-          - { goos: "linux", goarch: "amd64", runson: "ubuntu-latest" }
-          - { goos: "linux", goarch: "arm64", runson: "ubuntu-latest" }
-          - { goos: "windows", goarch: "386", runson: "ubuntu-latest" }
-          - { goos: "windows", goarch: "amd64", runson: "ubuntu-latest" }
-          - { goos: "darwin", goarch: "amd64", runson: "macos-latest" }
-          - { goos: "darwin", goarch: "arm64", runson: "macos-latest" }
-    with:
-      goarch: ${{ matrix.goarch }}
-      goos: ${{ matrix.goos }}
-      package-name: archstats
-      version: ${{ needs.get-version.outputs.version }}
-      runson: ${{ matrix.runson }}
+          # Every target builds NATIVELY on its own OS: tree-sitter and
+          # go-sqlite3 are cgo, and native builds are the only ones we can
+          # actually run a smoke test against.
+          - { goos: linux,   goarch: amd64, runner: ubuntu-latest,   smoke: true }
+          - { goos: linux,   goarch: arm64, runner: ubuntu-24.04-arm, smoke: true }
+          - { goos: windows, goarch: amd64, runner: windows-latest,  smoke: true }
+          - { goos: darwin,  goarch: arm64, runner: macos-latest,    smoke: true }
+          # Built on the arm64 mac via clang's cross-arch support; not smoke
+          # tested (would need Rosetta on the runner).
+          - { goos: darwin,  goarch: amd64, runner: macos-latest,    smoke: false }
+    env:
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            version="${{ github.event.release.tag_name }}"
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          echo "$version" > version/VERSION
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Building $version for $GOOS/$GOARCH"
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          ext=""
+          [ "$GOOS" = "windows" ] && ext=".exe"
+          go build -trimpath -ldflags="-s -w" -o "dist/archstats${ext}" .
+          ls -la dist
+
+      - name: Smoke test
+        if: matrix.smoke
+        run: |
+          ext=""
+          [ "$GOOS" = "windows" ] && ext=".exe"
+          bin="./dist/archstats${ext}"
+          "$bin" --version
+          # Exercise the cgo path end to end: tree-sitter parsing + sqlite export.
+          "$bin" view files -f e2eTest/simple_components
+          "$bin" export sqlite smoke.db -f e2eTest/simple_components
+          test -s smoke.db
+
+      - name: Package
+        id: package
+        run: |
+          name="archstats-${{ steps.version.outputs.version }}-${GOOS}-${GOARCH}"
+          mkdir -p out
+          if [ "$GOOS" = "windows" ]; then
+            7z a "out/${name}.zip" ./dist/archstats.exe
+            echo "file=${name}.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar -czf "out/${name}.tar.gz" -C dist archstats
+            echo "file=${name}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.file }}
+          path: out/${{ steps.package.outputs.file }}
+          if-no-files-found: error
+
+  publish:
+    name: Upload to release
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd out
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" out/* \
+            --repo "${{ github.repository }}" --clobber
