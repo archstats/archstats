@@ -9,6 +9,9 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  schedule:
+    # Weekly canary: catches runner-image drift before release day.
+    - cron: "23 6 * * 1"
 
 permissions:
   contents: write
@@ -85,11 +88,31 @@ jobs:
           name="archstats-${{ steps.version.outputs.version }}-${GOOS}-${GOARCH}"
           mkdir -p out
           if [ "$GOOS" = "windows" ]; then
-            7z a "out/${name}.zip" ./dist/archstats.exe
+            (cd dist && 7z a "../out/${name}.zip" archstats.exe)
             echo "file=${name}.zip" >> "$GITHUB_OUTPUT"
           else
             tar -czf "out/${name}.tar.gz" -C dist archstats
             echo "file=${name}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Verify the ARCHIVE, not the build dir: extract into a clean directory
+      # and run the smoke suite from the extracted binary.
+      - name: Verify package
+        run: |
+          tmp=$(mktemp -d)
+          if [ "$GOOS" = "windows" ]; then
+            7z x "out/${{ steps.package.outputs.file }}" -o"$tmp" >/dev/null
+            bin="$tmp/archstats.exe"
+          else
+            tar -xzf "out/${{ steps.package.outputs.file }}" -C "$tmp"
+            bin="$tmp/archstats"
+          fi
+          test -x "$bin"
+          if [ "${{ matrix.smoke }}" = "true" ]; then
+            "$bin" --version | grep -q "${{ steps.version.outputs.version }}"
+            "$bin" view files -f e2eTest/simple_components >/dev/null
+            "$bin" export sqlite "$tmp/smoke.db" -f e2eTest/simple_components >/dev/null
+            test -s "$tmp/smoke.db"
           fi
 
       - uses: actions/upload-artifact@v4
@@ -112,7 +135,7 @@ jobs:
       - name: Checksums
         run: |
           cd out
-          sha256sum * > checksums.txt
+          sha256sum -- * > checksums.txt
           cat checksums.txt
 
       - name: Upload release assets
