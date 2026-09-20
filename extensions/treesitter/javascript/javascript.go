@@ -25,6 +25,18 @@ func createJavaScriptLanguagePack() *common.LanguagePack {
 			// Imports: capture string inside import/export statements
 			`(import_statement source: (string) @modularity__component__imports)`,
 			`(export_statement source: (string) @modularity__component__imports)`,
+			// CommonJS and dynamic imports. An enormous amount of real
+			// JavaScript never writes the word `import`: express, at the
+			// commit these tests pin, has 66 `require()` calls and zero ESM
+			// imports, so matching only `import_statement` reported it as a
+			// codebase with no dependencies at all.
+			`((call_expression
+				function: (identifier) @_require
+				arguments: (arguments (string) @modularity__component__imports))
+			  (#eq? @_require "require"))`,
+			`(call_expression
+				function: (import)
+				arguments: (arguments (string) @modularity__component__imports))`,
 			// Classes (total types)
 			`(class_declaration name: (identifier) @modularity__types__total)`,
 			// React Functional Components: functions starting with uppercase
