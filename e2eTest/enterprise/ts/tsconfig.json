@@ -1,0 +1,12 @@
+{
+  // tsconfig is JSON with comments, which is why the reader strips them.
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["apps/web/src/app/*"],
+      "@acme/shared": ["packages/shared/src/index.ts"],
+      "@acme/ui/*": ["packages/ui/src/*"],
+      "*": ["node_modules/*"],
+    }
+  }
+}
