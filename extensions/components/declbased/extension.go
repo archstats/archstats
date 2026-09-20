@@ -17,7 +17,16 @@ func CLIExtension() *config.CLIConfiguredExtension {
 		Description: "Component linker based on code declarations or directory layouts",
 		Arguments: config.Arguments{
 			ComponentStrategy: {
-				Default:     "declared",
+				// A language pack already decides for itself how its files
+				// resolve: those with a declarations query (Java, C#, Kotlin)
+				// read the declaration, and those without one (Python,
+				// JavaScript, TypeScript) use the directory, because in those
+				// languages the directory IS the module. Defaulting to
+				// "declared" overrode that and filed every file of a Python,
+				// JS or TS project under a single "Unknown". "fallback" is
+				// the same rule the packs state: measured on real projects it
+				// is identical to "declared" wherever declarations exist.
+				Default:     "fallback",
 				Description: "Component resolution strategy: declared (only declarations, fallback to Unknown), directory (every directory is a component), or fallback (declarations if present, fallback to directory)",
 				Required:    false,
 				Type:        config.String,
@@ -47,6 +56,11 @@ type requiredExtensions struct {
 }
 
 func (r *requiredExtensions) Init(settings core.Analyzer) error {
-	settings.RegisterFileResultsEditor(&componentLinker{Strategy: r.Strategy})
+	// What the project calls its own packages, read from its manifests rather
+	// than guessed at from directory names.
+	settings.RegisterFileResultsEditor(&componentLinker{
+		Strategy: r.Strategy,
+		aliases:  readAliases(settings.RootPath()),
+	})
 	return nil
 }

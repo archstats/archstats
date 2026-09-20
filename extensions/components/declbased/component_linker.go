@@ -11,6 +11,7 @@ import (
 
 type componentLinker struct {
 	Strategy string
+	aliases  *aliasMap
 }
 
 func (c *componentLinker) Init(settings core.Analyzer) error {
@@ -87,10 +88,36 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 
 		for _, snippet := range allSnippets {
 			if snippet.Type == file.ComponentImport {
+				// The project's own vocabulary first. Only when nothing claims
+				// the name is it worth guessing from the shape of the tree.
+				if c.aliases != nil {
+					if resolved := c.aliases.resolve(snippet.Value, fileDirs); resolved != "" {
+						snippet.Value = resolved
+						continue
+					}
+				}
 				snippet.Value = resolveImport(fileDirs[snippet.File], snippet.Value, fileDirs, declaredComponents)
 			}
 		}
 	}
+}
+
+// shortestDirEndingIn finds the directory a path names, wherever the import
+// root happens to sit in the tree. The shortest wins: between `src/acme/db`
+// and `vendor/other/src/acme/db`, the first is the one the code means.
+func shortestDirEndingIn(path string, fileDirs map[string]string) string {
+	if path == "" || path == "." || path == "/" {
+		return ""
+	}
+	best := ""
+	for _, dir := range fileDirs {
+		if dir == path || strings.HasSuffix(dir, "/"+path) {
+			if best == "" || len(dir) < len(best) {
+				best = dir
+			}
+		}
+	}
+	return best
 }
 
 func resolveImport(importingFileDir, importValue string, fileDirs map[string]string, declaredComponents map[string]bool) string {
@@ -216,16 +243,23 @@ func resolveImport(importingFileDir, importValue string, fileDirs map[string]str
 		slashed := strings.ReplaceAll(importValue, ".", "/")
 		slashed = strings.ReplaceAll(slashed, "\\", "/")
 
-		// If the slashed directory itself exists in fileDirs, return it
-		for _, dir := range fileDirs {
-			if slashed == dir {
-				return slashed
-			}
+		// An absolute import names the package from the root of the import
+		// path, which is almost never the root of the repository: `src/`
+		// layouts, `app/`, a monorepo package folder. Matched by equality
+		// alone, `acme.billing` failed to find `src/acme/billing` and every
+		// absolute intra-package import in a modern Python project was lost.
+		// The shortest match wins, so a vendored copy deeper in the tree
+		// cannot outrank the real one.
+		if best := shortestDirEndingIn(slashed, fileDirs); best != "" {
+			return best
 		}
 
-		// If it's a file inside a known directory, resolve to its containing directory
 		parentDir := filepath.Dir(slashed)
 		parentDir = strings.ReplaceAll(parentDir, "\\", "/")
+		if best := shortestDirEndingIn(parentDir, fileDirs); best != "" {
+			return best
+		}
+
 		for _, dir := range fileDirs {
 			if parentDir == dir {
 				return parentDir
