@@ -200,3 +200,32 @@ func createJavaLanguagePack() *common.LanguagePack {
 	extension := &Extension{IgnoreCommonJavaImports: false}
 	return extension.createJavaLanguagePack()
 }
+
+func TestFrameworkFacts(t *testing.T) {
+	pack := createJavaLanguagePack()
+
+	fileName := "TestFramework.java"
+	fileRaw, err := os.ReadFile(fileName)
+	if err != nil {
+		t.Error(err)
+	}
+	results := pack.AnalyzeFileContent(fileName, fileRaw)
+
+	annotations := snippetContents(results.Snippets, "java__class__annotation")
+	assert.ElementsMatch(t, []string{"Path", "Singleton"}, annotations)
+
+	extends := snippetContents(results.Snippets, "java__class__extends")
+	assert.ElementsMatch(t, []string{"PTransform", "DoFn"}, extends)
+
+	implements := snippetContents(results.Snippets, "java__class__implements")
+	assert.ElementsMatch(t, []string{"Serializable", "Comparable", "PipelineOptions", "Runnable"}, implements)
+}
+
+func snippetContents(snippets []*file.Snippet, snippetType string) []string {
+	return lo.FilterMap(snippets, func(s *file.Snippet, _ int) (string, bool) {
+		if s.Type != snippetType {
+			return "", false
+		}
+		return s.Value, true
+	})
+}

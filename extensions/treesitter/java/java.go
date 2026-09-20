@@ -117,6 +117,7 @@ func (e *Extension) createJavaLanguagePack() *common.LanguagePack {
 	allQueriesForSnippets = append(allQueriesForSnippets, springQueriesForSnippets()...)
 	allQueriesForSnippets = append(allQueriesForSnippets, jpaQueriesForSnippets()...)
 	allQueriesForSnippets = append(allQueriesForSnippets, javaQueriesForSnippets(ignoreList)...)
+	allQueriesForSnippets = append(allQueriesForSnippets, javaFrameworkFactQueries()...)
 
 	allQueriesForSnippets = append(allQueriesForSnippets, e.ExtraQueries...)
 
@@ -173,6 +174,59 @@ func springQueriesForSnippets() []string {
 		createQueryForClassAnnotationReferringBackToName("java__spring__component", "^Component$"),
 		createQueryForClassAnnotationReferringBackToName("java__spring__configuration", "^Configuration$"),
 		createQueryForClassAnnotationReferringBackToName("java__spring__bean", "^(Component|Service|Repository|Controller|RestController|Configuration)$"),
+	}
+}
+
+// Framework-neutral facts about every type: which annotations sit on it, what
+// it extends and what it implements. The UI maps these to roles per framework
+// (Spring, Jakarta EE, Apache Beam, …) without the engine knowing any of them.
+// The snippet content is the simple name of the annotation or type.
+func javaFrameworkFactQueries() []string {
+	return []string{
+		`
+(class_declaration (modifiers [
+	(annotation name: (identifier) @java__class__annotation)
+	(marker_annotation name: (identifier) @java__class__annotation)
+]))
+(interface_declaration (modifiers [
+	(annotation name: (identifier) @java__class__annotation)
+	(marker_annotation name: (identifier) @java__class__annotation)
+]))
+(record_declaration (modifiers [
+	(annotation name: (identifier) @java__class__annotation)
+	(marker_annotation name: (identifier) @java__class__annotation)
+]))
+(enum_declaration (modifiers [
+	(annotation name: (identifier) @java__class__annotation)
+	(marker_annotation name: (identifier) @java__class__annotation)
+]))
+`,
+		`
+(class_declaration (superclass [
+	(type_identifier) @java__class__extends
+	(generic_type (type_identifier) @java__class__extends)
+	(scoped_type_identifier (type_identifier) @java__class__extends)
+	(generic_type (scoped_type_identifier (type_identifier) @java__class__extends))
+]))
+`,
+		`
+(class_declaration (super_interfaces (type_list [
+	(type_identifier) @java__class__implements
+	(generic_type (type_identifier) @java__class__implements)
+	(scoped_type_identifier (type_identifier) @java__class__implements)
+	(generic_type (scoped_type_identifier (type_identifier) @java__class__implements))
+])))
+(interface_declaration (extends_interfaces (type_list [
+	(type_identifier) @java__class__implements
+	(generic_type (type_identifier) @java__class__implements)
+	(scoped_type_identifier (type_identifier) @java__class__implements)
+	(generic_type (scoped_type_identifier (type_identifier) @java__class__implements))
+])))
+(record_declaration (super_interfaces (type_list [
+	(type_identifier) @java__class__implements
+	(generic_type (type_identifier) @java__class__implements)
+])))
+`,
 	}
 }
 
