@@ -44,17 +44,21 @@ func EnsureCloned(repo, commit string) (*Repo, error) {
 		}
 	}
 
-	// Some servers refuse to serve an arbitrary commit; fall back to a
-	// shallow clone of the default branch and check the commit out of that.
+	// Fetching one commit by name needs its full forty characters, and the
+	// server has to be willing to serve it. Neither holds for every pin, so
+	// the fallback fetches the history rather than a slice of it: a depth
+	// limit silently excludes an older commit, and checking out whatever came
+	// back instead would test the wrong tree.
 	if err := run(repoLocation, "fetch", "--depth", "1", "-q", "origin", commit); err != nil {
-		if err := run(repoLocation, "fetch", "--depth", "50", "-q", "origin"); err != nil {
+		if err := run(repoLocation, "fetch", "-q", "origin"); err != nil {
 			return nil, fmt.Errorf("fetching %s: %w", repo, err)
 		}
 	}
+	// Never fall back to whatever the fetch happened to bring: a test pinned
+	// to a commit that reports against a different one is worse than a test
+	// that fails to set itself up.
 	if err := run(repoLocation, "checkout", "-q", commit); err != nil {
-		if err := run(repoLocation, "checkout", "-q", "FETCH_HEAD"); err != nil {
-			return nil, fmt.Errorf("checking out %s of %s: %w", commit, repo, err)
-		}
+		return nil, fmt.Errorf("checking out %s of %s: %w", commit, repo, err)
 	}
 
 	return &Repo{Location: repoLocation, URL: repo}, nil

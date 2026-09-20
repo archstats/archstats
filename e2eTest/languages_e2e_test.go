@@ -51,7 +51,7 @@ var languageFixtures = []languageFixture{
 	{
 		name:           "java",
 		repo:           "https://github.com/RyanSusana/elepy",
-		commit:         "83d3069",
+		commit:         "83d3069d4f8c7136d8b2676fa1b186294a402a84",
 		wantComponents: []string{"com.elepy", "com.elepy.annotations"},
 		minComponents:  30,
 		minCoupling:    50,
