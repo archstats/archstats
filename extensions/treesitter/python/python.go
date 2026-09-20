@@ -23,6 +23,11 @@ func createPythonLanguagePack() *common.LanguagePack {
 		QueriesForStats: []string{
 			// Imports: capture dotted name or relative import
 			`(import_statement name: (dotted_name) @modularity__component__imports)`,
+			// `import acme.shared.log as slog`. The alias wraps the name, so
+			// a query for a bare dotted_name under import_statement walks
+			// straight past it, and every aliased import in a codebase went
+			// unseen.
+			`(import_statement name: (aliased_import name: (dotted_name) @modularity__component__imports))`,
 			`(import_from_statement module_name: (dotted_name) @modularity__component__imports)`,
 			`(import_from_statement module_name: (relative_import) @modularity__component__imports)`,
 			// Classes (total types)
