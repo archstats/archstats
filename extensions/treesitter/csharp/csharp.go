@@ -20,7 +20,14 @@ func createCSharpLanguagePack() *common.LanguagePack {
 		FileGlob: "**.cs",
 		Language: language,
 		QueriesForStats: []string{
+			// Both ways C# spells a namespace. The file-scoped form —
+			// `namespace Nop.Services.Catalog;` with no block — is a
+			// different node, not a variation of the first, and it is what
+			// every .NET 6+ project template emits. Matching only the block
+			// form filed a whole modern codebase under "Unknown".
 			`(namespace_declaration
+				 name: ([(qualified_name) (identifier)]) @modularity__component__declarations)
+			 (file_scoped_namespace_declaration
 				 name: ([(qualified_name) (identifier)]) @modularity__component__declarations)`,
 			`
 ((interface_declaration name: (identifier) @modularity__types__abstract))

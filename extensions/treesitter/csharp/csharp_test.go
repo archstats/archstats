@@ -59,3 +59,30 @@ func assertSnippetCount(t *testing.T, snippets []*file.Snippet, snippetType stri
 	})
 	assert.Len(t, actual, expected)
 }
+
+// A file-scoped namespace is a different node from a block-scoped one, so a
+// query written for `namespace X { }` finds nothing in a codebase written in
+// the style every .NET 6+ project template uses. Importing nopCommerce that
+// way produced five components for thousands of files.
+func TestFileScopedNamespace(t *testing.T) {
+	pack := createCSharpLanguagePack()
+
+	fileRaw, err := os.ReadFile("TestFileScoped.cs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := pack.AnalyzeFileContent("TestFileScoped.cs", fileRaw)
+
+	assert.Equal(t, "Nop.Services.Catalog", results.Component)
+	for _, snippet := range results.Snippets {
+		assert.Equal(t, "Nop.Services.Catalog", snippet.Component)
+	}
+
+	imports := lo.Map(lo.Filter(results.Snippets, func(s *file.Snippet, _ int) bool {
+		return s.Type == "modularity__component__imports"
+	}), func(s *file.Snippet, _ int) string { return s.Value })
+	assert.ElementsMatch(t, []string{
+		"System.Text", "System", "System.Collections.Generic",
+		"Nop.Core.Domain.Catalog", "System.Math", "Nop.Core.Domain.Catalog",
+	}, imports)
+}
