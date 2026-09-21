@@ -10,6 +10,25 @@ import (
 
 type Cycle []string
 
+// Components returns each component of the cycle exactly once.
+//
+// A Cycle closes its loop by repeating its first element at the end, so
+// ranging over the slice directly visits the component the cycle starts at
+// twice. Anything counting components, rather than path positions, wants
+// this.
+func (c Cycle) Components() []string {
+	seen := make(map[string]bool, len(c))
+	components := make([]string, 0, len(c))
+	for _, cmpnt := range c {
+		if seen[cmpnt] {
+			continue
+		}
+		seen[cmpnt] = true
+		components = append(components, cmpnt)
+	}
+	return components
+}
+
 func shortestCycles(theGraph *Graph) map[string]Cycle {
 	groups := topo.TarjanSCC(theGraph)
 

@@ -176,10 +176,10 @@ func MainView(results *core.Results) *core.View {
 		}
 		efferentCouplings, afferentCouplings := componentInGraphMetrics.EfferentCouplings, componentInGraphMetrics.AfferentCouplings
 		instability := math.Max(0, math.Min(1, float64(efferentCouplings)/float64(afferentCouplings+efferentCouplings)))
-		distanceMainSequence := math.Abs(util.NanToZero(abstractness) + util.NanToZero(instability) - 1)
-		row.Data[Instability] = util.NanToZero(instability)
+		distanceMainSequence := math.Abs(util.FiniteOrZero(abstractness) + util.FiniteOrZero(instability) - 1)
+		row.Data[Instability] = util.FiniteOrZero(instability)
 		row.Data[Abstractness] = abstractness
-		row.Data[DistanceMainSequence] = util.NanToZero(distanceMainSequence)
+		row.Data[DistanceMainSequence] = util.FiniteOrZero(distanceMainSequence)
 
 		setGraphMetricsOnRow(row, componentInGraphMetrics)
 	}
@@ -191,5 +191,5 @@ func calculateAbstractness(row *core.Row) float64 {
 	abstractTypes := util.ToInt(row.Data[file.AbstractType])
 	types := util.ToInt(row.Data[file.Type])
 	abstractness := math.Max(0, math.Min(1, float64(abstractTypes)/float64(types)))
-	return util.NanToZero(abstractness)
+	return util.FiniteOrZero(abstractness)
 }

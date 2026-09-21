@@ -13,7 +13,7 @@ func ShortestCyclesView(results *core.Results) *core.View {
 	cycleNr := 0
 	for cycleKey, cycle := range cycles {
 		cycleNr++
-		for _, cmpnt := range cycle {
+		for _, cmpnt := range cycle.Components() {
 			rows = append(rows, &core.Row{
 				Data: map[string]interface{}{
 					"component":  cmpnt,

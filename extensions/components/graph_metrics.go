@@ -133,7 +133,7 @@ func setGraphMetricsOnRowWithPrefix(row *core.Row, metrics *ComponentInGraphMetr
 func cyclesPerComponent(allCycles map[string]component.Cycle) map[string][]component.Cycle {
 	cyclesPerComponent := make(map[string][]component.Cycle)
 	for _, cycle := range allCycles {
-		for _, cmpnt := range cycle {
+		for _, cmpnt := range cycle.Components() {
 			cyclesPerComponent[cmpnt] = append(cyclesPerComponent[cmpnt], cycle)
 		}
 	}
