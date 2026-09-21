@@ -22,7 +22,7 @@ func Test_SimpleComponents_AfferentEfferentCoupling(t *testing.T) {
 }
 
 func Test_SimpleComponents_DirectConnections(t *testing.T) {
-	simpleComponentsTest(t, "component_connections_direct", "from,to,file,reference_count", []ComponentConnectionDirect{
+	simpleComponentsTest(t, "component_connections_direct", "from,to,kind,file,reference_count", []ComponentConnectionDirect{
 		directConnection("a", "b", "a/a_1", 1),
 		directConnection("a", "c", "a/a_1", 1),
 		directConnection("a", "b", "a/a_2", 1),
@@ -92,10 +92,23 @@ type Component struct {
 	EfferentCouplings int    `csv:"MODULARITY__COUPLING__EFFERENT,omitempty"`
 }
 
+// An ordinary static import: a dependency that is still there at runtime.
 func directConnection(from, to, file string, referenceCount int) ComponentConnectionDirect {
+	return connectionOfKind("import", from, to, file, referenceCount)
+}
+
+// A dependency the compiler erases. TypeScript's `import type` names a real
+// dependency on a shape and none at all once the program runs, so it is
+// recorded, reported, and kept out of every coupling number.
+func typeOnlyConnection(from, to, file string, referenceCount int) ComponentConnectionDirect {
+	return connectionOfKind("type_only", from, to, file, referenceCount)
+}
+
+func connectionOfKind(kind, from, to, file string, referenceCount int) ComponentConnectionDirect {
 	return ComponentConnectionDirect{
 		From: from,
 		To:   to,
+		Kind: kind,
 		// TODO, windows... but we need a better solution for this
 		File:           strings.ReplaceAll(file, "\\", "/"),
 		ReferenceCount: referenceCount,
@@ -103,8 +116,12 @@ func directConnection(from, to, file string, referenceCount int) ComponentConnec
 }
 
 type ComponentConnectionDirect struct {
-	From           string `csv:"FROM"`
-	To             string `csv:"TO"`
+	From string `csv:"FROM"`
+	To   string `csv:"TO"`
+	// What kind of dependency this is. An ordinary static import is
+	// "import"; a TypeScript `import type` is "type_only" and does not
+	// count as coupling, because the compiler erases it.
+	Kind           string `csv:"KIND"`
 	File           string `csv:"FILE"`
 	ReferenceCount int    `csv:"REFERENCE_COUNT"`
 }

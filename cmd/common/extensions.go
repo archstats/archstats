@@ -12,6 +12,7 @@ import (
 	"github.com/archstats/archstats/extensions/lines"
 	"github.com/archstats/archstats/extensions/matrix"
 	"github.com/archstats/archstats/extensions/regex"
+	"github.com/archstats/archstats/extensions/rules"
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
 	"github.com/archstats/archstats/extensions/treesitter/java"
 	"github.com/archstats/archstats/extensions/treesitter/javascript"
@@ -24,7 +25,10 @@ import (
 func Optional() []*config.CLIConfiguredExtension {
 	gitExt := git.CLIExtension()
 	gitExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
-		return ctx.HasPath(".git")
+		// Not ctx.HasPath(".git"): that sees only a root that is itself a
+		// repository, so a workspace holding several checkouts got no git
+		// data at all, however many repositories were inside it.
+		return git.HasRepos(ctx.RootDir)
 	}
 
 	javaExt := java.CLIExtension()
@@ -102,6 +106,7 @@ func AlwaysEnabled() []*config.CLIConfiguredExtension {
 		declbased.CLIExtension(),
 		config.CreateEmptyCLIExtension("codesmells", codesmells.Extension()),
 		config.CreateEmptyCLIExtension("matrix", matrix.Extension()),
+		config.CreateEmptyCLIExtension("rules", rules.Extension()),
 	}
 }
 

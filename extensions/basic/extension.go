@@ -43,6 +43,16 @@ func (v *extension) Init(settings core.Analyzer) error {
 	})
 
 	settings.RegisterView(&core.ViewFactory{
+		Name:           "units",
+		CreateViewFunc: unitView,
+	})
+
+	settings.RegisterView(&core.ViewFactory{
+		Name:           "modules",
+		CreateViewFunc: moduleView,
+	})
+
+	settings.RegisterView(&core.ViewFactory{
 		Name:           "directories",
 		CreateViewFunc: directoryView,
 	})

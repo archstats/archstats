@@ -37,10 +37,16 @@ func summaryView(results *core.Results) *core.View {
 			ValueColumn: len(results.Connections),
 		},
 		{
+			NameColumn:  "module_count",
+			ValueColumn: results.Modules.Len(),
+		},
+		{
 			NameColumn:  "directory_count",
 			ValueColumn: len(results.DirectoryToFiles),
 		},
 	}
+
+	toReturn = append(toReturn, unitCounts(results)...)
 
 	for _, row := range extraRows {
 		toReturn = append(toReturn, &core.Row{

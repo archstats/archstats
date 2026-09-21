@@ -1,0 +1,1 @@
+{"name":"sylius/order-bundle","require":{"sylius/order":"^2.0","symfony/framework-bundle":"^7.0"}}

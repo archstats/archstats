@@ -47,7 +47,8 @@ func createJavaScriptLanguagePack() *common.LanguagePack {
 			`(call_expression function: (identifier) @js__react__hooks (#match? @js__react__hooks "^use[A-Z]"))`,
 		},
 		SnippetTransformers: map[string]func(*file.Snippet) *file.Snippet{
-			"modularity__component__imports": stripQuotes,
+			file.ComponentImport:         stripQuotes,
+			file.ComponentImportTypeOnly: stripQuotes,
 		},
 	}
 

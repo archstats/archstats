@@ -2,41 +2,93 @@
 
 This document lists all metric definitions registered in `archstats`.
 
+## Architecture Rules
+
+### `rules__dotnet__core_must_not_depend_on_plugin` (Core must not depend on a plugin)
+
+**Description:** In a .NET plugin architecture, plugins may depend on the core; the core must never depend on a plugin.
+
+**Details:**
+A plugin architecture is only extensible in one direction. Plugins are built against the core and
+may be added or removed without rebuilding it; the moment the core references a plugin by project,
+that plugin is no longer optional and the architecture has quietly become a monolith with extra
+project files.
+
+nopCommerce makes the shape plain: 40 .csproj files, of which thirty are named Nop.Plugin.*, and
+every one of them references Nop.Web.Framework or Nop.Web rather than the other way round. The
+namespaces do not say which module is a plugin, so this rule is checked against the project
+references, which do.
+
+---
+
+### `rules__go__internal_must_not_be_imported_from_outside` (internal must not be imported from another module)
+
+**Description:** Go's internal/ is a boundary the compiler enforces, so an edge across one is stronger evidence than any ordinary import.
+
+**Details:**
+A Go package under `internal/` may only be imported by code rooted in the directory holding that
+`internal/`. The compiler refuses anything else, which makes it the one boundary in any surveyed
+ecosystem that cannot be broken by accident and cannot be argued with.
+
+That is exactly why it is worth reporting. An edge that crosses one did not come from a
+language the analyser misread; it came from two modules that were vendored, copied or merged, and
+it marks the seam. Within a single module the rule can never fire, so a violation here always
+means more than one module is involved.
+
+---
+
+### `rules__symfony__component_must_not_depend_on_bundle` (Component must not depend on Bundle)
+
+**Description:** A framework-agnostic component must never depend on the framework glue that integrates it.
+
+**Details:**
+Symfony projects that separate Component from Bundle do so to keep the domain usable without the
+framework: the Component holds the model and the behaviour, the Bundle wires it into Symfony's
+container, routing and configuration. The dependency runs one way. A component that reaches back
+into its bundle can no longer be used, tested or published on its own, which is the only reason
+the split exists.
+
+Sylius is 60 composer packages arranged exactly this way, with 344 interfaces to 663 classes in
+its Component tree. The split is declared in composer.json, not in any namespace, which is why
+this rule is checked against the module map.
+
+---
+
 ## Code Scene Style Code Smells
 
 ### `codesmells__bumpy_road` (Bumpy Road)
 
-**Description:** Count of files with complex nesting structures.
+**Description:** Indentation volatility indicating nesting fluctuations.
 
 **Details:**
-Indicates if a file has complex nesting structures (e.g. max indentation > 4 and avg indentation > 1.5), representing potential read and maintainability issues.
+Calculates the density of indentation changes by summing absolute differences in indentation levels between consecutive lines, normalized by the count of non-empty lines. High values point to high cognitive load and code paths going in and out of nested structures. Component score represents size-weighted volatility.
 
 ---
 
 ### `codesmells__code_health` (Code Health)
 
-**Description:** A rating from 1 to 10 of code health.
+**Description:** A rating from 1.0 to 10.0 of structural maintainability.
 
 **Details:**
-A rating from 1 to 10 of code health, computed by subtracting points for size (LOC > 500), complex nesting (max indentation > 4), and deep average nesting (avg indentation > 1.5).
+Rated on a scale of 1.0 (lowest) to 10.0 (highest). Deducts points for file size (lines > 500), max nesting depth, and average nesting depth. JavaScript/TypeScript files receive a relaxed indentation threshold, while non-code files (JSON/YAML/lockfiles/markdown) are excluded from code health analysis to prevent distortion. Component scores are aggregated using a size-weighted average to avoid masking large God Files.
 
 ---
 
 ### `codesmells__hotspot_score` (Hotspot Score)
 
-**Description:** An index between 0 and 100 showing hotspot risk.
+**Description:** Volatility and risk index scaled between 0 and 100.
 
 **Details:**
-An index between 0 and 100 showing hotspot risk. Highly modified files (high Git commits) that also have high size (LOC) are calculated as major hotspots.
+Measures potential development hotspots by multiplying log-scaled Git change frequency log2(commits + 1) by file size. Non-code files and lockfiles are ignored when calculating the maximum score to prevent scale suppression. Component-level hotspots represent the maximum hotspot score of any contained file.
 
 ---
 
 ### `codesmells__static_complexity_score` (Static Complexity Score)
 
-**Description:** Static complexity metric (lines * nesting).
+**Description:** Structural density index derived from size and nesting.
 
 **Details:**
-Calculated purely from static file analysis by multiplying file size (LOC) by maximum nesting indentation level. Used as a hotspot fallback when git historical metrics are absent.
+Measures structural complexity as Lines * (1 + averageIndentation). Capping the average indentation multiplier prevents single nested outliers from skewing the metrics, representing overall file nesting density.
 
 ---
 
@@ -146,6 +198,33 @@ A high residual closeness indicates that the component is a critical connector w
 
 ## Git History & Churn
 
+### `git__additions__last_180_days` (Addition Count (Last 180 Days))
+
+**Description:** Number of lines of code added to this file or component in the last 180 days.
+
+**Details:**
+Counts how many new lines of code were added in git commits over the last 180 days. Helps identify recently active or growing files.
+
+---
+
+### `git__additions__last_30_days` (Addition Count (Last 30 Days))
+
+**Description:** Number of lines of code added to this file or component in the last 30 days.
+
+**Details:**
+Counts how many new lines of code were added in git commits over the last 30 days. Helps identify recently active or growing files.
+
+---
+
+### `git__additions__last_90_days` (Addition Count (Last 90 Days))
+
+**Description:** Number of lines of code added to this file or component in the last 90 days.
+
+**Details:**
+Counts how many new lines of code were added in git commits over the last 90 days. Helps identify recently active or growing files.
+
+---
+
 ### `git__additions__total` (Addition Count)
 
 **Description:** Total number of lines added to this file or component across all commits.
@@ -166,6 +245,33 @@ Measures the age of a file based on the most recent commit that touched it. High
 
 ---
 
+### `git__authors__last_180_days` (Author Count (Last 180 Days))
+
+**Description:** Number of unique authors who modified this file or component in the last 180 days.
+
+**Details:**
+Counts how many different developers made changes to this file or component in the last 180 days. High author count can indicate a risk of coordination issues.
+
+---
+
+### `git__authors__last_30_days` (Author Count (Last 30 Days))
+
+**Description:** Number of unique authors who modified this file or component in the last 30 days.
+
+**Details:**
+Counts how many different developers made changes to this file or component in the last 30 days. High author count can indicate a risk of coordination issues.
+
+---
+
+### `git__authors__last_90_days` (Author Count (Last 90 Days))
+
+**Description:** Number of unique authors who modified this file or component in the last 90 days.
+
+**Details:**
+Counts how many different developers made changes to this file or component in the last 90 days. High author count can indicate a risk of coordination issues.
+
+---
+
 ### `git__authors__total` (Author Count)
 
 **Description:** Number of unique authors who modified this file or component.
@@ -177,6 +283,33 @@ A high author count may indicate shared ownership or high-traffic code that warr
 
 ---
 
+### `git__commits__last_180_days` (Commit Count (Last 180 Days))
+
+**Description:** Number of unique git commits modifying this file or component in the last 180 days.
+
+**Details:**
+Counts how many times this file or component was modified in a git commit over the last 180 days. A high count suggests a recent hot spot of activity.
+
+---
+
+### `git__commits__last_30_days` (Commit Count (Last 30 Days))
+
+**Description:** Number of unique git commits modifying this file or component in the last 30 days.
+
+**Details:**
+Counts how many times this file or component was modified in a git commit over the last 30 days. A high count suggests a recent hot spot of activity.
+
+---
+
+### `git__commits__last_90_days` (Commit Count (Last 90 Days))
+
+**Description:** Number of unique git commits modifying this file or component in the last 90 days.
+
+**Details:**
+Counts how many times this file or component was modified in a git commit over the last 90 days. A high count suggests a recent hot spot of activity.
+
+---
+
 ### `git__commits__total` (Commit Count)
 
 **Description:** Total number of unique commits that modified this file or component.
@@ -185,6 +318,33 @@ A high author count may indicate shared ownership or high-traffic code that warr
 Counts the number of distinct git commits that touched a file. At the component level, this counts unique commits across all files in the component (a single commit touching multiple files is counted once).
 
 High commit counts indicate frequently changed code, which is a key input for hotspot analysis.
+
+---
+
+### `git__deletions__last_180_days` (Deletion Count (Last 180 Days))
+
+**Description:** Number of lines of code deleted from this file or component in the last 180 days.
+
+**Details:**
+Counts how many lines of code were deleted in git commits over the last 180 days. Helps identify recently refactored or cleaned-up files.
+
+---
+
+### `git__deletions__last_30_days` (Deletion Count (Last 30 Days))
+
+**Description:** Number of lines of code deleted from this file or component in the last 30 days.
+
+**Details:**
+Counts how many lines of code were deleted in git commits over the last 30 days. Helps identify recently refactored or cleaned-up files.
+
+---
+
+### `git__deletions__last_90_days` (Deletion Count (Last 90 Days))
+
+**Description:** Number of lines of code deleted from this file or component in the last 90 days.
+
+**Details:**
+Counts how many lines of code were deleted in git commits over the last 90 days. Helps identify recently refactored or cleaned-up files.
 
 ---
 
@@ -205,6 +365,33 @@ High deletion counts alongside high addition counts indicate active refactoring 
 
 **Details:**
 Identifies which git repository a file belongs to. In monorepo setups with multiple nested .git directories, this distinguishes which repository root owns each file.
+
+---
+
+### `git__unique_file_changes__last_180_days` (Unique File Changes (Last 180 Days))
+
+**Description:** Number of unique files changed in commits that touched this file or component in the last 180 days.
+
+**Details:**
+Measures co-changes over the last 180 days: how many other files were modified in the same commits as this one. Helps find implicit logical coupling.
+
+---
+
+### `git__unique_file_changes__last_30_days` (Unique File Changes (Last 30 Days))
+
+**Description:** Number of unique files changed in commits that touched this file or component in the last 30 days.
+
+**Details:**
+Measures co-changes over the last 30 days: how many other files were modified in the same commits as this one. Helps find implicit logical coupling.
+
+---
+
+### `git__unique_file_changes__last_90_days` (Unique File Changes (Last 90 Days))
+
+**Description:** Number of unique files changed in commits that touched this file or component in the last 90 days.
+
+**Details:**
+Measures co-changes over the last 90 days: how many other files were modified in the same commits as this one. Helps find implicit logical coupling.
 
 ---
 
@@ -511,6 +698,39 @@ It acts as the denominator when calculating abstractness (abstract types / total
 **Details:**
 Counts all source code files matched during the analysis.
 Helpful for understanding component scale and distributing resource metrics.
+
+---
+
+### `complexity__indentation__avg` (Average Indentation)
+
+**Description:** Average indentation depth across all lines in a file.
+
+**Details:**
+Measures the mean indentation level of all non-empty lines in a file. Higher average indentation suggests code that spends more time inside nested blocks (loops, conditionals, callbacks), which can reduce readability and increase cognitive load.
+
+When aggregated to directory or component level, this metric is averaged across files.
+
+---
+
+### `complexity__indentation__count` (Indentation Count)
+
+**Description:** Total number of indentation units across all lines in a file.
+
+**Details:**
+Sums the indentation level of every non-empty line in a file. This gives a raw measure of structural depth: a file with many deeply nested lines will have a high count even if the maximum depth is moderate.
+
+Useful for comparing overall structural complexity between files of similar size.
+
+---
+
+### `complexity__indentation__max` (Maximum Indentation)
+
+**Description:** Deepest indentation level found in a file.
+
+**Details:**
+Records the maximum indentation depth (number of indentation units) found on any single line in a file. A high maximum indentation indicates deeply nested control flow, which is a strong indicator of complex, hard-to-read code.
+
+When aggregated to directory or component level, the maximum across all files is taken.
 
 ---
 

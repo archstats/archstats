@@ -33,9 +33,25 @@ func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
 		FileGlob: globPattern,
 		Language: language,
 		QueriesForStats: []string{
-			// Imports: capture string inside import/export statements
-			`(import_statement source: (string) @modularity__component__imports)`,
-			`(export_statement source: (string) @modularity__component__imports)`,
+			// Imports, split by whether the compiler keeps them.
+			//
+			// `import type { Foo } from "./foo"` is erased: it is a real
+			// dependency on a shape and none at all once the program runs.
+			// LibreChat writes 681 of its 5,100 imports this way, so counting
+			// them as coupling inflates its graph by an eighth. The whole
+			// statement is matched rather than a grammar node, the same way
+			// the Java queries tell a static import from an ordinary one.
+			//
+			// An inline `import { type Foo, bar }` stays an ordinary import,
+			// correctly: the statement still pulls `bar` in at runtime.
+			`((import_statement source: (string) @modularity__component__imports__type) @_imp
+			  (#match? @_imp "^import[ \t]+type[ \t{*]"))`,
+			`((import_statement source: (string) @modularity__component__imports) @_imp
+			  (#not-match? @_imp "^import[ \t]+type[ \t{*]"))`,
+			`((export_statement source: (string) @modularity__component__imports__type) @_exp
+			  (#match? @_exp "^export[ \t]+type[ \t{*]"))`,
+			`((export_statement source: (string) @modularity__component__imports) @_exp
+			  (#not-match? @_exp "^export[ \t]+type[ \t{*]"))`,
 			// CommonJS and dynamic imports. An enormous amount of real
 			// JavaScript never writes the word `import`: express, at the
 			// commit these tests pin, has 66 `require()` calls and zero ESM
@@ -69,7 +85,8 @@ func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
 			`((decorator [ (identifier) @ts__angular__pipes (call_expression function: (identifier) @ts__angular__pipes) ]) (#match? @ts__angular__pipes "^Pipe$"))`,
 		},
 		SnippetTransformers: map[string]func(*file.Snippet) *file.Snippet{
-			"modularity__component__imports": stripQuotes,
+			file.ComponentImport:         stripQuotes,
+			file.ComponentImportTypeOnly: stripQuotes,
 		},
 	}
 

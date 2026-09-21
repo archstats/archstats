@@ -1,8 +1,10 @@
 package typescript
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/archstats/archstats/core/file"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTypeScriptLanguagePack_TSX(t *testing.T) {
@@ -112,4 +114,39 @@ export class ExponentialStrengthPipe {}
 	assert.Contains(t, services, "Injectable")
 	assert.Contains(t, directives, "Directive")
 	assert.Contains(t, pipes, "Pipe")
+}
+
+// `import type` is erased by the compiler. It is a dependency on a shape and
+// none at all at runtime, and LibreChat writes 681 of its 5,100 imports that
+// way -- an eighth of the graph, if they are counted as coupling.
+func TestTypeOnlyImports(t *testing.T) {
+	pack := createTypeScriptLanguagePack(false)
+	src := `
+import type { Config } from "./config";
+import type Thing from "./thing";
+import { type Inline, run } from "./runner";
+import { helper } from "./helper";
+export type { Config } from "./config";
+export { helper } from "./helper";
+import * as fs from "fs";
+`
+	results := pack.AnalyzeFileContent("src/a.ts", []byte(src))
+
+	runtime := valuesOf(results.Snippets, file.ComponentImport)
+	erased := valuesOf(results.Snippets, file.ComponentImportTypeOnly)
+
+	// The inline `type Inline` sits in a statement that still imports `run`,
+	// so the statement is a runtime import and belongs with the others.
+	assert.ElementsMatch(t, []string{"./runner", "./helper", "fs", "./helper"}, runtime)
+	assert.ElementsMatch(t, []string{"./config", "./thing", "./config"}, erased)
+}
+
+func valuesOf(snippets []*file.Snippet, snippetType string) []string {
+	var out []string
+	for _, s := range snippets {
+		if s.Type == snippetType {
+			out = append(out, s.Value)
+		}
+	}
+	return out
 }

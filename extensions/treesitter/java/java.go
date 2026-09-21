@@ -7,6 +7,7 @@ import (
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
+	"github.com/archstats/archstats/core/unit"
 	"github.com/archstats/archstats/extensions/treesitter/common"
 	"github.com/samber/lo"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
@@ -71,8 +72,37 @@ func (ja *javaAnalyzer) AnalyzeFile(f file.File) *file.Results {
 			StatType: "java_full_class",
 			Value:    javaFullClass,
 		})
+
+		// The same type, as a unit. Java is the reference case: one file,
+		// one public type, so the two agree exactly and the stats above stay
+		// as the compatibility path for snapshots taken before units
+		// existed. Everywhere else the two disagree, which is the point.
+		res.Units = append(res.Units, &unit.Unit{
+			ID:      javaFullClass,
+			Kind:    unit.KindType,
+			Name:    javaClass,
+			Files:   []string{f.Path()},
+			Markers: javaMarkers(res.Snippets),
+		})
 	}
 	return res
+}
+
+// What the engine already records about every type, as markers: the
+// annotations on it and what it extends or implements. Framework-neutral on
+// purpose -- the engine does not know what Spring is, and a consumer asking
+// "is this a controller" reads a marker rather than a Spring-shaped field.
+func javaMarkers(snippets []*file.Snippet) []unit.Marker {
+	var markers []unit.Marker
+	for _, s := range snippets {
+		switch s.Type {
+		case "java__class__annotation":
+			markers = append(markers, unit.Marker{Source: unit.SourceAnnotation, Key: s.Value})
+		case "java__class__extends", "java__class__implements":
+			markers = append(markers, unit.Marker{Source: unit.SourceSupertype, Key: s.Value})
+		}
+	}
+	return markers
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
@@ -280,6 +310,7 @@ func javaQueriesForSnippets(ignoreImportsFor []string) []string {
 ((interface_declaration name: (identifier) @java__type__declaration))
 ((class_declaration name: (identifier) @java__type__declaration))
 ((record_declaration name: (identifier) @java__type__declaration))
+((enum_declaration name: (identifier) @java__type__declaration))
 
 (field_declaration (variable_declarator name: (identifier) @java__field__declaration))
 (method_declaration name: (identifier) @java__method__declaration)
@@ -369,6 +400,9 @@ func modularityQueries(ignoreImportsFor []string) []string {
 ((interface_declaration name: (identifier) @modularity__types__total))
 ((class_declaration  name: (identifier) @modularity__types__total))
 ((record_declaration name: (identifier) @modularity__types__total))
+;  An enum is a type; elepy has 13 that went uncounted, and abstractness
+;  is abstract over total, so leaving them out overstates it.
+((enum_declaration name: (identifier) @modularity__types__total))
 `,
 		`
 ((interface_declaration name: (identifier) @modularity__types__abstract))

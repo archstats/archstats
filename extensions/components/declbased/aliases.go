@@ -45,11 +45,47 @@ var skipDir = map[string]bool{
 	"coverage": true, "__pycache__": true, ".venv": true, "venv": true,
 }
 
-func readAliases(root string) *aliasMap {
+// readAliasesFrom reads the manifests among files the analysis actually saw.
+//
+// It takes the file list rather than walking for itself because the walker
+// honours .gitignore and .archstatsignore (ADR 0012) and a second walk does
+// not. Analysing archstats' own repository, the raw walk found 23 alias
+// entries, among them `elepy-vue` pointing into `e2eTest/temp_testdata/` --
+// a vendored checkout the repository explicitly ignores. An import could
+// then resolve into a directory the user excluded on purpose, which is the
+// same bug core/module was built to avoid.
+//
+// Paths are repo-relative, as file.Results.Name gives them.
+func readAliasesFrom(root string, paths []string) *aliasMap {
 	m := &aliasMap{}
 	if root == "" {
 		return m
 	}
+	for _, rel := range paths {
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		switch filepath.Base(rel) {
+		case "package.json":
+			m.readPackage(root, full)
+		case "tsconfig.json", "jsconfig.json":
+			m.readTSConfig(root, full)
+		}
+	}
+	// Longest prefix first, so "@acme/ui/" is tried before "@acme/".
+	sort.SliceStable(m.entries, func(i, j int) bool {
+		return len(m.entries[i].prefix) > len(m.entries[j].prefix)
+	})
+	return m
+}
+
+// readAliases walks a checkout itself, for tests and callers with no file
+// list in hand. The engine uses readAliasesFrom; skipDir below is a coarse
+// stand-in for the walker's ignore handling and must not be relied on where
+// correctness matters.
+func readAliases(root string) *aliasMap {
+	if root == "" {
+		return &aliasMap{}
+	}
+	var paths []string
 	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -60,19 +96,12 @@ func readAliases(root string) *aliasMap {
 			}
 			return nil
 		}
-		switch d.Name() {
-		case "package.json":
-			m.readPackage(root, p)
-		case "tsconfig.json", "jsconfig.json":
-			m.readTSConfig(root, p)
+		if rel, relErr := filepath.Rel(root, p); relErr == nil {
+			paths = append(paths, filepath.ToSlash(rel))
 		}
 		return nil
 	})
-	// Longest prefix first, so "@acme/ui/" is tried before "@acme/".
-	sort.SliceStable(m.entries, func(i, j int) bool {
-		return len(m.entries[i].prefix) > len(m.entries[j].prefix)
-	})
-	return m
+	return readAliasesFrom(root, paths)
 }
 
 type packageManifest struct {

@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+// The extensions whose definitions make up the reference. Ordered as the
+// reader meets them: languages, then history, then analysis.
+const documentedExtensions = "java,csharp,kotlin,python,javascript,typescript,git,cycles"
+
 func main() {
 	rootCmd, err := cmd.Cmd()
 	if err != nil {
@@ -22,7 +26,11 @@ func main() {
 
 	// We pass the CLI arguments manually to rootCmd flags
 	// For gendocs, we enable optional extensions to collect all definition files.
-	rootCmd.SetArgs([]string{"view", "definitions", "--extension", "java", "--extension", "csharp", "--extension", "kotlin", "--extension", "cycles"})
+	// Every extension that ships a definition, named explicitly. Passing
+	// --extension at all turns discovery off, so anything left out of this
+	// list is simply missing from the reference -- which is how the git
+	// metrics went undocumented while the doc claimed to list them all.
+	rootCmd.SetArgs([]string{"view", "definitions", "--extension", documentedExtensions})
 
 	// To prevent executing the "view definitions" action, we'll parse the flags manually 
 	// and run common.Analyze directly!
@@ -34,7 +42,7 @@ func main() {
 
 	// Make sure extension flags are populated so common.GetEnabledExtensions works
 	rootCmd.Flags().Set("working-dir", ".")
-	rootCmd.Flags().Set("extension", "java,csharp,kotlin,cycles")
+	rootCmd.Flags().Set("extension", documentedExtensions)
 
 	results, err := common.Analyze(rootCmd)
 	if err != nil {

@@ -1,0 +1,19 @@
+id: rules__go__internal_must_not_be_imported_from_outside
+name: internal must not be imported from another module
+short_description: Go's internal/ is a boundary the compiler enforces, so an edge across one is stronger evidence than any ordinary import.
+long_description: |
+  A Go package under `internal/` may only be imported by code rooted in the directory holding that
+  `internal/`. The compiler refuses anything else, which makes it the one boundary in any surveyed
+  ecosystem that cannot be broken by accident and cannot be argued with.
+
+  That is exactly why it is worth reporting. An edge that crosses one did not come from a
+  language the analyser misread; it came from two modules that were vendored, copied or merged, and
+  it marks the seam. Within a single module the rule can never fire, so a violation here always
+  means more than one module is involved.
+category: "Architecture Rules"
+applies_when:
+  matches: '.'
+from:
+  matches: '.'
+to:
+  matches: '(^|/)internal(/|$)'

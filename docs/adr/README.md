@@ -38,3 +38,7 @@ This script will:
 | 0015 | [Dynamic CLI Configurable Extensions](0015-cli-extension-configuration.md) | Accepted | 2026-06-01 |
 
 | 0016 | [Filter Git Noise by Max Files Per Commit](0016-filter-git-noise-by-max-files-per-commit.md) | Proposed | 2026-06-14 |
+| 0017 | [Module Boundaries from Manifests](0017-module-boundaries-from-manifests.md) | Accepted | 2026-09-21 |
+| 0018 | [Typed Dependency Edges](0018-typed-dependency-edges.md) | Accepted | 2026-09-21 |
+| 0019 | [Reporting Unresolved Edges](0019-reporting-unresolved-edges.md) | Accepted | 2026-09-21 |
+| 0020 | [Unit as a First-Class Concept](0020-unit-first-class-concept.md) | Accepted | 2026-09-21 |

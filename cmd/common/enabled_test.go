@@ -64,3 +64,33 @@ func TestGetEnabledExtensions_AutoDiscovery(t *testing.T) {
 	assert.NotContains(t, names2, "git")
 	assert.NotContains(t, names2, "java")
 }
+
+func TestGetEnabledExtensions_DiscoversGitInAWorkspaceOfRepositories(t *testing.T) {
+	// A multi-repo workspace: the root is not a repository, the checkouts
+	// inside it are. Discovery used to stat root/.git alone, so git stayed
+	// off and the scan carried no history, no authors and no coupling --
+	// however many repositories were in the workspace.
+	wd, err := os.Getwd()
+	assert.NoError(t, err)
+	tempDir, err := os.MkdirTemp(wd, "archstats-workspace-*")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	for _, repo := range []string{"alpha", "beta"} {
+		assert.NoError(t, os.MkdirAll(filepath.Join(tempDir, "repos", repo, ".git"), 0o755))
+		assert.NoError(t, os.WriteFile(filepath.Join(tempDir, "repos", repo, "Main.java"), []byte("public class Main {}"), 0o644))
+	}
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringSlice(FlagExtension, nil, "")
+	cmd.Flags().String(FlagWorkingDirectory, tempDir, "")
+
+	exts, err := GetEnabledExtensions(cmd)
+	assert.NoError(t, err)
+
+	var names []string
+	for _, e := range exts {
+		names = append(names, e.Name)
+	}
+	assert.Contains(t, names, "git")
+}

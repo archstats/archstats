@@ -25,6 +25,11 @@ func (extension) Init(settings core.Analyzer) error {
 	}
 
 	settings.RegisterView(&core.ViewFactory{
+		Name:           "unresolved_edges",
+		CreateViewFunc: UnresolvedEdgesView,
+	})
+
+	settings.RegisterView(&core.ViewFactory{
 		Name:           "components",
 		CreateViewFunc: MainView,
 	})

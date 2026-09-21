@@ -1,8 +1,10 @@
 package python
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/archstats/archstats/core/file"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPythonLanguagePack(t *testing.T) {
@@ -63,4 +65,41 @@ class UserAuthService:
 	}
 	assert.Contains(t, routes, "get")
 	assert.Contains(t, routes, "route")
+}
+
+// django-oscar resolves 746 of its dependencies from strings at runtime --
+// roughly 31% of its edges -- because every app must be overridable. Read as
+// static imports only, a third of that codebase's graph is missing.
+func TestDynamicLookups(t *testing.T) {
+	pack := createPythonLanguagePack()
+	src := `
+from django.db import models
+from oscar.core.loading import get_class, get_model
+
+ProductDetailView = get_class("catalogue.views", "ProductDetailView")
+Basket = get_model("basket", "Basket")
+Repo, Applicator = get_classes("offer.utils", ["Repository", "Applicator"])
+mod = importlib.import_module("shipping.methods")
+computed = get_class(some_variable, "Thing")
+`
+	results := pack.AnalyzeFileContent("src/shop/views.py", []byte(src))
+
+	dynamic := pyValues(results.Snippets, file.ComponentImportDynamic)
+	// The last call names its module with a variable, so there is no string
+	// to capture and nothing to resolve -- which is the honest answer.
+	assert.ElementsMatch(t, []string{"catalogue.views", "basket", "offer.utils", "shipping.methods"}, dynamic)
+
+	static := pyValues(results.Snippets, file.ComponentImport)
+	assert.Contains(t, static, "django.db")
+	assert.Contains(t, static, "oscar.core.loading")
+}
+
+func pyValues(snippets []*file.Snippet, snippetType string) []string {
+	var out []string
+	for _, s := range snippets {
+		if s.Type == snippetType {
+			out = append(out, s.Value)
+		}
+	}
+	return out
 }

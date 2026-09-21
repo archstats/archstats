@@ -1,0 +1,1 @@
+{"name":"sylius/order","require":{"php":"^8.2","sylius/resource":"^1.0"}}

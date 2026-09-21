@@ -57,10 +57,12 @@ type requiredExtensions struct {
 
 func (r *requiredExtensions) Init(settings core.Analyzer) error {
 	// What the project calls its own packages, read from its manifests rather
-	// than guessed at from directory names.
+	// than guessed at from directory names. The root is kept rather than the
+	// map: the manifests are read from the files the walker found, so
+	// .gitignore and .archstatsignore are honoured (ADR 0012).
 	settings.RegisterFileResultsEditor(&componentLinker{
 		Strategy: r.Strategy,
-		aliases:  readAliases(settings.RootPath()),
+		root:     settings.RootPath(),
 	})
 	return nil
 }

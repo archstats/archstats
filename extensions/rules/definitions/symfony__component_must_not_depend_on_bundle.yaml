@@ -1,0 +1,32 @@
+id: rules__symfony__component_must_not_depend_on_bundle
+name: Component must not depend on Bundle
+short_description: A framework-agnostic component must never depend on the framework glue that integrates it.
+long_description: |
+  Symfony projects that separate Component from Bundle do so to keep the domain usable without the
+  framework: the Component holds the model and the behaviour, the Bundle wires it into Symfony's
+  container, routing and configuration. The dependency runs one way. A component that reaches back
+  into its bundle can no longer be used, tested or published on its own, which is the only reason
+  the split exists.
+
+  Sylius is 60 composer packages arranged exactly this way, with 344 interfaces to 663 classes in
+  its Component tree. The split is declared in composer.json, not in any namespace, which is why
+  this rule is checked against the module map.
+category: "Architecture Rules"
+# Sylius's packages are called `sylius/order` and `sylius/promotion`; nothing
+# in those names says "component". The split is declared by where a package
+# sits, so that is what this reads -- the module's own directory, not any
+# path segment. Matching a segment instead also matches
+# `Bundle/AdminBundle/Twig/Component/`, which is a Twig UI folder and not a
+# domain package, and reports sixty violations that are not violations.
+#
+# This reads the monorepo layout, where each package has its own directory.
+# Sylius also publishes each bundle as a separate repository, where
+# composer.json sits at the root and the module's directory is ""; the rule
+# cannot see that layout and stays quiet rather than guessing.
+applies_when:
+  dir_matches: '(?i)/bundle/'
+from:
+  dir_matches: '(?i)/component/'
+  not_matches: '(?i)bundle'
+to:
+  dir_matches: '(?i)/bundle/'

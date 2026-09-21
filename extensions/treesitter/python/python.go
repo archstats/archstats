@@ -30,6 +30,23 @@ func createPythonLanguagePack() *common.LanguagePack {
 			`(import_statement name: (aliased_import name: (dotted_name) @modularity__component__imports))`,
 			`(import_from_statement module_name: (dotted_name) @modularity__component__imports)`,
 			`(import_from_statement module_name: (relative_import) @modularity__component__imports)`,
+			// Dependencies named by a string, resolved when the program runs.
+			//
+			// django-oscar's entire extensibility model is `get_class`: every
+			// app can be forked and overridden, so nothing may import another
+			// app's classes directly. 746 of its dependency edges are written
+			// this way against 1,645 static imports. An import graph that
+			// reads only `import` statements is missing a third of that
+			// codebase and reports no error.
+			//
+			// The first string argument names a module -- "catalogue.views",
+			// "order.models" -- which is what the component linker already
+			// knows how to resolve, so these join the ordinary imports rather
+			// than needing a resolver of their own.
+			`((call
+				function: [(identifier) @_fn (attribute attribute: (identifier) @_fn)]
+				arguments: (argument_list . (string (string_content) @modularity__component__imports__dynamic)))
+			  (#match? @_fn "^(get_class|get_classes|get_model|import_module)$"))`,
 			// Classes (total types)
 			`(class_definition name: (identifier) @modularity__types__total)`,
 			// Web decorator routes (FastAPI, Flask, Django)

@@ -1,0 +1,21 @@
+id: rules__dotnet__core_must_not_depend_on_plugin
+name: Core must not depend on a plugin
+short_description: In a .NET plugin architecture, plugins may depend on the core; the core must never depend on a plugin.
+long_description: |
+  A plugin architecture is only extensible in one direction. Plugins are built against the core and
+  may be added or removed without rebuilding it; the moment the core references a plugin by project,
+  that plugin is no longer optional and the architecture has quietly become a monolith with extra
+  project files.
+
+  nopCommerce makes the shape plain: 40 .csproj files, of which thirty are named Nop.Plugin.*, and
+  every one of them references Nop.Web.Framework or Nop.Web rather than the other way round. The
+  namespaces do not say which module is a plugin, so this rule is checked against the project
+  references, which do.
+category: "Architecture Rules"
+applies_when:
+  matches: '\.Plugin\.'
+from:
+  matches: '.'
+  not_matches: '\.Plugin\.|\.Tests?$|Tests$'
+to:
+  matches: '\.Plugin\.'

@@ -1,0 +1,1 @@
+{"name":"librechat","workspaces":["packages/*"],"dependencies":{"express":"^4"}}

@@ -229,3 +229,25 @@ func snippetContents(snippets []*file.Snippet, snippetType string) []string {
 		return s.Value, true
 	})
 }
+
+// An enum is a type, and a unit. elepy has 13 that went uncounted entirely.
+func TestJavaEnumsAreTypesAndUnits(t *testing.T) {
+	pack := (&Extension{}).createJavaLanguagePack()
+	src := `package com.acme.orders;
+
+public enum OrderState { NEW, PAID }
+`
+	results := pack.AnalyzeFileContent("src/com/acme/orders/OrderState.java", []byte(src))
+
+	var total, typeDecls int
+	for _, s := range results.Snippets {
+		switch s.Type {
+		case "modularity__types__total":
+			total++
+		case "java__type__declaration":
+			typeDecls++
+		}
+	}
+	assert.Equal(t, 1, total, "an enum is a type")
+	assert.Equal(t, 1, typeDecls, "an enum is a declaration a unit can be built from")
+}

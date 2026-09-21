@@ -298,3 +298,45 @@ func TestComponentLinker_JS_TS_Alias_Ambiguation(t *testing.T) {
 	// Path mapping "@/" resolves to "src/utils"
 	assert.Equal(t, "src/utils", snippets[2].Value)
 }
+
+// A Go import is a path with the module name on the front, and the module
+// name is not a directory: `github.com/acme/thing` is one segment of the
+// tree's name and two of the import's. Run through the dot-separated branch
+// it became `github/com/acme/thing`, matched nothing, and every Go project
+// analysed as components with no edges between them at all.
+func TestComponentLinker_Go_ModulePrefixedImports(t *testing.T) {
+	linker := &componentLinker{Strategy: "fallback"}
+
+	fileResults := []*file.Results{
+		{
+			Name:      "core/walker/walk.go",
+			Directory: "core/walker",
+			Snippets: []*file.Snippet{
+				{File: "core/walker/walk.go", Type: file.ComponentImport, Value: "github.com/acme/thing/core/file"},
+				{File: "core/walker/walk.go", Type: file.ComponentImport, Value: "bufio"},
+			},
+		},
+		{
+			Name:      "core/file/file.go",
+			Directory: "core/file",
+			Snippets: []*file.Snippet{
+				{File: "core/file/file.go", Type: file.Type, Value: "File"},
+			},
+		},
+	}
+	linker.EditFileResults(fileResults)
+
+	imports := fileResults[0].Snippets
+	// An import snippet belongs to the component doing the importing; what it
+	// resolved to is its value.
+	if imports[0].Value != "core/file" {
+		t.Errorf("module-prefixed import: got %q, want %q", imports[0].Value, "core/file")
+	}
+	if imports[0].Component != "core/walker" {
+		t.Errorf("import snippet left its own component: got %q", imports[0].Component)
+	}
+	// The standard library is not in the tree and must not be invented.
+	if imports[1].Value != "bufio" {
+		t.Errorf("stdlib import resolved into the project: %q", imports[1].Value)
+	}
+}

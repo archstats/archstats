@@ -5,7 +5,9 @@ import (
 	"github.com/archstats/archstats/core/component"
 	definitions2 "github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/module"
 	"github.com/archstats/archstats/core/stats"
+	"github.com/archstats/archstats/core/unit"
 	"github.com/archstats/archstats/core/walker"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
@@ -27,15 +29,36 @@ type Results struct {
 	StatRecords       []*stats.Record
 	StatRecordsByFile map[string][]*stats.Record
 
+	// Connections holds the edges that exist when the program runs, and is
+	// what every coupling metric is computed from. AllConnections also holds
+	// the edges the compiler erases -- TypeScript's `import type` -- which
+	// are real dependencies on a shape and would inflate coupling by an
+	// eighth on a codebase like LibreChat if counted.
 	Connections     []*component.Connection
+	AllConnections  []*component.Connection
 	ConnectionsFrom map[string][]*component.Connection
 	ConnectionsTo   map[string][]*component.Connection
 
 	FileToComponent map[string]string
 	FileToDirectory map[string]string
+	FileToModule    map[string]string
 
 	ComponentToFiles map[string][]string
 	DirectoryToFiles map[string][]string
+	ModuleToFiles    map[string][]string
+
+	// The named things in the codebase: types, functions, modules. Folded
+	// across files, so one C# partial class spread over three files is one
+	// unit with three files rather than three units. See core/unit.
+	Units       []*unit.Unit
+	UnitsByKind map[string][]*unit.Unit
+	UnitsByFile map[string][]*unit.Unit
+	UnitByID    map[string]*unit.Unit
+
+	// What the project declares it builds and publishes, read from its own
+	// manifests. Empty for a project that declares nothing, which is most
+	// single-package repositories and is not an error. See core/module.
+	Modules *module.Map
 
 	ComponentGraph *component.Graph
 
@@ -106,8 +129,48 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	fileToDirectory := lo.MapValues(statsByFile, func(snippets *stats.Stats, file string) string {
 		return file[:strings.LastIndex(file, "/")]
 	})
-	componentConnections := component.GetConnectionsFromSnippetImports(snippets.byType, snippets.byComponent)
-	graph := component.CreateGraph("all", lo.Keys(componentToFiles), componentConnections)
+	// Modules are read from the manifests among the files the walker found,
+	// so .gitignore and .archstatsignore are honoured for free (ADR 0012).
+	allFileNames := lo.Map(fileResults, func(fr *file.Results, _ int) string { return fr.Name })
+	moduleMap := module.ReadFrom(rootPath, allFileNames)
+	fileToModule := make(map[string]string, len(allFileNames))
+	moduleToFiles := make(map[string][]string)
+	for _, name := range allFileNames {
+		if mod := moduleMap.Of(name); mod != nil {
+			fileToModule[name] = mod.Name
+			moduleToFiles[mod.Name] = append(moduleToFiles[mod.Name], name)
+		}
+	}
+
+	// Units are folded across files before anything reads them: a partial
+	// class declared in three files is one unit, and nopCommerce has 1,567
+	// of them.
+	var rawUnits []*unit.Unit
+	for _, fr := range fileResults {
+		rawUnits = append(rawUnits, fr.Units...)
+	}
+	allUnits := unit.Merge(rawUnits)
+	unitsByKind := map[string][]*unit.Unit{}
+	unitsByFile := map[string][]*unit.Unit{}
+	unitByID := make(map[string]*unit.Unit, len(allUnits))
+	for _, u := range allUnits {
+		// A unit's component and module come from the files it is declared
+		// in, which are only known once component resolution has run.
+		for _, f := range u.Files {
+			if u.Component == "" {
+				u.Component = fileToComponent[f]
+			}
+			if u.Module == "" {
+				u.Module = fileToModule[f]
+			}
+			unitsByFile[f] = append(unitsByFile[f], u)
+		}
+		unitsByKind[u.Kind] = append(unitsByKind[u.Kind], u)
+		unitByID[u.ID] = u
+	}
+
+	allConnections := component.GetConnectionsFromSnippetImports(snippets.byType, snippets.byComponent)
+	graph := component.CreateGraph("all", lo.Keys(componentToFiles), component.RuntimeOnly(allConnections))
 
 	return &Results{
 		RootDirectory: rootPath,
@@ -123,13 +186,22 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 
 		ComponentGraph:  graph,
 		Connections:     graph.Connections,
+		AllConnections:  allConnections,
 		ConnectionsFrom: graph.ConnectionsFrom,
 		ConnectionsTo:   graph.ConnectionsTo,
 
+		Units:       allUnits,
+		UnitsByKind: unitsByKind,
+		UnitsByFile: unitsByFile,
+		UnitByID:    unitByID,
+
 		FileToComponent:  fileToComponent,
 		FileToDirectory:  fileToDirectory,
+		FileToModule:     fileToModule,
 		ComponentToFiles: componentToFiles,
 		DirectoryToFiles: directoryToFiles,
+		ModuleToFiles:    moduleToFiles,
+		Modules:          moduleMap,
 
 		views:         settings.views,
 		definitions:   settings.definitions,
@@ -214,6 +286,7 @@ func mergeFileResults(results []*file.Results) *file.Results {
 		newResults.Directory = otherResult.Directory
 		newResults.Stats = append(newResults.Stats, otherResult.Stats...)
 		newResults.Snippets = append(newResults.Snippets, otherResult.Snippets...)
+		newResults.Units = append(newResults.Units, otherResult.Units...)
 	}
 	return newResults
 }

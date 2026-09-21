@@ -11,6 +11,7 @@ import (
 
 type componentLinker struct {
 	Strategy string
+	root     string
 	aliases  *aliasMap
 }
 
@@ -25,8 +26,13 @@ func (c *componentLinker) interfaceAssertions() core.FileResultsEditor {
 func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 	// Pre-map file name to its directory path
 	fileDirs := make(map[string]string, len(allFileResults))
+	names := make([]string, 0, len(allFileResults))
 	for _, fr := range allFileResults {
 		fileDirs[fr.Name] = fr.Directory
+		names = append(names, fr.Name)
+	}
+	if c.aliases == nil {
+		c.aliases = readAliasesFrom(c.root, names)
 	}
 
 	// 1. Handle directory-based component strategy
@@ -80,14 +86,26 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 	// 3. Resolve imports if strategy is "directory" or "fallback"
 	if c.Strategy == "directory" || c.Strategy == "fallback" {
 		declaredComponents := make(map[string]bool)
+		// The components that will actually exist: the ones snippets have
+		// been assigned to by the step above. A directory the walker saw is
+		// not necessarily a component -- django-oscar's template trees hold
+		// thousands of files and produce no snippets at all -- and the two
+		// must agree, or a dynamic lookup resolves to a directory here and
+		// is then reported as unresolvable by the view.
+		actualComponents := make(map[string]bool)
 		for _, snippet := range allSnippets {
 			if snippet.Type == file.ComponentDeclaration {
 				declaredComponents[snippet.Value] = true
 			}
+			if snippet.Component != "" {
+				actualComponents[snippet.Component] = true
+			}
 		}
 
 		for _, snippet := range allSnippets {
-			if snippet.Type == file.ComponentImport {
+			// A type-only import resolves to a component exactly as an
+			// ordinary one does; only what it counts for differs.
+			if snippet.Type == file.ComponentImport || snippet.Type == file.ComponentImportTypeOnly || snippet.Type == file.ComponentImportDynamic {
 				// The project's own vocabulary first. Only when nothing claims
 				// the name is it worth guessing from the shape of the tree.
 				if c.aliases != nil {
@@ -96,7 +114,36 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 						continue
 					}
 				}
+				original := snippet.Value
 				snippet.Value = resolveImport(fileDirs[snippet.File], snippet.Value, fileDirs, declaredComponents)
+
+				// A dynamic lookup may name a thing rather than a path.
+				// Django's `get_model("catalogue", "Product")` takes an app
+				// label, and the app it means is a directory: django-oscar
+				// keeps `catalogue` at `src/oscar/apps/catalogue`. A single
+				// bare segment goes nowhere through the branches above, which
+				// all want a dot or a slash, so 469 of Oscar's dynamic edges
+				// -- 136 of them to `catalogue` alone -- resolved to nothing.
+				//
+				// Deliberately narrow: one segment, no dot, no slash, and
+				// only for a dynamic lookup. An ordinary `import os` must
+				// never be captured by a directory that happens to be called
+				// os, and is not, because it never reaches here.
+				if snippet.Type == file.ComponentImportDynamic {
+					if !actualComponents[snippet.Value] && !strings.ContainsAny(snippet.Value, "./\\") {
+						if best := shortestDirEndingIn(snippet.Value, fileDirs); best != "" {
+							snippet.Value = best
+						}
+					}
+					// Nothing in this codebase answers to it, so the resolver
+					// has produced a guess rather than an answer -- and
+					// `nowhere.at.all` comes back as `nowhere/at/all`, which
+					// appears in no source file and cannot be searched for.
+					// What the code wrote is the only honest thing to report.
+					if !actualComponents[snippet.Value] {
+						snippet.Value = original
+					}
+				}
 			}
 		}
 	}
@@ -235,6 +282,24 @@ func resolveImport(importingFileDir, importValue string, fileDirs map[string]str
 		}
 		if bestMatch != "" {
 			return bestMatch
+		}
+	}
+
+	// 3b. Slash-separated absolute imports: Go, and any import already
+	// written as a path. The module prefix is not part of the tree --
+	// `github.com/acme/thing/core/file` lives at `core/file` -- and running
+	// it through the dotted branch below would split `github.com` into two
+	// directories that never existed, which is why Go resolved to nothing at
+	// all. The longest tail of the path that names a directory is the
+	// component: longest first, so a module whose last segment happens to
+	// match some unrelated folder cannot win over the real match.
+	if strings.Contains(importValue, "/") && !strings.HasPrefix(importValue, ".") {
+		cleaned := strings.Trim(strings.ReplaceAll(importValue, "\\", "/"), "/")
+		segments := strings.Split(cleaned, "/")
+		for start := 0; start < len(segments); start++ {
+			if best := shortestDirEndingIn(strings.Join(segments[start:], "/"), fileDirs); best != "" {
+				return best
+			}
 		}
 	}
 

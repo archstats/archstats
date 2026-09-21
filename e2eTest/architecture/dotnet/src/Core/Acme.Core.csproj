@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Plugins\Acme.Plugin.Widget\Acme.Plugin.Widget.csproj" />
+  </ItemGroup>
+</Project>

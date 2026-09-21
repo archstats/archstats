@@ -47,8 +47,18 @@ func Test_Enterprise_TypeScriptMonorepo(t *testing.T) {
 		// rather than its root.
 		directConnection("apps/web/src/app/orders", "packages/ui/src", "apps/web/src/app/orders/service.ts", 1),
 		// The same target reached two ways: a relative path and a tsconfig
-		// alias. `import type` counts — a type-only dependency is still one.
-		directConnection("apps/web/src/app/orders", "apps/web/src/app/billing", "apps/web/src/app/orders/service.ts", 2),
+		// alias — and they are not the same kind of dependency.
+		//
+		// `import type { Invoice }` is erased by the compiler. It is a real
+		// dependency on a shape and no dependency at all once the program
+		// runs, so it is reported as its own edge and kept out of coupling.
+		// This fixture once asserted a single edge of weight two, on the
+		// grounds that a type-only dependency is still a dependency. It is —
+		// but it is not coupling, and counting it as such inflates a real
+		// TypeScript graph by an eighth: 681 of LibreChat's 5,100 imports
+		// are written this way, 293 of its 2,862 component edges.
+		directConnection("apps/web/src/app/orders", "apps/web/src/app/billing", "apps/web/src/app/orders/service.ts", 1),
+		typeOnlyConnection("apps/web/src/app/orders", "apps/web/src/app/billing", "apps/web/src/app/orders/service.ts", 1),
 		// Package to package.
 		directConnection("packages/ui/src", "packages/shared/src", "packages/ui/src/Button.ts", 1),
 	})

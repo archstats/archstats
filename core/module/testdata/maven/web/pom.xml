@@ -1,0 +1,2 @@
+<project><artifactId>broadleaf-framework-web</artifactId>
+<dependencies><dependency><artifactId>broadleaf-framework</artifactId></dependency></dependencies></project>
