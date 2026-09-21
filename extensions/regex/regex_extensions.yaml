@@ -25,6 +25,17 @@ extensions:
     - (abstract class|interface|trait) (?P<modularity__types__abstract>\w+)
     - (class|interface|trait) (?P<modularity__types__total>\w+)
 
+  # Go names a package by its last element only -- `package core` says
+  # nothing about where it sits -- so there is deliberately no declarations
+  # pattern here. Without one the engine resolves components by directory,
+  # which is what an import path already points at.
+  go:
+    file_glob: "**/*.go"
+    patterns:
+    - (?m)^\s*(?:[A-Za-z_][A-Za-z0-9_]*\s+)?"(?P<modularity__component__imports>[a-zA-Z0-9_\-./]+)"\s*$
+    - (?m)^type\s+(?P<modularity__types__abstract>[A-Za-z0-9_]+)\s+interface\b
+    - (?m)^type\s+(?P<modularity__types__total>[A-Za-z0-9_]+)\s
+
   javascript:
     file_glob: "**/*.{js,jsx,mjs,cjs}"
     patterns:

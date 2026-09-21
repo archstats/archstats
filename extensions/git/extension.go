@@ -239,14 +239,15 @@ func (e *extension) Init(settings core.Analyzer) error {
 		})
 	}
 
-	gitRepos, err := findGitRepos(settings.RootPath())
-	if err != nil {
-		log.Err(err).Msg("Error finding git repos")
+	scan := findGitRepos(settings.RootPath())
+	for _, dir := range scan.unreadable {
+		log.Warn().Msgf("Could not read %s while looking for git repositories, so any repository under it is missing from this scan.", dir)
 	}
-	e.repositories = gitRepos
+	e.repositories = scan.repos
+	warnAboutLazyRepos(settings.RootPath(), scan.repos)
 	e.rootPath = settings.RootPath()
-	rawCommits, err := e.getGitCommitsFromAllReposConcurrently(e.rootPath, gitRepos)
-	log.Info().Msgf("Found %d commits total across %d repositories", len(rawCommits), len(gitRepos))
+	rawCommits, err := e.getGitCommitsFromAllReposConcurrently(e.rootPath, scan.repos)
+	log.Info().Msgf("Found %d commits total across %d repositories", len(rawCommits), len(scan.repos))
 	if err != nil {
 		return err
 	}
@@ -374,9 +375,15 @@ func sharedCommitsToRows(
 				continue
 			}
 
+			// The two branches were the wrong way round: a bucket that HAD
+			// shared commits for this pair returned an empty set, and one
+			// that did not returned the missing value. Every
+			// __LAST_30_DAYS / __LAST_90_DAYS / __LAST_180_DAYS shared-commit
+			// column came out zero on every repository, however recent the
+			// work -- 100,572 rows of Sylius, all zero.
 			pairsPerDayBucketMapped := lo.MapValues(pairToCommitsInCommonPerDayBucket, func(sharedCommitCount map[string]commits.CommitHashes, _ int) commits.CommitHashes {
-				if _, hasKey := sharedCommitCount[key]; !hasKey {
-					return sharedCommitCount[key]
+				if shared, hasKey := sharedCommitCount[key]; hasKey {
+					return shared
 				}
 				return commits.CommitHashes{}
 			})
@@ -403,13 +410,13 @@ func toRow(
 		},
 	}
 	row1.Data[SharedCommitCount] = len(commitsInCommon)
-	row1.Data[PercentageOfAllCommitsPair1] = util.NanToZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component1])) * 100.0)
-	row1.Data[PercentageOfAllCommitsPair2] = util.NanToZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component2])) * 100.0)
+	row1.Data[PercentageOfAllCommitsPair1] = util.FiniteOrZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component1])) * 100.0)
+	row1.Data[PercentageOfAllCommitsPair2] = util.FiniteOrZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommits[component2])) * 100.0)
 
 	for days, commitsInCommon := range commitsInCommonPerDayBucket {
 		row1.Data[toDayStat(SharedCommitCount, days)] = len(commitsInCommon)
-		row1.Data[toDayStat(PercentageOfAllCommitsPair1, days)] = util.NanToZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component1])) * 100.0)
-		row1.Data[toDayStat(PercentageOfAllCommitsPair2, days)] = util.NanToZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component2])) * 100.0)
+		row1.Data[toDayStat(PercentageOfAllCommitsPair1, days)] = util.FiniteOrZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component1])) * 100.0)
+		row1.Data[toDayStat(PercentageOfAllCommitsPair2, days)] = util.FiniteOrZero(float64(len(commitsInCommon)) / float64(len(componentOrFileToAllCommitsPerDayBucket[days][component2])) * 100.0)
 	}
 
 	return row1

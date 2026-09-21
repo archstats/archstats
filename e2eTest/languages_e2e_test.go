@@ -45,6 +45,19 @@ type languageFixture struct {
 	// matches no imports yields a full component list and an empty graph,
 	// which is exactly what express looked like.
 	minCoupling int
+
+	// Modules the project declares for itself, by the name its own manifest
+	// gives them. A component is where the code says it lives; a module is
+	// what the project builds and publishes, and for several of these
+	// ecosystems the second is the boundary an architect asks about. Empty
+	// for a project that declares none, which is a real answer and not a
+	// gap -- requests has no manifest any reader here understands.
+	wantModules []string
+	// Which reader must have found them: dotnet, composer, node, gradle,
+	// maven, go, django. A project whose manifests stopped parsing still
+	// produces components, so a module count alone proves nothing and the
+	// reader name does.
+	wantModuleKind string
 }
 
 var languageFixtures = []languageFixture{
@@ -55,6 +68,8 @@ var languageFixtures = []languageFixture{
 		wantComponents: []string{"com.elepy", "com.elepy.annotations"},
 		minComponents:  30,
 		minCoupling:    50,
+		wantModules:    []string{"elepy-core", "elepy-admin"},
+		wantModuleKind: "maven",
 	},
 	{
 		name:   "csharp",
@@ -66,6 +81,10 @@ var languageFixtures = []languageFixture{
 		wantComponents: []string{"MediatR", "MediatR.Examples"},
 		minComponents:  20,
 		minCoupling:    20,
+		// The .csproj is .NET's real module, and the only place that says
+		// which project is a sample and which is the library.
+		wantModules:    []string{"MediatR", "MediatR.Examples"},
+		wantModuleKind: "dotnet",
 	},
 	{
 		name:           "kotlin",
@@ -74,6 +93,9 @@ var languageFixtures = []languageFixture{
 		wantComponents: []string{"kotlinx.datetime", "kotlinx.datetime.internal"},
 		minComponents:  10,
 		minCoupling:    10,
+		// A gradle build script never names itself; the directory does.
+		wantModules:    []string{"core"},
+		wantModuleKind: "gradle",
 	},
 	{
 		name:   "python",
@@ -94,6 +116,8 @@ var languageFixtures = []languageFixture{
 		wantComponents: []string{"lib", "test"},
 		minComponents:  10,
 		minCoupling:    50,
+		wantModules:    []string{"express"},
+		wantModuleKind: "node",
 	},
 	{
 		name:           "typescript",
@@ -102,6 +126,23 @@ var languageFixtures = []languageFixture{
 		wantComponents: []string{"src", "src/middleware"},
 		minComponents:  5,
 		minCoupling:    5,
+		wantModules:    []string{"zustand"},
+		wantModuleKind: "node",
+	},
+	{
+		// Go names a package by its last element, so components come from the
+		// directory tree and the edges come from import paths that carry a
+		// module prefix the tree has never heard of. testify is small and its
+		// packages genuinely depend on each other: require and suite both
+		// build on assert.
+		name:           "go",
+		repo:           "https://github.com/stretchr/testify",
+		commit:         "bb548d0473d4e1c9b7bbfd6602c7bf12f7a84dd2",
+		wantComponents: []string{"assert", "require", "mock", "suite"},
+		minComponents:  4,
+		minCoupling:    5,
+		wantModules:    []string{"github.com/stretchr/testify"},
+		wantModuleKind: "go",
 	},
 }
 
@@ -130,6 +171,28 @@ func Test_Languages_RealProjects(t *testing.T) {
 			// lands here when the component query matches nothing, and the
 			// run still succeeds.
 			assert.Falsef(t, names["Unknown"], "%s left files in \"Unknown\"", fixture.repo)
+
+			if len(fixture.wantModules) == 0 {
+				return
+			}
+			modules := modulesOf(t, fixture.repo, fixture.commit)
+			byName := make(map[string]Module, len(modules))
+			kinds := map[string]int{}
+			for _, m := range modules {
+				byName[m.Name] = m
+				kinds[m.Kind]++
+			}
+			for _, want := range fixture.wantModules {
+				assert.Truef(t, byName[want].Name == want,
+					"expected a module named %q in %s, got %d modules: %v",
+					want, fixture.repo, len(modules), moduleNames(modules))
+			}
+			// A manifest reader that has quietly stopped parsing leaves the
+			// map empty while every component metric carries on unchanged,
+			// so the reader is named rather than merely counted.
+			assert.NotZerof(t, kinds[fixture.wantModuleKind],
+				"%s declares its modules with %s manifests, and none were read: %v",
+				fixture.repo, fixture.wantModuleKind, kinds)
 		})
 	}
 }
@@ -152,6 +215,41 @@ func componentsOf(t *testing.T, url, commit string) []Component {
 	require.NoError(t, csvutil.Unmarshal(out.Bytes(), &components))
 	require.NotEmptyf(t, components, "%s produced no components at all", url)
 	return components
+}
+
+// Module is a row of the modules view.
+type Module struct {
+	Name string `csv:"NAME"`
+	Kind string `csv:"KIND"`
+	Dir  string `csv:"DIRECTORY"`
+}
+
+func modulesOf(t *testing.T, url, commit string) []Module {
+	t.Helper()
+
+	cloned, err := repo.EnsureCloned(url, commit)
+	require.NoErrorf(t, err, "cloning %s", url)
+
+	out := bytes.NewBufferString("")
+	err = cmd.Execute(out, bytes.NewBufferString(""), nil,
+		[]string{"-o", "csv", "-f", cloned.Location, "view", "modules",
+			"-c", "name,kind,directory"})
+	require.NoErrorf(t, err, "reading modules of %s", url)
+
+	var modules []Module
+	require.NoError(t, csvutil.Unmarshal(out.Bytes(), &modules))
+	return modules
+}
+
+func moduleNames(modules []Module) []string {
+	var out []string
+	for i, m := range modules {
+		if i == 10 {
+			break
+		}
+		out = append(out, m.Name)
+	}
+	return out
 }
 
 func firstFew(components []Component) []string {
