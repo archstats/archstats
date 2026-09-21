@@ -3,6 +3,7 @@ package git
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,6 +54,13 @@ func TestFindGitRepos_StopsAtARepositoryRatherThanWalkingIt(t *testing.T) {
 func TestFindGitRepos_KeepsWalkingPastADirectoryItCannotRead(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root can read every directory, so nothing here is unreadable")
+	}
+	if runtime.GOOS == "windows" {
+		// Mode bits do not deny a directory listing on Windows, so the
+		// directory below is perfectly readable there and there is nothing
+		// for the walk to skip. Making one genuinely unreadable needs an ACL
+		// this test has no business setting.
+		t.Skip("directory permissions are not mode bits on Windows")
 	}
 	root := t.TempDir()
 	checkout(t, filepath.Join(root, "repos", "alpha"))

@@ -107,11 +107,25 @@ func findGitRepos(root string) repoScan {
 		if !entry.IsDir() {
 			return nil
 		}
-		gitPath := filepath.Join(path, ".git")
-		if _, err := os.Stat(gitPath); err != nil {
+		if _, err := os.Stat(filepath.Join(path, ".git")); err != nil {
 			return nil
 		}
-		scan.repos = append(scan.repos, getDir(trimRepoPath(root, gitPath)))
+		// filepath.Rel rather than trimming the root off by hand, and
+		// ToSlash because everything downstream -- component names, the
+		// views, the UI -- speaks in forward slashes. Trimming by hand went
+		// through getDir, which asks whether the path contains "/" and
+		// answers "" when it does not: on Windows filepath.Join builds
+		// backslashes, so every repository in a workspace was reported as
+		// the root and they all collapsed into one.
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if rel == "." {
+			rel = ""
+		}
+		scan.repos = append(scan.repos, rel)
 		// Nothing inside a repository is another repository worth reporting.
 		return filepath.SkipDir
 	})
