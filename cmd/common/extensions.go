@@ -14,6 +14,7 @@ import (
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/archstats/archstats/extensions/rules"
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
+	"github.com/archstats/archstats/extensions/treesitter/golang"
 	"github.com/archstats/archstats/extensions/treesitter/java"
 	"github.com/archstats/archstats/extensions/treesitter/javascript"
 	"github.com/archstats/archstats/extensions/treesitter/kotlin"
@@ -56,6 +57,11 @@ func Optional() []*config.CLIConfiguredExtension {
 		return ctx.HasFileExtension(".ts") || ctx.HasFileExtension(".tsx") || ctx.HasFileExtension(".mts") || ctx.HasFileExtension(".cts")
 	}
 
+	goExt := config.CreateEmptyCLIExtension("go", &golang.Extension{})
+	goExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".go")
+	}
+
 	pythonExt := config.CreateEmptyCLIExtension("python", &python.Extension{})
 	pythonExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".py")
@@ -69,11 +75,15 @@ func Optional() []*config.CLIConfiguredExtension {
 		javascriptExt,
 		typescriptExt,
 		pythonExt,
+		goExt,
 		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {
-		// Skip kotlin, javascript, typescript, python — the tree-sitter extensions above supersede them
-		if name == "kotlin" || name == "javascript" || name == "typescript" || name == "python" {
+		// Skip the languages the tree-sitter extensions above supersede.
+		// Their regex definitions stay in the yaml as a record of what the
+		// pack has to match, and for anybody running the regex extension by
+		// name.
+		if name == "kotlin" || name == "javascript" || name == "typescript" || name == "python" || name == "go" {
 			continue
 		}
 		cliExt := config.CreateEmptyCLIExtension(name, extension)

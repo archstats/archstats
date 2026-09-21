@@ -30,6 +30,7 @@ type unitRow struct {
 	Kind   string `csv:"KIND"`
 	Files  int    `csv:"FILES"`
 	Module string `csv:"MODULE"`
+	Owner  string `csv:"OWNER"`
 }
 
 // C#: one type across many files, and many types in one file, in the same
@@ -156,6 +157,54 @@ func Test_Real_Zustand_TypeOnlyEdgesAreSeparated(t *testing.T) {
 	}
 	assert.LessOrEqualf(t, total, runtimeEdges,
 		"efferent coupling counts more edges than there are runtime ones, so erased imports are being counted")
+}
+
+// Go: the architecture is mostly not made of types. testify is in the
+// language suite already, so this costs nothing.
+func Test_Real_Testify_GoUnitsAreMostlyFunctions(t *testing.T) {
+	const url, commit = "https://github.com/stretchr/testify", "bb548d0473d4e1c9b7bbfd6602c7bf12f7a84dd2"
+
+	var units []unitRow
+	realView(t, url, commit, "units", "id,kind,files,module,owner", &units)
+	require.NotEmpty(t, units, "Go produced no units at all")
+
+	kinds := map[string]int{}
+	owned := 0
+	for _, u := range units {
+		kinds[u.Kind]++
+		// A method belongs to its receiver and is written outside it, so
+		// where it lives and what it belongs to are different questions.
+		if u.Owner != "" {
+			owned++
+		}
+	}
+	assert.Greaterf(t, kinds["function"], kinds["type"],
+		"Go is function-first -- gin is 1,327 to 204 -- and this says otherwise: %v", kinds)
+	assert.Positivef(t, owned, "no Go unit carries a receiver, so methods are unattached")
+}
+
+// TypeScript: LibreChat is 3,241 functions to 294 types, so a view of
+// classes shows a fraction of it. zustand is already in the language suite.
+func Test_Real_Zustand_TypeScriptUnits(t *testing.T) {
+	const url, commit = "https://github.com/pmndrs/zustand", "b57db4f86ef179285da216eeb291266da82c361c"
+
+	var units []unitRow
+	realView(t, url, commit, "units", "id,kind,files,module", &units)
+	require.NotEmpty(t, units, "TypeScript produced no units at all")
+
+	kinds := map[string]int{}
+	for _, u := range units {
+		kinds[u.Kind]++
+	}
+	assert.Positivef(t, kinds["function"], "a TypeScript codebase is mostly functions: %v", kinds)
+	assert.Positive(t, kinds["type"])
+
+	// The module is the file, so a unit is qualified by where it lives and
+	// two files may each export a `create`.
+	for _, u := range units {
+		assert.Containsf(t, u.ID, "#", "a unit must be qualified by its module, got %q", u.ID)
+		break
+	}
 }
 
 func skipIfShort(t *testing.T) {

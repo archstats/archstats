@@ -12,9 +12,25 @@ type Extension struct {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
-	settings.RegisterFileAnalyzer(createTypeScriptLanguagePack(false)) // regular typescript
-	settings.RegisterFileAnalyzer(createTypeScriptLanguagePack(true))  // TSX
+	settings.RegisterFileAnalyzer(&tsAnalyzer{lp: createTypeScriptLanguagePack(false)}) // regular typescript
+	settings.RegisterFileAnalyzer(&tsAnalyzer{lp: createTypeScriptLanguagePack(true)})  // TSX
 	return nil
+}
+
+// LibreChat is 997 functions to 14 classes, so a reading of this language
+// that looks only at classes sees fourteen things in a codebase of a
+// thousand. Almost everything an architect points at here is a function.
+type tsAnalyzer struct {
+	lp *common.LanguagePack
+}
+
+func (a *tsAnalyzer) AnalyzeFile(f file.File) *file.Results {
+	res := a.lp.AnalyzeFile(f)
+	if res == nil {
+		return nil
+	}
+	res.Units = common.JSUnitsFrom(f.Path(), res)
+	return res
 }
 
 func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
@@ -84,6 +100,10 @@ func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
 			`((decorator [ (identifier) @ts__angular__directives (call_expression function: (identifier) @ts__angular__directives) ]) (#match? @ts__angular__directives "^Directive$"))`,
 			`((decorator [ (identifier) @ts__angular__pipes (call_expression function: (identifier) @ts__angular__pipes) ]) (#match? @ts__angular__pipes "^Pipe$"))`,
 		},
+		// TypeScript names a class with a type_identifier, JavaScript with a
+		// plain identifier, and a query naming the wrong node compiles to
+		// nothing rather than failing.
+		QueriesForSnippets: common.JSUnitQueries("type_identifier", true),
 		SnippetTransformers: map[string]func(*file.Snippet) *file.Snippet{
 			file.ComponentImport:         stripQuotes,
 			file.ComponentImportTypeOnly: stripQuotes,

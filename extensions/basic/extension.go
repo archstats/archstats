@@ -48,6 +48,11 @@ func (v *extension) Init(settings core.Analyzer) error {
 	})
 
 	settings.RegisterView(&core.ViewFactory{
+		Name:           "unit_markers",
+		CreateViewFunc: unitMarkerView,
+	})
+
+	settings.RegisterView(&core.ViewFactory{
 		Name:           "modules",
 		CreateViewFunc: moduleView,
 	})

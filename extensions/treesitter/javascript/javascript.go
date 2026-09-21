@@ -12,8 +12,21 @@ type Extension struct {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
-	settings.RegisterFileAnalyzer(createJavaScriptLanguagePack())
+	settings.RegisterFileAnalyzer(&jsAnalyzer{lp: createJavaScriptLanguagePack()})
 	return nil
+}
+
+type jsAnalyzer struct {
+	lp *common.LanguagePack
+}
+
+func (a *jsAnalyzer) AnalyzeFile(f file.File) *file.Results {
+	res := a.lp.AnalyzeFile(f)
+	if res == nil {
+		return nil
+	}
+	res.Units = common.JSUnitsFrom(f.Path(), res)
+	return res
 }
 
 func createJavaScriptLanguagePack() *common.LanguagePack {
@@ -46,6 +59,7 @@ func createJavaScriptLanguagePack() *common.LanguagePack {
 			// React Hooks: useQuery, useEffect, etc. (call expressions starting with "use" followed by uppercase)
 			`(call_expression function: (identifier) @js__react__hooks (#match? @js__react__hooks "^use[A-Z]"))`,
 		},
+		QueriesForSnippets: common.JSUnitQueries("identifier", false),
 		SnippetTransformers: map[string]func(*file.Snippet) *file.Snippet{
 			file.ComponentImport:         stripQuotes,
 			file.ComponentImportTypeOnly: stripQuotes,

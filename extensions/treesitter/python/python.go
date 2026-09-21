@@ -11,7 +11,7 @@ type Extension struct {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
-	settings.RegisterFileAnalyzer(createPythonLanguagePack())
+	settings.RegisterFileAnalyzer(&pythonAnalyzer{lp: createPythonLanguagePack()})
 	return nil
 }
 
@@ -55,6 +55,8 @@ func createPythonLanguagePack() *common.LanguagePack {
 			`((decorator (identifier) @python__web__routes) (#match? @python__web__routes "^(get|post|put|delete|route)$"))`,
 		},
 	}
+
+	template.QueriesForSnippets = unitQueries()
 
 	pack, err := common.PackFromTemplate(template)
 	if err != nil {
