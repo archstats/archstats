@@ -100,6 +100,8 @@ type extension struct {
 
 	// Represents an individual change in a commit. A commit can have multiple parts if it changes multiple files.
 	commitParts []*commits.PartOfCommit
+	// viewParts is every row, pure moves included, for the commit table.
+	viewParts []*commits.PartOfCommit
 	// The subset of commitParts co-change is measured on: sweeping commits
 	// left out.
 	couplingParts   []*commits.PartOfCommit
@@ -319,10 +321,13 @@ func (e *extension) Init(settings core.Analyzer) error {
 	for _, commit := range rawCommits {
 		parts := gitCommitToPartOfCommit(settings.RootPath(), commit)
 		partsByCommit[commit] = parts
-		e.commitParts = append(e.commitParts, parts...)
+		// Every row is evidence in the commit table; a move that changed no
+		// lines is not a change to count or to couple on.
+		e.viewParts = append(e.viewParts, parts...)
+		e.commitParts = append(e.commitParts, countable(parts)...)
 	}
 	for _, commit := range couplingCommits {
-		e.couplingParts = append(e.couplingParts, partsByCommit[commit]...)
+		e.couplingParts = append(e.couplingParts, countable(partsByCommit[commit])...)
 	}
 	e.splitAll()
 
@@ -342,7 +347,7 @@ func (e *extension) definitions() []*definitions.Definition {
 }
 func (e *extension) EditResults(results *core.Results) {
 	e.recordSnapshotInfo(results.SetSnapshotInfo)
-	setComponent(results, e.commitParts)
+	setComponent(results, e.viewParts)
 	// Re-split commits based on components
 	// This is necessary because components aren't known on Init()
 	e.splitAll()
@@ -370,12 +375,15 @@ func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.P
 			File:      filePath,
 			// From the path under the scan root, not under the repository:
 			// for a repository in a subfolder the two differ.
-			Directory:   getDir(strings.TrimPrefix(filePath, "./")),
-			Author:      rawCommit.AuthorName,
-			AuthorEmail: rawCommit.AuthorEmail,
-			Message:     rawCommit.Message,
-			Additions:   file.Additions,
-			Deletions:   file.Deletions,
+			Directory:    getDir(strings.TrimPrefix(filePath, "./")),
+			Author:       rawCommit.AuthorName,
+			AuthorEmail:  rawCommit.AuthorEmail,
+			Message:      rawCommit.Message,
+			Additions:    file.Additions,
+			Deletions:    file.Deletions,
+			PathAtCommit: asWalked(trimLeadingSlash(pathToRepo + "/" + orPath(file.PathAtCommit, file.Path))),
+			ChangeKind:   file.ChangeKind,
+			PureRename:   file.ChangeKind == ChangeRename && file.Additions == 0 && file.Deletions == 0,
 		}
 	})
 }
@@ -518,4 +526,22 @@ func maxIntMerger(values []interface{}) interface{} {
 		return nil
 	}
 	return best
+}
+
+// countable leaves out pure moves.
+func countable(parts []*commits.PartOfCommit) []*commits.PartOfCommit {
+	out := make([]*commits.PartOfCommit, 0, len(parts))
+	for _, p := range parts {
+		if !p.PureRename {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func orPath(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
 }

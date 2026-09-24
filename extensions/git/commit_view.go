@@ -7,7 +7,7 @@ import (
 )
 
 func (e *extension) commitViewFactory(*core.Results) *core.View {
-	rows := partsOfCommitToRows(e.commitParts)
+	rows := partsOfCommitToRows(e.viewParts)
 	return &core.View{
 		Name: "git_commits",
 		Columns: []*core.Column{
@@ -21,6 +21,8 @@ func (e *extension) commitViewFactory(*core.Results) *core.View {
 			core.StringColumn(CommitMessage),
 			core.IntColumn(CommitFileAdditions),
 			core.IntColumn(CommitFileDeletions),
+			core.StringColumn("path_at_commit"),
+			core.StringColumn("change_kind"),
 		},
 		Rows: rows,
 	}
@@ -45,6 +47,8 @@ func partsOfCommitToRows(parts []*commits.PartOfCommit) []*core.Row {
 				CommitMessage:       part.Message,
 				CommitFileAdditions: part.Additions,
 				CommitFileDeletions: part.Deletions,
+				"path_at_commit":    part.PathAtCommit,
+				"change_kind":       part.ChangeKind,
 			},
 		}
 	})

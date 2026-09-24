@@ -30,7 +30,13 @@ type rawPartOfCommit struct {
 	Repo      string
 	Additions int
 	Deletions int
-	Path      string
+	// Path is the file's name now, after followRenames; PathAtCommit is the
+	// name it had in this commit.
+	Path         string
+	PathAtCommit string
+	// OldPath is set on a rename row: the name the file had before it.
+	OldPath    string
+	ChangeKind string
 }
 
 func (e *extension) getGitCommitsFromAllReposConcurrently(root string, gitRepos []string) ([]*rawCommit, error) {
@@ -181,7 +187,9 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 	}
 	// %aN and %aE honour .mailmap, so a project's own record of who is who
 	// is used before any guessing.
-	argsRaw = append(argsRaw, "--numstat", "--no-renames", "--pretty=format:"+gitLogFormat)
+	// -M follows a moved file: a move is a rename row, not a deletion and
+	// an unrelated new file, so the file keeps its commits, age and authors.
+	argsRaw = append(argsRaw, "--numstat", "-M", "--pretty=format:"+gitLogFormat)
 
 	commitArgs := append(append([]string{}, argsRaw...), "--no-merges")
 	output, err := exec.Command("git", commitArgs...).Output()
@@ -211,6 +219,7 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 			commits = append(commits, merge)
 		}
 	}
+	followRenames(commits)
 	return commits, nil
 }
 
@@ -270,7 +279,11 @@ func parseCommitString(repo, commitRaw string) *rawCommit {
 		if len(parts) != 3 || parts[2] == "" {
 			continue
 		}
-		if combined != nil && !combined[parts[2]] {
+		filePath, oldPath := parts[2], ""
+		if from, to, ok := splitRename(parts[2]); ok {
+			filePath, oldPath = to, from
+		}
+		if combined != nil && !combined[filePath] {
 			continue
 		}
 		additions, deletions := 0, 0
@@ -281,7 +294,8 @@ func parseCommitString(repo, commitRaw string) *rawCommit {
 			Repo:      repo,
 			Additions: additions,
 			Deletions: deletions,
-			Path:      parts[2],
+			Path:      filePath,
+			OldPath:   oldPath,
 		})
 	}
 	commit.combined = combined != nil

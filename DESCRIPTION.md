@@ -126,7 +126,7 @@ Java files also carry `java_class` / `java_full_class`.
 
 | Table | One row per | Columns |
 |---|---|---|
-| `git_commits` | (commit, file) | `commit_hash`, `commit_time` (ISO-8601 with offset), `author_name`, `author_email`, `commit_message`, `file`, `component`, `repository`, `file_additions`, `file_deletions`. A file outside every component has an empty `component`. |
+| `git_commits` | (commit, file) | `commit_hash`, `commit_time` (ISO-8601 with offset), `author_name`, `author_email`, `commit_message`, `file`, `component`, `repository`, `file_additions`, `file_deletions`, `path_at_commit` (the file's name in that commit; `file` is its name now), `change_kind` (`modify`, `rename`). Moves are followed: a renamed file's older rows carry its current name. A move that changed no lines is a `rename` row but counts in no commit total and no co-change. A file outside every component has an empty `component`. |
 | `git_authors` | author, identities merged by email | `author_name`, `author_email`, `git__*` metrics over the whole history, including files no longer present |
 | `git_component_shared_commits` | component pair | `pair_1`, `pair_2`, `shared_commits`, `percentage_of_all_commits_pair_1`, `percentage_of_all_commits_pair_2`, and the same per `__last_N_days` window. Commits touching more than 100 files are left out of co-change (they stay in `git_commits`). |
 | `git_directory_shared_commits` | directory pair | as above |
