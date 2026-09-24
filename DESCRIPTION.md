@@ -87,7 +87,7 @@ extensions.
 | Table | One row per | Non-metric columns |
 |---|---|---|
 | `components` | component (package, namespace or directory) | `name` |
-| `files` | file | `name`, `directory`, `component`, `module`. Third-party and generated files carry `complexity__files__third_party` / `complexity__files__generated` = 1 and no `codesmells__*` reading. |
+| `files` | file | `name`, `directory`, `component`, `module`, `role` (`production`, `test`, `generated`, `third_party`, `non_code`; by precedence in that reverse order). Test files also count in `complexity__files__test` and `complexity__lines__test`. Third-party and generated files carry `complexity__files__third_party` / `complexity__files__generated` = 1 and no `codesmells__*` reading. |
 | `directories` | directory | `name` |
 | `git_repos` | git repository (*git*) | `name`, `git__shallow_clone`, `git__head_commit`, `git__branch`, `git__head_time`, `git__dirty_files`, `git__sweeping_commits` |
 | `summary` | metric, totalled over the codebase | `name`, `value` |

@@ -1,0 +1,6 @@
+id: complexity__files__test
+name: Test files
+short_description: Files that are tests by their ecosystem's convention (src/test, tests/, *_test.go, *.spec.ts, *.Tests projects).
+long_description: |
+  Counted apart so a component's size can say how much of it is tests. A file has one role -- production, test, generated, third-party or non-code -- recorded in files.role; this counts the test ones.
+category: "Complexity"

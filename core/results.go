@@ -50,6 +50,9 @@ type Results struct {
 	// table. Extensions add to it with SetSnapshotInfo.
 	SnapshotInfo map[string]string
 
+	// FileRoles is each file's role; see file.Role.
+	FileRoles map[string]string
+
 	FileToComponent map[string]string
 	FileToDirectory map[string]string
 	FileToModule    map[string]string
@@ -145,6 +148,7 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	directoryToFiles := mapDirectoryToFiles(lo.Keys(statRecordsByFile))
 	thirdParty := map[string]bool{}
 	generated := map[string]bool{}
+	roles := map[string]string{}
 	for _, fr := range fileResults {
 		if fr.ThirdParty {
 			thirdParty[fr.Name] = true
@@ -152,6 +156,7 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		if fr.Generated {
 			generated[fr.Name] = true
 		}
+		roles[fr.Name] = fr.Role
 	}
 	allStatRecords := lo.Flatten(lo.MapToSlice(statRecordsByFile, func(file string, statRecords []*stats.Record) []*stats.Record {
 		return statRecords
@@ -245,6 +250,7 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		DirectoryToFiles: directoryToFiles,
 		ThirdPartyFiles:  thirdParty,
 		GeneratedFiles:   generated,
+		FileRoles:        roles,
 		ModuleToFiles:    moduleToFiles,
 		Modules:          moduleMap,
 
@@ -328,6 +334,23 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) ([]*file.R
 		}
 		if currentFileResults.Generated {
 			currentFileResults.Stats = append(currentFileResults.Stats, &stats.Record{StatType: file.GeneratedFileCount, Value: 1})
+		}
+		currentFileResults.Role = file.Role(theFile.Path(), currentFileResults.ThirdParty, currentFileResults.Generated)
+		// Test code counted apart, so a component's size can say how much of
+		// it is tests.
+		if currentFileResults.Role == file.RoleTest {
+			lines := 0
+			for _, r := range currentFileResults.Stats {
+				if r.StatType == "complexity__lines" {
+					if n, ok := r.Value.(int); ok {
+						lines += n
+					}
+				}
+			}
+			currentFileResults.Stats = append(currentFileResults.Stats,
+				&stats.Record{StatType: file.TestFileCount, Value: 1},
+				&stats.Record{StatType: file.TestLineCount, Value: lines},
+			)
 		}
 		currentFileResults.Name = theFile.Path()
 		currentFileResults.Directory = theFile.Path()[:strings.LastIndex(theFile.Path(), "/")]

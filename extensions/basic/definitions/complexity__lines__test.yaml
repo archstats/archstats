@@ -1,0 +1,6 @@
+id: complexity__lines__test
+name: Test lines
+short_description: Lines in test files.
+long_description: |
+  The lines of the files whose role is test. Against complexity__lines, the share of a component that is tests.
+category: "Complexity"

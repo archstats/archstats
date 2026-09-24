@@ -164,39 +164,10 @@ func isExcludedFromCodeSmells(path string) bool {
 		}
 	}
 
-	// Check file extensions to ignore
-	ext := filepath.Ext(lowerPath)
-	ignoredExts := map[string]bool{
-		".json": true,
-		".yaml": true,
-		".yml":  true,
-		".md":   true,
-		".txt":  true,
-		".lock": true,
-		".xml":  true,
-		".toml": true,
-		".ini":  true,
-		".conf": true,
-		".csv":  true,
-		// A health reading is about how code is shaped, so text that is not
-		// code gets none. Without these, django-oscar's hottest file was its
-		// French translation catalogue and LibreChat's its stylesheet.
-		".po":         true,
-		".pot":        true,
-		".mo":         true,
-		".properties": true,
-		".css":        true,
-		".scss":       true,
-		".sass":       true,
-		".less":       true,
-		".styl":       true,
-		".svg":        true,
-		".map":        true,
-		".snap":       true,
-		".rst":        true,
-		".adoc":       true,
-	}
-	if ignoredExts[ext] {
+	// Text that is not code gets no health reading: a translation catalogue
+	// and a stylesheet topped the hotspot lists of django-oscar and
+	// LibreChat. The list is core's, shared with file roles.
+	if file.IsNonCode(lowerPath) {
 		return true
 	}
 

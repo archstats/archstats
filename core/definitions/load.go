@@ -1,6 +1,7 @@
 package definitions
 
 import (
+	"fmt"
 	"gopkg.in/yaml.v3"
 	"io/fs"
 	"strings"
@@ -9,7 +10,10 @@ import (
 func LoadYamlFiles(fsys fs.ReadFileFS) ([]*Definition, error) {
 	var definitions []*Definition
 
-	fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+	// A definition that fails to load stops the load with its name. The
+	// walk's error used to be dropped, so one malformed file silently lost
+	// every definition after it.
+	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -20,13 +24,16 @@ func LoadYamlFiles(fsys fs.ReadFileFS) ([]*Definition, error) {
 		if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
 			def, err := LoadYamlFile(fsys, path)
 			if err != nil {
-				return err
+				return fmt.Errorf("definition %s: %w", path, err)
 			}
 			definitions = append(definitions, def)
 
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 	return definitions, nil
 }
 

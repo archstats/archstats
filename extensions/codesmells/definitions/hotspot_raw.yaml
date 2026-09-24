@@ -1,6 +1,6 @@
 id: codesmells__hotspot__raw
-name: Raw hotspot
-short_description: log2(commits + 1) × lines, before it is scaled to 0–100 against the hottest file.
+name: "Raw hotspot"
+short_description: "log2(commits + 1) × lines, before it is scaled to 0–100 against the hottest file."
 long_description: |
   The hotspot score is this number as a share of the largest one in the snapshot, times 100, so it only compares files within one scan. The raw value can be compared across scans of the same code. A component or directory carries its hottest file's.
 category: "Code health"

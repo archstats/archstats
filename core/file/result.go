@@ -19,4 +19,6 @@ type Results struct {
 	ThirdParty bool
 	// Written by a tool, by its own header's account; see IsGenerated.
 	Generated bool
+	// Role is production, test, generated, third_party or non_code; see Role.
+	Role string
 }

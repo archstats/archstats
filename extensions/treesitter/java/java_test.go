@@ -102,14 +102,14 @@ type mockFile struct {
 	content []byte
 }
 
-func (m *mockFile) Path() string             { return m.path }
-func (m *mockFile) Content() []byte         { return m.content }
-func (m *mockFile) Name() string             { return m.path }
-func (m *mockFile) Size() int64              { return int64(len(m.content)) }
-func (m *mockFile) Mode() fs.FileMode        { return 0 }
-func (m *mockFile) ModTime() time.Time       { return time.Time{} }
-func (m *mockFile) IsDir() bool              { return false }
-func (m *mockFile) Sys() interface{}         { return nil }
+func (m *mockFile) Path() string       { return m.path }
+func (m *mockFile) Content() []byte    { return m.content }
+func (m *mockFile) Name() string       { return m.path }
+func (m *mockFile) Size() int64        { return int64(len(m.content)) }
+func (m *mockFile) Mode() fs.FileMode  { return 0 }
+func (m *mockFile) ModTime() time.Time { return time.Time{} }
+func (m *mockFile) IsDir() bool        { return false }
+func (m *mockFile) Sys() interface{}   { return nil }
 
 func TestJavaAnalyzerStats(t *testing.T) {
 	extension := &Extension{IgnoreCommonJavaImports: false}
