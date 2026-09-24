@@ -113,3 +113,20 @@ func createSharedCommitBetweenComponents(commitHash string, files ...string) []*
 		}
 	})
 }
+
+// A member without commits shares none, whichever end of the pair it is.
+func TestSharedCommitsForGroup_MemberWithoutCommitsSharesNothing(t *testing.T) {
+	commits := map[string]CommitHashes{
+		"empty": nil,
+		"busy":  {"c1", "c2", "c3"},
+		"some":  {"c2", "c3", "c4"},
+	}
+	for _, group := range [][]string{{"empty", "busy"}, {"busy", "empty"}, {"busy", "some", "empty"}} {
+		if got := SharedCommitsForGroup(group, commits); len(got) != 0 {
+			t.Errorf("%v shares %v, want none", group, got)
+		}
+	}
+	if got := SharedCommitsForGroup([]string{"busy", "some"}, commits); len(got) != 2 {
+		t.Errorf("busy and some share %v, want c2 and c3", got)
+	}
+}

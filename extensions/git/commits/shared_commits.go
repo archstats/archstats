@@ -35,17 +35,24 @@ func PairsToCommitsInCommon(filesOrComponents []string, componentOrFileToCommits
 	return toReturn
 }
 
+// SharedCommitsForGroup returns the commits every member of the group
+// changed. A member with no commits shares none: the intersection used to
+// start from nil and treat that member's empty list as "not started yet", so
+// a pair whose first member had no commits reported all of the second's.
 func SharedCommitsForGroup(group []string, componentOrFileToCommits map[string]CommitHashes) CommitHashes {
-	var intersection CommitHashes
-	for _, elem := range group {
-		commits := componentOrFileToCommits[elem]
-		if intersection == nil {
-			intersection = commits
-		} else {
-			intersection = lo.Intersect(intersection, commits)
-		}
+	if len(group) == 0 {
+		return CommitHashes{}
 	}
-
+	intersection := componentOrFileToCommits[group[0]]
+	for _, elem := range group[1:] {
+		if len(intersection) == 0 {
+			return CommitHashes{}
+		}
+		intersection = lo.Intersect(intersection, componentOrFileToCommits[elem])
+	}
+	if intersection == nil {
+		return CommitHashes{}
+	}
 	return intersection
 }
 
