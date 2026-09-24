@@ -218,3 +218,33 @@ func TestNegationBringsAFileBackFromAnIgnoredFolder(t *testing.T) {
 	}
 	assert.Equal(t, []string{"store/Index.htm"}, got)
 }
+
+// What a scan leaves out is reported the way a reader thinks of it: a
+// directory it never entered is one line, not every file inside it.
+func TestScanReportsWhatItIgnored(t *testing.T) {
+	root := t.TempDir()
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, d := range []string{".git", "node_modules/react", "src"} {
+		must(os.MkdirAll(filepath.Join(root, d), 0o755))
+	}
+	must(os.WriteFile(filepath.Join(root, ".gitignore"), []byte("node_modules/\n*.log\n"), 0o644))
+	must(os.WriteFile(filepath.Join(root, "node_modules/react/index.js"), []byte("x"), 0o644))
+	must(os.WriteFile(filepath.Join(root, "src/app.ts"), []byte("x"), 0o644))
+	must(os.WriteFile(filepath.Join(root, "debug.log"), []byte("x"), 0o644))
+
+	files, err := Scan(root)
+	must(err)
+	ig := files.Ignored()
+	if ig.Dirs != 2 || ig.Files != 2 {
+		t.Fatalf("ignored %d dirs, %d files (top %v)", ig.Dirs, ig.Files, ig.Top)
+	}
+	joined := strings.Join(ig.Top, " ")
+	if !strings.Contains(joined, "node_modules/") || strings.Contains(joined, "react/index.js") {
+		t.Fatalf("top = %v", ig.Top)
+	}
+}

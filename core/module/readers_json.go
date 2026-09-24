@@ -17,12 +17,12 @@ import (
 
 type composerReader struct{}
 
-func (composerReader) Kind() string          { return "composer" }
-func (composerReader) Claims(b string) bool  { return b == "composer.json" }
+func (composerReader) Kind() string         { return "composer" }
+func (composerReader) Claims(b string) bool { return b == "composer.json" }
 
 type composerManifest struct {
-	Name    string            `json:"name"`
-	Require map[string]string `json:"require"`
+	Name     string            `json:"name"`
+	Require  map[string]string `json:"require"`
 	Autoload struct {
 		PSR4 map[string]interface{} `json:"psr-4"`
 	} `json:"autoload"`

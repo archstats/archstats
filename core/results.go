@@ -306,11 +306,11 @@ func (r *Results) GetDefinition(str string) *definitions2.Definition {
 	return r.definitions[str]
 }
 
-func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) ([]*file.Results, error) {
+func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) ([]*file.Results, *walker.Ignored, error) {
 	var allFileResults []*file.Results
 
 	lock := sync.Mutex{}
-	err := walker.WalkDirectoryConcurrently(rootPath, func(theFile file.File) {
+	ignored, err := walker.WalkAndReport(rootPath, func(theFile file.File) {
 		var currentFileResultsToMerge []*file.Results
 		for _, provider := range fileAnalyzers {
 			analyzeFile := provider.AnalyzeFile(theFile)
@@ -337,9 +337,9 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) ([]*file.R
 		lock.Unlock()
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return allFileResults, nil
+	return allFileResults, ignored, nil
 }
 
 func mergeFileResults(results []*file.Results) *file.Results {

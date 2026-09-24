@@ -8,19 +8,64 @@ import (
 	"os"
 	filepath "path"
 	"runtime"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 )
 
 func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file file.File)) error {
-	dirFS := os.DirFS(dirAbsolutePath).(fs.ReadFileFS)
+	_, err := WalkAndReport(dirAbsolutePath, visitor)
+	return err
+}
 
-	allFiles, err := GetAllFiles(dirAbsolutePath)
+// WalkAndReport walks every unignored file and returns what it left out.
+func WalkAndReport(dirAbsolutePath string, visitor func(file file.File)) (*Ignored, error) {
+	dirFS := os.DirFS(dirAbsolutePath).(fs.ReadFileFS)
+	files, err := Scan(dirAbsolutePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	WalkFiles(dirFS, allFiles, visitor)
-	return nil
+	WalkFiles(dirFS, files.FoundFiles, visitor)
+	return files.Ignored(), nil
+}
+
+// Ignored is what a scan left out: whole directories it never entered and
+// single files it skipped, the shallowest of either first.
+type Ignored struct {
+	Files int
+	Dirs  int
+	// Top is the shallowest ignored paths, directories with a trailing "/":
+	// node_modules/ is one line, not forty thousand.
+	Top []string
+}
+
+// Ignored summarises what was left out.
+func (r *FileResults) Ignored() *Ignored {
+	out := &Ignored{}
+	for _, p := range r.IgnoredFiles {
+		if strings.HasSuffix(p, "/") {
+			out.Dirs++
+		} else {
+			out.Files++
+		}
+	}
+	top := append([]string(nil), r.IgnoredFiles...)
+	sort.SliceStable(top, func(i, j int) bool {
+		di, dj := strings.Count(strings.TrimSuffix(top[i], "/"), "/"), strings.Count(strings.TrimSuffix(top[j], "/"), "/")
+		if di != dj {
+			return di < dj
+		}
+		return top[i] < top[j]
+	})
+	if len(top) > 20 {
+		top = top[:20]
+	}
+	for i, p := range top {
+		top[i] = strings.TrimPrefix(p, "./")
+	}
+	out.Top = top
+	return out
 }
 
 // maxWorkers returns a bounded concurrency limit: min(runtime.NumCPU()*2, 32).
@@ -88,16 +133,22 @@ func isBinary(content []byte) bool {
 }
 
 func GetAllFiles(dirAbsolutePath string) ([]PathToFile, error) {
-	log.Debug().Msgf("Finding unignored files in %s", dirAbsolutePath)
+	files, err := Scan(dirAbsolutePath)
+	if err != nil {
+		return nil, err
+	}
+	return files.FoundFiles, nil
+}
 
+// Scan lists the files to analyse and everything it ignored.
+func Scan(dirAbsolutePath string) (*FileResults, error) {
+	log.Debug().Msgf("Finding unignored files in %s", dirAbsolutePath)
 	files, err := getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, ignoreContext{})
 	if err != nil {
 		return nil, fmt.Errorf("error reading root directory %s: %w", dirAbsolutePath, err)
 	}
-
 	log.Debug().Msgf("Found %d files, %d files/directories ignored ", len(files.FoundFiles), len(files.IgnoredFiles))
-
-	return files.FoundFiles, nil
+	return files, nil
 }
 
 type FileResults struct {
@@ -131,6 +182,9 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 		// it: git does not track .git, so .gitignore has no reason to name it.
 		// Walking it counted packed-refs and hook samples as code.
 		if isVCSMetadata(entry.Name()) {
+			if entry.IsDir() {
+				path += separator
+			}
 			ignoredFiles = append(ignoredFiles, path)
 			continue
 		}

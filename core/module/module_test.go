@@ -28,8 +28,8 @@ func TestReaders(t *testing.T) {
 		{
 			dir: "dotnet", wantKind: "dotnet", wantCount: 2,
 			wantModules: map[string]string{
-				"Nop.Core":                     "src/Core",
-				"Nop.Plugin.Payments.PayPal":   "src/Plugins/Nop.Plugin.Payments.PayPal",
+				"Nop.Core":                   "src/Core",
+				"Nop.Plugin.Payments.PayPal": "src/Plugins/Nop.Plugin.Payments.PayPal",
 			},
 			// `..\..\Core\Nop.Core.csproj` names a project, not a path.
 			wantDep: map[string]string{"Nop.Plugin.Payments.PayPal": "Nop.Core"},
@@ -46,8 +46,8 @@ func TestReaders(t *testing.T) {
 		{
 			dir: "node", wantKind: "node", wantCount: 2,
 			wantModules: map[string]string{
-				"librechat":          "",
-				"@librechat/shared":  "packages/shared",
+				"librechat":         "",
+				"@librechat/shared": "packages/shared",
 			},
 		},
 		{

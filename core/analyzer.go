@@ -1,9 +1,11 @@
 package core
 
 import (
+	"encoding/json"
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/stats"
 	"github.com/rs/zerolog/log"
+	"strconv"
 )
 
 type Analyzer interface {
@@ -82,7 +84,7 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 	}
 
 	// Get Snippets and Stats from the files
-	fileResults, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers)
+	fileResults, ignored, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +100,14 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 
 	// Aggregate Snippets and Stats into Results
 	results := aggregateSnippetsAndStatsIntoResults(analyzer, fileResults)
+	// What the walker left out, so a snapshot can say why a folder is absent.
+	if ignored != nil {
+		results.SetSnapshotInfo("walker_ignored_files", strconv.Itoa(ignored.Files))
+		results.SetSnapshotInfo("walker_ignored_dirs", strconv.Itoa(ignored.Dirs))
+		if top, err := json.Marshal(ignored.Top); err == nil {
+			results.SetSnapshotInfo("walker_ignored_top", string(top))
+		}
+	}
 	log.Debug().Msgf("Finished aggregating snippets and stats into results")
 
 	// Edit results after they've been aggregated
