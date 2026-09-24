@@ -1,11 +1,11 @@
 package git
 
 import (
-	"time"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/stats"
 	"github.com/archstats/archstats/extensions/util"
 	"strings"
+	"time"
 )
 
 const (

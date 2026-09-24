@@ -77,6 +77,7 @@ func (e *extension) recordSnapshotInfo(set func(key, value string)) {
 	if !newest.IsZero() {
 		set("git_head_time", newest.UTC().Format(time.RFC3339))
 	}
+	set("git_based_on", e.BasedOn.UTC().Format(time.RFC3339))
 	set("git_max_changes_per_commit", strconv.Itoa(e.MaxChangesPerCommit))
 	set("git_sweeping_commits", strconv.Itoa(e.sweepingTotal))
 }

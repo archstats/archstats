@@ -64,6 +64,7 @@ func Extension() core.Extension {
 		GitSince:                             "",
 		MaxChangesPerCommit:                  100,
 		BasedOn:                              time.Now(),
+		BasedOnMode:                          "head",
 	}
 }
 
@@ -91,6 +92,11 @@ type extension struct {
 
 	// What is the base date for the stats? If this is set, the aggregated time stats will be relative to this date.
 	BasedOn time.Time
+	// BasedOnMode is "head": the windows count back from the newest commit
+	// scanned, so scanning the same commit a day apart reads the same and a
+	// dormant repository's last 30 days are its last 30 days of work; or
+	// "now": from the moment of the scan, as before revision 2.
+	BasedOnMode string
 
 	// Represents an individual change in a commit. A commit can have multiple parts if it changes multiple files.
 	commitParts []*commits.PartOfCommit
@@ -267,6 +273,23 @@ func (e *extension) Init(settings core.Analyzer) error {
 		return err
 	}
 	canonicalizeAuthors(rawCommits)
+
+	if e.BasedOnMode != "now" {
+		newest := time.Time{}
+		for _, h := range e.heads {
+			if h.Time.After(newest) {
+				newest = h.Time
+			}
+		}
+		for _, c := range rawCommits {
+			if c.Time.After(newest) {
+				newest = c.Time
+			}
+		}
+		if !newest.IsZero() {
+			e.BasedOn = newest
+		}
+	}
 
 	// Every commit counts for what happened to a file: its age, its churn,
 	// who touched it. A copyright sweep over 3,000 files is still a change to
