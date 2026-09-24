@@ -13,6 +13,7 @@ func definitionsView(results *core.Results) *core.View {
 			core.StringColumn("name"),
 			core.StringColumn("short_description"),
 			core.StringColumn("long_description"),
+			core.StringColumn("category"),
 		},
 		Rows: lo.MapToSlice(results.GetDefinitions(), func(_ string, definition *definitions2.Definition) *core.Row {
 			return &core.Row{
@@ -21,6 +22,7 @@ func definitionsView(results *core.Results) *core.View {
 					"name":              definition.Name,
 					"short_description": definition.ShortDescription,
 					"long_description":  definition.LongDescription,
+					"category":          definition.Category,
 				},
 			}
 		}),

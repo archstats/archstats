@@ -284,12 +284,22 @@ func saveMetricDefinitions(db *sql.DB, results *core.Results, options *SqlOption
 		name TEXT,
 		short_description TEXT,
 		long_description TEXT,
+		category TEXT,
 		report_id TEXT,
 		timestamp DATE,
 		PRIMARY KEY (id, report_id)
 	)`)
 	if err != nil {
 		return err
+	}
+	// A CLI database written before categories were exported gets the
+	// column; CREATE IF NOT EXISTS left its table as it was.
+	var hasCategory int
+	_ = db.QueryRow(`SELECT count(*) FROM pragma_table_info('_metric_definitions') WHERE name = 'category'`).Scan(&hasCategory)
+	if hasCategory == 0 {
+		if _, err := db.Exec(`ALTER TABLE _metric_definitions ADD COLUMN category TEXT`); err != nil {
+			return err
+		}
 	}
 
 	// Delete existing definitions for this report_id
@@ -311,8 +321,8 @@ func saveMetricDefinitions(db *sql.DB, results *core.Results, options *SqlOption
 	})
 
 	for _, def := range defSlice {
-		_, err = db.Exec(`INSERT INTO _metric_definitions (id, name, short_description, long_description, report_id, timestamp)
-			VALUES (?, ?, ?, ?, ?, ?)`, def.Id, def.Name, def.ShortDescription, def.LongDescription, options.ReportId, options.ScanTime)
+		_, err = db.Exec(`INSERT INTO _metric_definitions (id, name, short_description, long_description, category, report_id, timestamp)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`, def.Id, def.Name, def.ShortDescription, def.LongDescription, def.Category, options.ReportId, options.ScanTime)
 		if err != nil {
 			return err
 		}
