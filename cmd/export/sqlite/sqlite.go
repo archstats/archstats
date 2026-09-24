@@ -226,11 +226,20 @@ func saveSnapshotInfo(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _snapshot (key TEXT PRIMARY KEY, value TEXT)`); err != nil {
 		return fmt.Errorf("creating _snapshot: %w", err)
 	}
-	_, err := db.Exec(`INSERT OR REPLACE INTO _snapshot (key, value) VALUES ('analysis_revision', ?)`, fmt.Sprint(core.AnalysisRevision))
-	if err != nil {
-		return fmt.Errorf("writing _snapshot: %w", err)
+	for key, value := range snapshotInfo() {
+		if _, err := db.Exec(`INSERT OR REPLACE INTO _snapshot (key, value) VALUES (?, ?)`, key, value); err != nil {
+			return fmt.Errorf("writing _snapshot %s: %w", key, err)
+		}
 	}
 	return nil
+}
+
+// snapshotInfo is every _snapshot key this build writes. Each must be
+// documented in DESCRIPTION.md; TestSchemaIsDocumented holds that.
+func snapshotInfo() map[string]string {
+	return map[string]string{
+		"analysis_revision": fmt.Sprint(core.AnalysisRevision),
+	}
 }
 
 func saveMetricDefinitions(db *sql.DB, results *core.Results, options *SqlOptions) error {

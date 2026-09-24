@@ -16,5 +16,7 @@ package core
 //	               tree-sitter; git identities merged; Go import resolution;
 //	               cycles counted once per component; third-party, generated
 //	               and non-code files (translations, stylesheets) get no
-//	               health reading.
+//	               health reading; shortest_path_length counts hops, not
+//	               nodes; commits touching more than 100 files stay in
+//	               git_commits but are left out of co-change.
 const AnalysisRevision = 1
