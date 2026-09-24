@@ -14,15 +14,30 @@ import (
 	"time"
 )
 
-func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file file.File)) error {
-	_, err := WalkAndReport(dirAbsolutePath, visitor)
+// Options adjust a walk beyond what the tree's own ignore files say.
+type Options struct {
+	// IgnorePatterns are gitignore-style patterns applied from the root, as
+	// if one more ignore file sat there: a workspace's own exclusions.
+	IgnorePatterns []string
+}
+
+func merged(opts []Options) Options {
+	var out Options
+	for _, o := range opts {
+		out.IgnorePatterns = append(out.IgnorePatterns, o.IgnorePatterns...)
+	}
+	return out
+}
+
+func WalkDirectoryConcurrently(dirAbsolutePath string, visitor func(file file.File), opts ...Options) error {
+	_, err := WalkAndReport(dirAbsolutePath, visitor, opts...)
 	return err
 }
 
 // WalkAndReport walks every unignored file and returns what it left out.
-func WalkAndReport(dirAbsolutePath string, visitor func(file file.File)) (*Ignored, error) {
+func WalkAndReport(dirAbsolutePath string, visitor func(file file.File), opts ...Options) (*Ignored, error) {
 	dirFS := os.DirFS(dirAbsolutePath).(fs.ReadFileFS)
-	files, err := Scan(dirAbsolutePath)
+	files, err := Scan(dirAbsolutePath, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +147,8 @@ func isBinary(content []byte) bool {
 	return false
 }
 
-func GetAllFiles(dirAbsolutePath string) ([]PathToFile, error) {
-	files, err := Scan(dirAbsolutePath)
+func GetAllFiles(dirAbsolutePath string, opts ...Options) ([]PathToFile, error) {
+	files, err := Scan(dirAbsolutePath, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -141,9 +156,9 @@ func GetAllFiles(dirAbsolutePath string) ([]PathToFile, error) {
 }
 
 // Scan lists the files to analyse and everything it ignored.
-func Scan(dirAbsolutePath string) (*FileResults, error) {
+func Scan(dirAbsolutePath string, opts ...Options) (*FileResults, error) {
 	log.Debug().Msgf("Finding unignored files in %s", dirAbsolutePath)
-	files, err := getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, ignoreContext{})
+	files, err := getAllFiles(os.DirFS(dirAbsolutePath).(fs.ReadDirFS), ".", 0, rootContext(merged(opts).IgnorePatterns))
 	if err != nil {
 		return nil, fmt.Errorf("error reading root directory %s: %w", dirAbsolutePath, err)
 	}

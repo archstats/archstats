@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"context"
+	"github.com/archstats/archstats/cmd/assert"
 	"github.com/archstats/archstats/cmd/common"
 	"github.com/archstats/archstats/cmd/config"
-	"github.com/archstats/archstats/cmd/assert"
 	"github.com/archstats/archstats/cmd/definitions"
 	"github.com/archstats/archstats/cmd/export"
 	"github.com/archstats/archstats/cmd/view"
@@ -41,6 +41,7 @@ func Cmd() (*cobra.Command, error) {
 	cmd.PersistentFlags().StringSliceP(common.FlagExtension, "e", nil, "Archstat extension(s) to use")
 	cmd.PersistentFlags().StringSlice(common.FlagSnippet, nil, "Regular Expression to match snippet types. FlagSnippet types are named by using regex named groups(?P<typeName>). For example, if you want to match a JavaScript function, you can use the regex 'function (?P<function>.*)'")
 	cmd.PersistentFlags().StringP(common.FlagWorkingDirectory, "f", "", "Input directory")
+	cmd.PersistentFlags().StringSlice(common.FlagIgnore, nil, "Paths to leave out, in .gitignore syntax, on top of the tree's own ignore files (repeatable). Their files are not read and their history rows are dropped; CODEOWNERS is never ignored")
 
 	cmd.PersistentFlags().BoolP(common.FlagVerbose, "v", false, "Verbose output")
 

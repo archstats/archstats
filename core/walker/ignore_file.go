@@ -33,6 +33,57 @@ type ignoreLayer struct {
 	negations []string
 }
 
+// rootContext starts a walk with the caller's patterns as a layer at the root.
+func rootContext(patterns []string) ignoreContext {
+	var lines []string
+	for _, p := range patterns {
+		if t := strings.TrimSpace(p); t != "" && !strings.HasPrefix(t, "#") {
+			lines = append(lines, t)
+		}
+	}
+	if len(lines) == 0 {
+		return ignoreContext{}
+	}
+	var negations []string
+	for _, l := range lines {
+		if strings.HasPrefix(l, "!") {
+			negations = append(negations, strings.TrimPrefix(l, "!"))
+		}
+	}
+	return ignoreContext{layers: []ignoreLayer{{base: ".", gi: ignore.CompileIgnoreLines(lines...), negations: negations}}}
+}
+
+// Matcher reports whether a root-relative slash path matches the patterns,
+// as the walk judged it: for filtering records of files (history) the walk
+// never saw.
+func Matcher(patterns []string) func(path string) bool {
+	ctx := rootContext(patterns)
+	if len(ctx.layers) == 0 {
+		return func(string) bool { return false }
+	}
+	return func(path string) bool {
+		p := strings.TrimPrefix(path, "./")
+		if isCodeowners(p) {
+			return false
+		}
+		if ctx.layers[0].gi.MatchesPath(p) {
+			return true
+		}
+		// A file inside an ignored directory is ignored with it.
+		for dir := filepath.Dir(p); dir != "." && dir != "/" && dir != ""; dir = filepath.Dir(dir) {
+			if ctx.layers[0].gi.MatchesPath(dir + "/") {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// isCodeowners: ownership files are never ignored; the app reads them.
+func isCodeowners(path string) bool {
+	return filepath.Base(path) == "CODEOWNERS"
+}
+
 // within returns the context for a directory: this one plus the ignore files
 // the directory itself holds. A copy, so a sibling never sees them.
 func (ctx ignoreContext) within(fileSystem fs.FS, dirPath string, files []fs.DirEntry) ignoreContext {
@@ -63,6 +114,11 @@ func (ctx ignoreContext) prunes(dirPath string) bool {
 	if !ctx.ignores(dirPath) {
 		return false
 	}
+	// The places CODEOWNERS lives are walked file by file, so it can be kept
+	// while everything else in them stays ignored.
+	if d := strings.TrimSuffix(strings.TrimPrefix(dirPath, "./"), "/"); d == ".github" || d == "docs" {
+		return false
+	}
 	for _, l := range ctx.layers {
 		rel, ok := relativeTo(dirPath, l.base)
 		if !ok {
@@ -88,6 +144,9 @@ func (ctx ignoreContext) prunes(dirPath string) bool {
 func (ctx ignoreContext) ignores(path string) bool {
 	if isIgnoreFile(path) {
 		return true
+	}
+	if isCodeowners(path) {
+		return false
 	}
 	for _, l := range ctx.layers {
 		if rel, ok := relativeTo(path, l.base); ok && l.gi.MatchesPath(rel) {

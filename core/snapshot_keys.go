@@ -17,4 +17,6 @@ var KnownSnapshotKeys = []string{
 	"walker_ignored_files",
 	"walker_ignored_dirs",
 	"walker_ignored_top",
+	"ignore_globs",
+	"git_ignored_rows",
 }

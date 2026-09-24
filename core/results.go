@@ -312,7 +312,7 @@ func (r *Results) GetDefinition(str string) *definitions2.Definition {
 	return r.definitions[str]
 }
 
-func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) ([]*file.Results, *walker.Ignored, error) {
+func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer, opts walker.Options) ([]*file.Results, *walker.Ignored, error) {
 	var allFileResults []*file.Results
 
 	lock := sync.Mutex{}
@@ -358,7 +358,7 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) ([]*file.R
 		lock.Lock()
 		allFileResults = append(allFileResults, currentFileResults)
 		lock.Unlock()
-	})
+	}, opts)
 	if err != nil {
 		return nil, nil, err
 	}

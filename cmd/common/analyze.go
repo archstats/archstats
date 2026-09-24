@@ -18,6 +18,7 @@ const (
 	FlagSnippet          = "snippet"
 	FlagSet              = "set"
 	FlagVerbose          = "verbose"
+	FlagIgnore           = "ignore"
 )
 
 // contextKey is an unexported type used for context keys to avoid collisions.
@@ -35,6 +36,8 @@ type CommonFlags struct {
 	WorkingDirectory string
 	Extensions       []string
 	Snippets         []string
+	// Ignore patterns on top of the tree's own ignore files (gitignore syntax).
+	Ignore []string
 }
 
 func GetCommonFlags(command *cobra.Command) *CommonFlags {
@@ -44,11 +47,13 @@ func GetCommonFlags(command *cobra.Command) *CommonFlags {
 	extensionStrings, _ := command.Flags().GetStringSlice(FlagExtension)
 
 	snippetStrings, _ := command.Flags().GetStringSlice(FlagSnippet)
+	ignoreStrings, _ := command.Flags().GetStringSlice(FlagIgnore)
 
 	return &CommonFlags{
 		WorkingDirectory: rootDir,
 		Extensions:       extensionStrings,
 		Snippets:         snippetStrings,
+		Ignore:           ignoreStrings,
 	}
 }
 
@@ -84,8 +89,9 @@ func Analyze(command *cobra.Command) (*core.Results, error) {
 	}
 
 	allResults, err := core.New(&core.Config{
-		RootPath:   rootDir,
-		Extensions: archstatsExtensions,
+		RootPath:       rootDir,
+		Extensions:     archstatsExtensions,
+		IgnorePatterns: commonFlags.Ignore,
 	}).Analyze()
 	if err == nil && allResults != nil {
 		names := make([]string, 0, len(enabledExtensions))

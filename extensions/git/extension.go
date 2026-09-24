@@ -7,6 +7,7 @@ import (
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
+	"github.com/archstats/archstats/core/walker"
 	"github.com/archstats/archstats/extensions/git/commits"
 	"github.com/archstats/archstats/extensions/util"
 	"github.com/rs/zerolog/log"
@@ -120,7 +121,10 @@ type extension struct {
 	heads map[string]headInfo
 	// Commits left out of co-change for touching too many files, in total
 	// and per repository.
-	sweepingTotal  int
+	sweepingTotal int
+	// Rows of history for files the workspace's ignore patterns exclude:
+	// dropped, and counted so the snapshot can say so.
+	ignoredRows    int
 	sweepingByRepo map[string]int
 	// Repositories whose history was cut short by a shallow clone.
 	shallow map[string]bool
@@ -324,9 +328,23 @@ func (e *extension) Init(settings core.Analyzer) error {
 		log.Info().Msgf("Left %d sweeping commits (modifying > %d files) out of co-change, of %d total commits", excludedCount, e.MaxChangesPerCommit, len(rawCommits))
 	}
 
+	// A file the workspace excludes is not part of the code read, so its
+	// history is not either: its rows leave every table.
+	excluded := walker.Matcher(settings.IgnorePatterns())
 	partsByCommit := make(map[*rawCommit][]*commits.PartOfCommit, len(rawCommits))
 	for _, commit := range rawCommits {
 		parts := gitCommitToPartOfCommit(settings.RootPath(), commit)
+		if len(settings.IgnorePatterns()) > 0 {
+			kept := parts[:0]
+			for _, p := range parts {
+				if excluded(p.File) {
+					e.ignoredRows++
+					continue
+				}
+				kept = append(kept, p)
+			}
+			parts = kept
+		}
 		partsByCommit[commit] = parts
 		// Every row is evidence in the commit table; a move that changed no
 		// lines is not a change to count or to couple on.

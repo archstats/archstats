@@ -4,13 +4,18 @@ import (
 	"encoding/json"
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/stats"
+	"github.com/archstats/archstats/core/walker"
 	"github.com/rs/zerolog/log"
+	"sort"
 	"strconv"
+	"strings"
 )
 
 type Analyzer interface {
 	Analyze() (*Results, error)
 	RootPath() string
+	// IgnorePatterns are the configured root-level exclusions.
+	IgnorePatterns() []string
 
 	AddDefinition(definition *definitions.Definition)
 	RegisterStatAccumulator(statType string, merger stats.StatAccumulatorFunction)
@@ -21,7 +26,7 @@ type Analyzer interface {
 }
 
 func New(config *Config) Analyzer {
-	return &analyzer{rootPath: config.RootPath, extensions: config.Extensions,
+	return &analyzer{rootPath: config.RootPath, extensions: config.Extensions, ignorePatterns: config.IgnorePatterns,
 		views:       map[string]*ViewFactory{},
 		definitions: map[string]*definitions.Definition{},
 		accumulators: &stats.StatAccumulator{
@@ -31,6 +36,7 @@ func New(config *Config) Analyzer {
 
 type analyzer struct {
 	rootPath           string
+	ignorePatterns     []string
 	extensions         []Extension
 	views              map[string]*ViewFactory
 	accumulators       *stats.StatAccumulator
@@ -68,6 +74,10 @@ func (analyzer *analyzer) RootPath() string {
 	return analyzer.rootPath
 }
 
+func (analyzer *analyzer) IgnorePatterns() []string {
+	return analyzer.ignorePatterns
+}
+
 func (analyzer *analyzer) RegisterStatAccumulator(statType string, merger stats.StatAccumulatorFunction) {
 	analyzer.accumulators.AccumulateFunctions[statType] = merger
 }
@@ -84,7 +94,7 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 	}
 
 	// Get Snippets and Stats from the files
-	fileResults, ignored, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers)
+	fileResults, ignored, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers, walker.Options{IgnorePatterns: analyzer.ignorePatterns})
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +111,9 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 	// Aggregate Snippets and Stats into Results
 	results := aggregateSnippetsAndStatsIntoResults(analyzer, fileResults)
 	// What the walker left out, so a snapshot can say why a folder is absent.
+	if patterns := normalizedPatterns(analyzer.ignorePatterns); patterns != "" {
+		results.SetSnapshotInfo("ignore_globs", patterns)
+	}
 	if ignored != nil {
 		results.SetSnapshotInfo("walker_ignored_files", strconv.Itoa(ignored.Files))
 		results.SetSnapshotInfo("walker_ignored_dirs", strconv.Itoa(ignored.Dirs))
@@ -118,4 +131,18 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 	log.Debug().Msgf("Finished editing results")
 
 	return results, nil
+}
+
+// normalizedPatterns is the patterns as a snapshot records them: trimmed,
+// comments and blanks dropped, sorted, one per line. Two scans with the same
+// exclusions record the same text, whatever order they were given in.
+func normalizedPatterns(patterns []string) string {
+	var out []string
+	for _, p := range patterns {
+		if t := strings.TrimSpace(p); t != "" && !strings.HasPrefix(t, "#") {
+			out = append(out, t)
+		}
+	}
+	sort.Strings(out)
+	return strings.Join(out, "\n")
 }

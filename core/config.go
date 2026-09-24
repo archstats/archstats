@@ -10,6 +10,10 @@ type Config struct {
 	RootPath string
 	// Extensions are the extensions to use for the analysis.
 	Extensions []Extension
+	// IgnorePatterns are gitignore-style patterns applied from the root on top
+	// of the tree's own ignore files: a workspace's exclusions. Files they
+	// match are not read, and their history rows are dropped too.
+	IgnorePatterns []string
 }
 
 // Extension represents an extension to the analysis. All Archstats extensions must implement this interface and live outside the core package
