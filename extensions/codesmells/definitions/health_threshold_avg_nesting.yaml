@@ -1,0 +1,6 @@
+id: codesmells__health__threshold_avg_nesting
+name: Average-nesting threshold
+short_description: The average nesting a file of this language may reach before losing health.
+long_description: |
+  One of the inputs behind a file's code health, stored so the score can be explained rather than taken on trust: health is 10 less the size, maximum-nesting and average-nesting deductions, and never below 1. Recorded for files only; a component's health is the size-weighted average of its files'.
+category: "Code health"

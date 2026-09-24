@@ -16,6 +16,18 @@ const (
 	HotspotScore          = "codesmells__hotspot_score"
 	BumpyRoad             = "codesmells__bumpy_road"
 	StaticComplexityScore = "codesmells__static_complexity_score"
+
+	// The inputs behind a file's health score, so a reader can see why it
+	// scored what it did. File-only: summed over a component they mean
+	// nothing, so components and directories carry none.
+	DeductionSize       = "codesmells__health__deduction__size"
+	DeductionMaxNesting = "codesmells__health__deduction__max_nesting"
+	DeductionAvgNesting = "codesmells__health__deduction__avg_nesting"
+	ThresholdMaxNesting = "codesmells__health__threshold__max_nesting"
+	ThresholdAvgNesting = "codesmells__health__threshold__avg_nesting"
+	// HotspotRaw is log2(commits + 1) × lines before normalising to 0–100
+	// against the hottest file; rolled up as the hottest file's.
+	HotspotRaw = "codesmells__hotspot__raw"
 )
 
 func Extension() core.Extension {
@@ -45,6 +57,10 @@ func (e *extension) Init(settings core.Analyzer) error {
 	settings.RegisterStatAccumulator(HotspotScore, averageAccumulator)
 	settings.RegisterStatAccumulator(BumpyRoad, averageAccumulator)
 	settings.RegisterStatAccumulator(StaticComplexityScore, sumAccumulator)
+	for _, fileOnly := range []string{DeductionSize, DeductionMaxNesting, DeductionAvgNesting, ThresholdMaxNesting, ThresholdAvgNesting} {
+		settings.RegisterStatAccumulator(fileOnly, onlyOneAccumulator)
+	}
+	settings.RegisterStatAccumulator(HotspotRaw, maxAccumulator)
 
 	return nil
 }
@@ -188,42 +204,44 @@ func isExcludedFromCodeSmells(path string) bool {
 }
 
 // calculateCodeHealth computes a 1.0–10.0 code health score.
+// healthBreakdown is a health score with the deductions that made it.
+type healthBreakdown struct {
+	health                                    float64
+	sizeDeduction, maxDeduction, avgDeduction float64
+	maxThreshold                              int
+	avgThreshold                              float64
+}
+
+// calculateCodeHealth is 10 less three deductions of up to 3 points each --
+// size over 500 lines, maximum nesting over the language's threshold,
+// average nesting over it -- floored at 1.
 func calculateCodeHealth(m fileMetrics, ext string) float64 {
-	health := 10.0
+	return healthOf(m, ext).health
+}
+
+func healthOf(m fileMetrics, ext string) healthBreakdown {
+	var b healthBreakdown
+	capAt := func(v float64) float64 { return math.Min(v, 3.0) }
 
 	// Size deduction (God File): up to 3 points
 	if m.lines > 500 {
-		deduction := float64(m.lines-500) * 0.01
-		if deduction > 3.0 {
-			deduction = 3.0
-		}
-		health -= deduction
+		b.sizeDeduction = capAt(float64(m.lines-500) * 0.01)
 	}
 
-	maxIndentThreshold, avgIndentThreshold := getLanguageThresholds(ext)
+	b.maxThreshold, b.avgThreshold = getLanguageThresholds(ext)
 
 	// Nesting deduction (Max Indentation): up to 3 points
-	if m.maxIndentation > maxIndentThreshold {
-		deduction := float64(m.maxIndentation-maxIndentThreshold) * 0.5
-		if deduction > 3.0 {
-			deduction = 3.0
-		}
-		health -= deduction
+	if m.maxIndentation > b.maxThreshold {
+		b.maxDeduction = capAt(float64(m.maxIndentation-b.maxThreshold) * 0.5)
 	}
 
 	// Average Nesting deduction: up to 3 points
-	if m.avgIndentation > avgIndentThreshold {
-		deduction := (m.avgIndentation - avgIndentThreshold) * 1.5
-		if deduction > 3.0 {
-			deduction = 3.0
-		}
-		health -= deduction
+	if m.avgIndentation > b.avgThreshold {
+		b.avgDeduction = capAt((m.avgIndentation - b.avgThreshold) * 1.5)
 	}
 
-	if health < 1.0 {
-		health = 1.0
-	}
-	return health
+	b.health = math.Max(1.0, 10.0-b.sizeDeduction-b.maxDeduction-b.avgDeduction)
+	return b
 }
 
 // calculateBumpyRoad returns the volatility per non-empty line of code.
@@ -243,7 +261,8 @@ func calculateStaticComplexity(m fileMetrics) float64 {
 	return float64(m.lines) * (1.0 + avg)
 }
 
-// calculateHotspotScore normalises the raw hotspot (commits*lines) to 0–100.
+// calculateHotspotScore normalises the raw hotspot, log2(commits + 1) × lines,
+// to 0–100 against the hottest file in the snapshot.
 func calculateHotspotScore(rawHotspot, maxRawHotspot float64, hasCommits bool) float64 {
 	if !hasCommits || maxRawHotspot <= 0 {
 		return 0.0
@@ -281,7 +300,8 @@ func (e *extension) EditResults(results *core.Results) {
 	for file, info := range files {
 		m := info.metrics
 		ext := filepath.Ext(file)
-		health := calculateCodeHealth(m, ext)
+		breakdown := healthOf(m, ext)
+		health := breakdown.health
 		bumpyRoadVal := calculateBumpyRoad(m)
 		staticComplexity := calculateStaticComplexity(m)
 		hotspotVal := calculateHotspotScore(info.rawHotspot, maxRawHotspot, m.commits > 0)
@@ -291,6 +311,12 @@ func (e *extension) EditResults(results *core.Results) {
 			&stats.Record{StatType: HotspotScore, Value: hotspotVal},
 			&stats.Record{StatType: BumpyRoad, Value: bumpyRoadVal},
 			&stats.Record{StatType: StaticComplexityScore, Value: staticComplexity},
+			&stats.Record{StatType: DeductionSize, Value: breakdown.sizeDeduction},
+			&stats.Record{StatType: DeductionMaxNesting, Value: breakdown.maxDeduction},
+			&stats.Record{StatType: DeductionAvgNesting, Value: breakdown.avgDeduction},
+			&stats.Record{StatType: ThresholdMaxNesting, Value: breakdown.maxThreshold},
+			&stats.Record{StatType: ThresholdAvgNesting, Value: breakdown.avgThreshold},
+			&stats.Record{StatType: HotspotRaw, Value: info.rawHotspot},
 		)
 	}
 }
@@ -342,4 +368,42 @@ func sumAccumulator(values []interface{}) interface{} {
 		return sum
 	}
 	return int(sum)
+}
+
+// onlyOneAccumulator keeps a value that belongs to one file: over a group it
+// is nothing, not a sum of thresholds.
+func onlyOneAccumulator(values []interface{}) interface{} {
+	if len(values) == 1 {
+		return values[0]
+	}
+	return nil
+}
+
+func maxAccumulator(values []interface{}) interface{} {
+	var best float64
+	found := false
+	for _, v := range values {
+		f, ok := asFloat(v)
+		if ok && (!found || f > best) {
+			best, found = f, true
+		}
+	}
+	if !found {
+		return nil
+	}
+	return best
+}
+
+func asFloat(v interface{}) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	}
+	return 0, false
 }

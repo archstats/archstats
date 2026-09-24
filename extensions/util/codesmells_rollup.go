@@ -86,6 +86,15 @@ func RollUpCodeSmells(results *core.Results, files []string, groupStats *stats.S
 	if hasStaticComplexity {
 		(*groupStats)["codesmells__static_complexity_score"] = totalStaticComplexity
 	}
+	// Deductions and thresholds explain one file's score; over a group they
+	// are no fact at all, not even for a group of one.
+	for _, fileOnly := range []string{
+		"codesmells__health__deduction__size", "codesmells__health__deduction__max_nesting",
+		"codesmells__health__deduction__avg_nesting", "codesmells__health__threshold__max_nesting",
+		"codesmells__health__threshold__avg_nesting",
+	} {
+		delete(*groupStats, fileOnly)
+	}
 }
 
 func toFloat(value interface{}) float64 {

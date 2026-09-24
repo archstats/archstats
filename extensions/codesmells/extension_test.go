@@ -2,6 +2,7 @@ package codesmells
 
 import (
 	"github.com/archstats/archstats/core/stats"
+	"math"
 	"testing"
 )
 
@@ -149,11 +150,11 @@ func TestCalculateHotspotScore(t *testing.T) {
 
 func TestExtractFileMetrics(t *testing.T) {
 	s := stats.Stats{
-		"complexity__lines":                  100,
-		"complexity__indentation__max":       5,
-		"complexity__indentation__avg":       2.5,
+		"complexity__lines":                   100,
+		"complexity__indentation__max":        5,
+		"complexity__indentation__avg":        2.5,
 		"complexity__indentation__volatility": 12,
-		"git__commits__total":                42,
+		"git__commits__total":                 42,
 	}
 	m := extractFileMetrics(&s)
 	if m.lines != 100 {
@@ -237,6 +238,23 @@ func TestNonCodeTextGetsNoCodeSmells(t *testing.T) {
 	for _, p := range []string{"src/oscar/apps/basket/models.py", "client/src/App.tsx", "Nop.Core/Caching/CacheKey.cs"} {
 		if isExcludedFromCodeSmells(p) {
 			t.Errorf("%s: want a reading", p)
+		}
+	}
+}
+
+// A stored breakdown always reproduces its score.
+func TestHealthIsTenLessItsDeductions(t *testing.T) {
+	for _, m := range []fileMetrics{
+		{lines: 120, maxIndentation: 3, avgIndentation: 1.2},
+		{lines: 900, maxIndentation: 9, avgIndentation: 2.8},
+		{lines: 4000, maxIndentation: 20, avgIndentation: 6},
+	} {
+		for _, ext := range []string{".go", ".ts", ".java"} {
+			b := healthOf(m, ext)
+			want := math.Max(1, 10-b.sizeDeduction-b.maxDeduction-b.avgDeduction)
+			if math.Abs(b.health-want) > 1e-9 || b.health != calculateCodeHealth(m, ext) {
+				t.Errorf("%+v %s: health %v, deductions give %v", m, ext, b.health, want)
+			}
 		}
 	}
 }

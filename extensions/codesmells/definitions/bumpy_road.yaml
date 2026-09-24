@@ -2,4 +2,4 @@ id: codesmells__bumpy_road
 name: Bumpy Road
 short_description: Indentation volatility indicating nesting fluctuations.
 long_description: Calculates the density of indentation changes by summing absolute differences in indentation levels between consecutive lines, normalized by the count of non-empty lines. High values point to high cognitive load and code paths going in and out of nested structures. Component score represents size-weighted volatility.
-category: "Code Scene Style Code Smells"
+category: "Code health"
