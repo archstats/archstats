@@ -148,12 +148,12 @@ func getViewsToShow(requested, excluded, possible []string) ([]string, error) {
 }
 
 type SqlOptions struct {
-		DatabaseName string
+	DatabaseName string
 
-		ReportId     string
-		ScanTime     time.Time
-		StoreContent bool
-	}
+	ReportId     string
+	ScanTime     time.Time
+	StoreContent bool
+}
 
 func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) error {
 	// check DB exists. If not, create it. If so, check tables exist.
