@@ -9,17 +9,17 @@ import (
 func (e *extension) directoryCouplingViewFactory(results *core.Results) *core.View {
 	directory := lo.Keys(results.DirectoryToFiles)
 
-	sharedCommits := commits.PairsToCommitsInCommon(directory, e.splittedCommits.DirectoryToCommitHashes())
+	sharedCommits := commits.PairsToCommitsInCommon(directory, e.couplingCommits.DirectoryToCommitHashes())
 	dayBucketSharedCommitCounts := map[int]map[string]commits.CommitHashes{}
 
-	for days, split := range e.splittedCommits.DayBuckets() {
+	for days, split := range e.couplingCommits.DayBuckets() {
 		dayBucketSharedCommitCounts[days] = commits.PairsToCommitsInCommon(directory, split.DirectoryToCommitHashes())
 	}
 
-	mappedDayBuckets := lo.MapValues(e.splittedCommits.DayBuckets(), func(splitted *commits.Splitted, _ int) map[string]commits.CommitHashes {
+	mappedDayBuckets := lo.MapValues(e.couplingCommits.DayBuckets(), func(splitted *commits.Splitted, _ int) map[string]commits.CommitHashes {
 		return splitted.DirectoryToCommitHashes()
 	})
-	rows := sharedCommitsToRows(directory, sharedCommits, dayBucketSharedCommitCounts, e.splittedCommits.DirectoryToCommitHashes(), mappedDayBuckets)
+	rows := sharedCommitsToRows(directory, sharedCommits, dayBucketSharedCommitCounts, e.couplingCommits.DirectoryToCommitHashes(), mappedDayBuckets)
 
 	return &core.View{
 		Columns: sharedCommitColumns(e.DayBuckets),

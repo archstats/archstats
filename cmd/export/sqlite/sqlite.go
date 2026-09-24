@@ -202,6 +202,11 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 		return err
 	}
 
+	err = saveSnapshotInfo(db)
+	if err != nil {
+		return err
+	}
+
 	if options.StoreContent {
 		err = saveFileContents(db, results, options)
 		if err != nil {
@@ -212,6 +217,20 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 	err = createIndexes(db, views)
 
 	return err
+}
+
+// saveSnapshotInfo records which analysis wrote the snapshot, so a reader can
+// tell a scan taken before a fix from one taken after it. See
+// core.AnalysisRevision.
+func saveSnapshotInfo(db *sql.DB) error {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _snapshot (key TEXT PRIMARY KEY, value TEXT)`); err != nil {
+		return fmt.Errorf("creating _snapshot: %w", err)
+	}
+	_, err := db.Exec(`INSERT OR REPLACE INTO _snapshot (key, value) VALUES ('analysis_revision', ?)`, fmt.Sprint(core.AnalysisRevision))
+	if err != nil {
+		return fmt.Errorf("writing _snapshot: %w", err)
+	}
+	return nil
 }
 
 func saveMetricDefinitions(db *sql.DB, results *core.Results, options *SqlOptions) error {

@@ -5,6 +5,7 @@ import (
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
+	"sort"
 	"strings"
 )
 
@@ -13,11 +14,15 @@ func ConnectionsFurthestView(results *core.Results) *core.View {
 
 	allPaths := path.DijkstraAllPaths(theGraph)
 
+	// Sorted, so a tie between two equally far components resolves the same
+	// way on every scan instead of by map iteration order.
+	components := lo.Keys(results.SnippetsByComponent)
+	sort.Strings(components)
+
 	var rows []*core.Row
-	for from := range results.SnippetsByComponent {
-		key := from
+	for _, from := range components {
 		var furthest []graph.Node
-		for to := range results.SnippetsByComponent {
+		for _, to := range components {
 			if from == to {
 				continue
 			}
@@ -26,15 +31,17 @@ func ConnectionsFurthestView(results *core.Results) *core.View {
 				furthest = shortest
 			}
 		}
-
-		if len(furthest) <= 0 {
+		// A path of one node is no reach at all.
+		if len(furthest) < 2 {
 			continue
 		}
 		rows = append(rows, &core.Row{
 			Data: map[string]interface{}{
-				"component":                   key,
-				"furthest_component":          theGraph.IdToComponent(furthest[len(furthest)-1].ID()),
-				"furthest_component_distance": len(furthest),
+				"component":          from,
+				"furthest_component": theGraph.IdToComponent(furthest[len(furthest)-1].ID()),
+				// Hops, not the nodes on the path: a direct dependency is 1 away.
+				// Counting nodes put every distance in the product one too far.
+				"furthest_component_distance": len(furthest) - 1,
 				"furthest_component_shortest_path": strings.Join(lo.Map(
 					furthest,
 					func(node graph.Node, _ int) string {

@@ -43,19 +43,21 @@ func GenericView(allColumns []string, group stats.StatsGroup) *core.View {
 			groupItem = "Unknown"
 		}
 		data := statsToRowData(groupItem, stats)
-		
+
 		// Ensure row has all columns, setting appropriate default values
 		for _, column := range allColumns {
 			if _, hasColumn := data[column]; !hasColumn {
-				switch columnTypes[column] {
-				case core.String:
+				switch {
+				case unknownWhenMissing(column):
+					data[column] = nil
+				case columnTypes[column] == core.String:
 					data[column] = ""
 				default:
 					data[column] = 0
 				}
 			}
 		}
-		
+
 		toReturn = append(toReturn, &core.Row{
 			Data: data,
 		})
@@ -128,4 +130,16 @@ func ToInt(value interface{}) int {
 		return 0
 	}
 	return value.(int)
+}
+
+// unknownWhenMissing names the metrics whose absence means "not measured"
+// rather than zero.
+//
+// A count is honestly 0 when nothing was found: a JavaScript file declares no
+// Java classes. A score is not. Files the code-health pass skips (XML, text,
+// vendored code) were stored with a health of 0, below the scale's floor of 1,
+// and read as the least healthy files in the codebase; a file with no commits
+// was stored as 0 days old.
+func unknownWhenMissing(column string) bool {
+	return strings.HasPrefix(column, "codesmells__") || column == "git__age_in_days"
 }

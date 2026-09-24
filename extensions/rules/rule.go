@@ -65,16 +65,22 @@ type Selector struct {
 	Matches    string `yaml:"matches"`
 	NotMatches string `yaml:"not_matches"`
 	DirMatches string `yaml:"dir_matches"`
+	// Kind restricts AppliesWhen to modules of one ecosystem ("go", "maven",
+	// "node", "dotnet", ...). The Go internal/ rule matched every module name
+	// and so reported "kept" on Java and TypeScript codebases that have no
+	// internal/ boundary to keep.
+	Kind string `yaml:"kind"`
 }
 
 type compiledSelector struct {
+	kind       string
 	matches    *regexp.Regexp
 	notMatches *regexp.Regexp
 	dirMatches *regexp.Regexp
 }
 
 func (s Selector) compile() (compiledSelector, error) {
-	var c compiledSelector
+	c := compiledSelector{kind: s.Kind}
 	var err error
 	if s.Matches != "" {
 		if c.matches, err = regexp.Compile(s.Matches); err != nil {
@@ -116,10 +122,16 @@ func (c compiledSelector) selects(name, dir string) bool {
 // any reports whether anything in the list is selected. Used by AppliesWhen,
 // where an empty selector means "always".
 func (c compiledSelector) any(modules []NamedDir) bool {
-	if c.matches == nil && c.dirMatches == nil {
+	if c.matches == nil && c.dirMatches == nil && c.kind == "" {
 		return true
 	}
 	for _, m := range modules {
+		if c.kind != "" && m.Kind != c.kind {
+			continue
+		}
+		if c.matches == nil && c.dirMatches == nil {
+			return true
+		}
 		if c.selects(m.Name, m.Dir) {
 			return true
 		}
@@ -131,6 +143,7 @@ func (c compiledSelector) any(modules []NamedDir) bool {
 type NamedDir struct {
 	Name string
 	Dir  string
+	Kind string
 }
 
 type compiledRule struct {

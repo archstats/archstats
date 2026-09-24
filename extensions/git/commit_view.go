@@ -27,10 +27,16 @@ func (e *extension) commitViewFactory(*core.Results) *core.View {
 }
 func partsOfCommitToRows(parts []*commits.PartOfCommit) []*core.Row {
 	return lo.Map(parts, func(part *commits.PartOfCommit, _ int) *core.Row {
+		// A deleted file has no component. Stored as "", it matched every other
+		// deleted file's "" in any query joining on component.
+		var component interface{}
+		if part.Component != "" {
+			component = part.Component
+		}
 		return &core.Row{
 			Data: map[string]interface{}{
 				File:                part.File,
-				Component:           part.Component,
+				Component:           component,
 				CommitHash:          part.Commit,
 				"repository":        part.Repo,
 				CommitTime:          part.Time,

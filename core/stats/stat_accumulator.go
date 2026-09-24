@@ -105,3 +105,20 @@ func MostCommonStatMerger(thingsToMerge []interface{}) interface{} {
 	return mostCommon.thing
 
 }
+
+// SameOrNothingStatMerger keeps a value only when every record agrees on it.
+// For descriptive values -- a class name, a repository -- that are true of a
+// single file and meaningless when stamped on a group of different ones.
+func SameOrNothingStatMerger(thingsToMerge []interface{}) interface{} {
+	var first interface{}
+	for i, thing := range thingsToMerge {
+		if i == 0 {
+			first = thing
+			continue
+		}
+		if thing != first {
+			return nil
+		}
+	}
+	return first
+}

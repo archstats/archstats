@@ -24,6 +24,13 @@ const (
 	captureClass     = "py__class__definition"
 	captureFunction  = "py__function__definition"
 	captureDecorator = "py__decorator"
+	// `from oscar.apps.basket import models` names both the module and what
+	// was taken out of it, which is how a dependency between two units is
+	// recoverable at all: an import that named only the module would say
+	// which app was depended on and never which piece of it.
+	captureBinding    = "py__import__binding"
+	captureImportSpan = "py__import__span"
+	captureDeclSpan   = "py__declaration__span"
 )
 
 func unitQueries() []string {
@@ -36,6 +43,14 @@ func unitQueries() []string {
 			(attribute attribute: (identifier) @` + captureDecorator + `)
 			(call function: (attribute attribute: (identifier) @` + captureDecorator + `))
 		])`,
+
+		`(import_from_statement name: (dotted_name) @` + captureBinding + `)`,
+		`(import_from_statement name: (aliased_import alias: (identifier) @` + captureBinding + `))`,
+		`(import_from_statement) @` + captureImportSpan,
+		`(import_statement) @` + captureImportSpan,
+
+		`(function_definition) @` + captureDeclSpan,
+		`(class_definition) @` + captureDeclSpan,
 	}
 }
 
@@ -57,15 +72,16 @@ func (a *pythonAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	if res == nil {
 		return nil
 	}
-	res.Units = unitsFrom(f.Path(), res)
+	res.Units = unitsFrom(f.Path(), f.Content(), res)
 	return res
 }
 
-func unitsFrom(filePath string, res *file.Results) []*unit.Unit {
+func unitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit {
 	module := common.ModuleOf(filePath)
 	base := strings.TrimSuffix(path.Base(path.Clean(filePath)), ".py")
 
 	var classes, functions, decorators []*file.Snippet
+	var bindings, importSpans, declSpans, sources []*file.Snippet
 	for _, s := range res.Snippets {
 		switch s.Type {
 		case captureClass:
@@ -74,6 +90,14 @@ func unitsFrom(filePath string, res *file.Results) []*unit.Unit {
 			functions = append(functions, s)
 		case captureDecorator:
 			decorators = append(decorators, s)
+		case captureBinding:
+			bindings = append(bindings, s)
+		case captureImportSpan:
+			importSpans = append(importSpans, s)
+		case captureDeclSpan:
+			declSpans = append(declSpans, s)
+		case file.ImportRaw:
+			sources = append(sources, s)
 		}
 	}
 	sortByOffset(classes)
@@ -85,14 +109,48 @@ func unitsFrom(filePath string, res *file.Results) []*unit.Unit {
 		fileMarkers = append(fileMarkers, unit.Marker{Source: unit.SourceFilename, Key: base})
 	}
 
+	// Which class holds what. A class nested in another -- every Django
+	// model's `class Meta` -- is named and owned through it, and a method
+	// belongs to the innermost class whose body holds it. It used to belong
+	// to the last class declared above it, so every method written after a
+	// model's Meta belonged to no class: oscar's `__str__`, `clean` and
+	// `generate_hash` were module-level functions, one per name per file.
+	var classSpans []*file.Snippet
+	for _, sp := range declSpans {
+		if strings.HasPrefix(sp.Value, "class") {
+			classSpans = append(classSpans, sp)
+		}
+	}
+	nested := common.NestedNames(classes, classSpans)
+	innermostClass := func(s *file.Snippet) int {
+		best, bestSize := -1, 0
+		for _, sp := range classSpans {
+			if s.Begin.Offset <= sp.Begin.Offset || s.Begin.Offset > sp.End.Offset {
+				continue
+			}
+			for i, c := range classes {
+				if c.Begin.Offset >= sp.Begin.Offset && c.Begin.Offset <= sp.End.Offset {
+					if c != s && (best == -1 || sp.End.Offset-sp.Begin.Offset < bestSize) {
+						best, bestSize = i, sp.End.Offset-sp.Begin.Offset
+					}
+					break
+				}
+			}
+		}
+		return best
+	}
+
 	var out []*unit.Unit
 	for i, c := range classes {
 		u := &unit.Unit{
-			ID:      module + "#" + c.Value,
+			ID:      module + "#" + nested[c],
 			Kind:    unit.KindType,
 			Name:    c.Value,
 			Files:   []string{filePath},
 			Markers: append([]unit.Marker(nil), fileMarkers...),
+		}
+		if outer := innermostClass(c); outer >= 0 {
+			u.Owner = module + "#" + nested[classes[outer]]
 		}
 		for _, d := range decorators {
 			if firstAtOrAfter(d, classes) == i && precedingIndexOf(d, classes) < i {
@@ -105,12 +163,9 @@ func unitsFrom(filePath string, res *file.Results) []*unit.Unit {
 	for _, f := range functions {
 		owner := ""
 		name := f.Value
-		// Python nests a method inside its class, so the class it belongs to
-		// is the last one declared before it -- but only if the function is
-		// indented inside it rather than following it at module level.
-		if idx := precedingIndexOf(f, classes); idx >= 0 && f.Begin.CharInLine > classes[idx].Begin.CharInLine {
-			owner = module + "#" + classes[idx].Value
-			name = classes[idx].Value + "." + f.Value
+		if idx := innermostClass(f); idx >= 0 {
+			owner = module + "#" + nested[classes[idx]]
+			name = nested[classes[idx]] + "." + f.Value
 		}
 		u := &unit.Unit{
 			ID:      module + "#" + name,
@@ -126,6 +181,15 @@ func unitsFrom(filePath string, res *file.Results) []*unit.Unit {
 			}
 		}
 		out = append(out, u)
+	}
+
+	// Classes then functions, the order out was built in.
+	var declaredBy []*file.Snippet
+	declaredBy = append(declaredBy, classes...)
+	declaredBy = append(declaredBy, functions...)
+	moduleRefs := common.AttachRefs(out, declaredBy, content, bindings, pathLikeSources(sources), importSpans, declSpans)
+	if mu := common.ModuleUnit(module, filePath, moduleRefs); mu != nil {
+		out = append(out, mu)
 	}
 	return out
 }
@@ -167,4 +231,35 @@ func between(decorator, fn *file.Snippet, functions []*file.Snippet) bool {
 		}
 	}
 	return true
+}
+
+// pathLikeSources rewrites Python's relative module syntax into the path form
+// the resolver reads: `.models` -> `./models`, `..core.utils` ->
+// `../core/utils`. Every relative import in django-oscar went unresolved,
+// because `.models` joined onto a directory is a file called ".models".
+// Copies, so the stored import text stays what the file wrote.
+func pathLikeSources(sources []*file.Snippet) []*file.Snippet {
+	out := make([]*file.Snippet, len(sources))
+	for i, s := range sources {
+		c := *s
+		c.Value = relativeToPath(s.Value)
+		out[i] = &c
+	}
+	return out
+}
+
+func relativeToPath(spec string) string {
+	if !strings.HasPrefix(spec, ".") {
+		return spec
+	}
+	dots := len(spec) - len(strings.TrimLeft(spec, "."))
+	rest := strings.ReplaceAll(spec[dots:], ".", "/")
+	prefix := "./"
+	if dots > 1 {
+		prefix = strings.Repeat("../", dots-1)
+	}
+	if rest == "" {
+		return strings.TrimSuffix(prefix, "/")
+	}
+	return prefix + rest
 }

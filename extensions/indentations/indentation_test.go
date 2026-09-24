@@ -107,3 +107,9 @@ func (f *fakeFile) Info() os.FileInfo {
 func (f *fakeFile) Content() []byte {
 	return f.content
 }
+
+// An empty file has no lines to average over. 0/0 was stored as NULL.
+func TestAnEmptyFileAveragesZero(t *testing.T) {
+	assert.Equal(t, 0.0, avgAccumulator([]interface{}{&indentationStat{indentation: 0, lines: 0}}))
+	assert.Equal(t, 1.5, avgAccumulator([]interface{}{&indentationStat{indentation: 3, lines: 2}, &indentationStat{}}))
+}

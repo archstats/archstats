@@ -2,6 +2,7 @@ package matrix
 
 import (
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/unit"
 	"github.com/samber/lo"
 	"path/filepath"
 	"sort"
@@ -36,11 +37,11 @@ func tokenize(s string) []string {
 	for i, r := range s {
 		if i > 0 {
 			prev := rune(s[i-1])
-			
+
 			// Transitions:
 			// 1. Lowercase to Uppercase (e.g., eC -> e, C)
 			isCapTransition := isLower(prev) && isUpper(r)
-			
+
 			// 2. Acronym termination (e.g., XMLP -> XML, P)
 			isUpperTransition := false
 			if isUpper(prev) && isUpper(r) {
@@ -48,10 +49,10 @@ func tokenize(s string) []string {
 					isUpperTransition = true
 				}
 			}
-			
+
 			// 3. Letter to Digit (e.g., r2 -> r, 2)
 			isLetterToDigit := isLetter(prev) && isDigit(r)
-			
+
 			// 4. Digit to Letter (e.g., 2c -> 2, c)
 			isDigitToLetter := isDigit(prev) && isLetter(r)
 
@@ -189,7 +190,11 @@ func getGitCommitsMapping(results *core.Results) (map[string]map[string]bool, ma
 			}
 		}
 
-		// Second pass: only keep commits touching <= 50 files
+		// Second pass: leave sweeping commits out. The threshold is the git
+		// extension's default for co-change (--git-max-changes-per-commit),
+		// so "co-change" means the same thing in this matrix as it does for
+		// components, cycles and the git coupling views. It used to be 50
+		// here and 100 there.
 		for _, row := range gitCommitsView.Rows {
 			fileVal, existsFile := row.Data["file"]
 			hashVal, existsHash := row.Data["commit_hash"]
@@ -199,7 +204,7 @@ func getGitCommitsMapping(results *core.Results) (map[string]map[string]bool, ma
 			if existsHash {
 				hashStr, _ = hashVal.(string)
 			}
-			if hashStr == "" || commitFileCount[hashStr] > 50 {
+			if hashStr == "" || commitFileCount[hashStr] > sweepingCommitFiles {
 				continue
 			}
 
@@ -305,107 +310,21 @@ func FileMatrixView(results *core.Results) *core.View {
 		fileCommitsList[i] = fileToCommits[f]
 	}
 
-	// Dependency graph
+	// Dependency graph: one unit using another, lifted to the files they are
+	// declared in. It used to be guessed from import strings -- an import
+	// matched any directory ending in its name, picked in map order, and
+	// then counted as a dependency on every file in that directory -- so
+	// the distances changed from one scan to the next and mostly measured
+	// nothing. Every language now records resolved unit references.
 	fileToDeps := make(map[string][]string)
-
-	// 1. Check if java class connections direct view is available
-	javaDirectView, err := results.RenderView("java_class_connections_direct")
-	if err == nil {
-		classToFile := make(map[string]string)
-		for f, statsList := range results.StatRecordsByFile {
-			merged := results.Calculate(statsList)
-			if val, exists := (*merged)["java_full_class"]; exists {
-				if classStr, ok := val.(string); ok && classStr != "" {
-					classToFile[classStr] = f
-				}
-			}
+	for _, c := range unit.Connections(results.Units) {
+		from, to := results.UnitByID[c.From], results.UnitByID[c.To]
+		if from == nil || to == nil || len(from.Files) == 0 || len(to.Files) == 0 {
+			continue
 		}
-		for _, row := range javaDirectView.Rows {
-			fromClassVal, okFrom := row.Data["from"].(string)
-			toClassVal, okTo := row.Data["to"].(string)
-			if okFrom && okTo {
-				fromFile := classToFile[fromClassVal]
-				toFile := classToFile[toClassVal]
-				if fromFile != "" && toFile != "" && fromFile != toFile {
-					fileToDeps[fromFile] = append(fileToDeps[fromFile], toFile)
-				}
-			}
-		}
-	}
-
-	// 2. Scan snippets for modularity__component__imports
-	knownFiles := make(map[string]bool)
-	for _, f := range files {
-		knownFiles[f] = true
-	}
-	dirToFiles := make(map[string][]string)
-	for _, f := range files {
-		dir := filepath.ToSlash(filepath.Dir(f))
-		dirToFiles[dir] = append(dirToFiles[dir], f)
-	}
-
-	for _, snippet := range results.Snippets {
-		if snippet.Type == "modularity__component__imports" {
-			importVal := snippet.Value
-			importingFile := snippet.File
-			if importingFile == "" {
-				continue
-			}
-			importingDir := filepath.ToSlash(filepath.Dir(importingFile))
-
-			if strings.HasPrefix(importVal, ".") {
-				resolved := filepath.ToSlash(filepath.Clean(filepath.Join(importingDir, importVal)))
-				found := false
-				for _, ext := range []string{"", ".go", ".ts", ".tsx", ".js", ".jsx", ".py", ".cs", ".kt"} {
-					candidate := resolved + ext
-					if knownFiles[candidate] {
-						if importingFile != candidate {
-							fileToDeps[importingFile] = append(fileToDeps[importingFile], candidate)
-						}
-						found = true
-						break
-					}
-				}
-				if !found {
-					for _, indexName := range []string{"/index.ts", "/index.tsx", "/index.js", "/index.jsx"} {
-						candidate := resolved + indexName
-						if knownFiles[candidate] {
-							if importingFile != candidate {
-								fileToDeps[importingFile] = append(fileToDeps[importingFile], candidate)
-							}
-							break
-						}
-					}
-				}
-			} else {
-				importValSlashed := strings.ReplaceAll(importVal, ".", "/")
-
-				matchedDir := ""
-				for dir := range dirToFiles {
-					if dir == importVal || strings.HasSuffix(dir, "/"+importVal) ||
-						dir == importValSlashed || strings.HasSuffix(dir, "/"+importValSlashed) {
-						matchedDir = dir
-						break
-					}
-				}
-				if matchedDir != "" {
-					for _, targetFile := range dirToFiles[matchedDir] {
-						if importingFile != targetFile {
-							fileToDeps[importingFile] = append(fileToDeps[importingFile], targetFile)
-						}
-					}
-				} else {
-					for f := range knownFiles {
-						if f == importVal || strings.HasSuffix(f, "/"+importVal) ||
-							f == importValSlashed || strings.HasSuffix(f, "/"+importValSlashed) {
-							if importingFile != f {
-								fileToDeps[importingFile] = append(fileToDeps[importingFile], f)
-							}
-							break
-						}
-					}
-				}
-			}
+		fromFile, toFile := from.Files[0], to.Files[0]
+		if fromFile != toFile {
+			fileToDeps[fromFile] = append(fileToDeps[fromFile], toFile)
 		}
 	}
 
@@ -619,3 +538,7 @@ func ComponentMatrixView(results *core.Results) *core.View {
 		Rows: rows,
 	}
 }
+
+// sweepingCommitFiles is the size above which a commit says nothing about
+// which files change together. Kept equal to the git extension's default.
+const sweepingCommitFiles = 100

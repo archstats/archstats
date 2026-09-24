@@ -61,7 +61,7 @@ func statusOf(findings []*Finding) map[string]string {
 func present(modules []*module.Module) []NamedDir {
 	var out []NamedDir
 	for _, m := range modules {
-		out = append(out, NamedDir{Name: m.Name, Dir: m.Dir})
+		out = append(out, NamedDir{Name: m.Name, Dir: m.Dir, Kind: string(m.Kind)})
 	}
 	return out
 }
@@ -197,7 +197,7 @@ func TestCheck_EveryRuleReportsWhetherItApplied(t *testing.T) {
 	status := statusOf(e.check(r, present(modules)))
 	assert.Equal(t, StatusNotApplicable, status["rules__dotnet__core_must_not_depend_on_plugin"])
 	assert.Equal(t, StatusNotApplicable, status["rules__symfony__component_must_not_depend_on_bundle"])
-	// The internal rule is deliberately universal, and it holds here.
+	// A Go project, so the internal/ rule applies, and it holds here.
 	assert.Equal(t, StatusOk, status["rules__go__internal_must_not_be_imported_from_outside"])
 }
 

@@ -47,6 +47,13 @@ func createPythonLanguagePack() *common.LanguagePack {
 				function: [(identifier) @_fn (attribute attribute: (identifier) @_fn)]
 				arguments: (argument_list . (string (string_content) @modularity__component__imports__dynamic)))
 			  (#match? @_fn "^(get_class|get_classes|get_model|import_module)$"))`,
+			// The same imports under a name the linker does not rewrite.
+			`(import_statement name: (dotted_name) @modularity__import__raw)`,
+			`(import_statement name: (aliased_import name: (dotted_name) @modularity__import__raw))`,
+			`(import_from_statement module_name: (dotted_name) @modularity__import__raw)`,
+			// Relative too: without it `from .mixins import X` bound X to no
+			// module at all, and every relative import went unresolved.
+			`(import_from_statement module_name: (relative_import) @modularity__import__raw)`,
 			// Classes (total types)
 			`(class_definition name: (identifier) @modularity__types__total)`,
 			// Web decorator routes (FastAPI, Flask, Django)

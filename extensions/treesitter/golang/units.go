@@ -50,6 +50,7 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 	pkg := packageOf(path)
 
 	var types, interfaces, funcs, methods, receivers, embeds, tags, directives []*file.Snippet
+	var aliases, selPkgs, selNames, declSpans, importPaths, locals []*file.Snippet
 	for _, s := range res.Snippets {
 		switch s.Type {
 		case captureTypeName:
@@ -68,6 +69,18 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 			tags = append(tags, s)
 		case captureDirective:
 			directives = append(directives, s)
+		case captureAlias:
+			aliases = append(aliases, s)
+		case captureSelPkg:
+			selPkgs = append(selPkgs, s)
+		case captureSelName:
+			selNames = append(selNames, s)
+		case captureDeclSpan:
+			declSpans = append(declSpans, s)
+		case file.ImportRaw:
+			importPaths = append(importPaths, s)
+		case captureLocalRef:
+			locals = append(locals, s)
 		}
 	}
 	byOffset(types)
@@ -80,6 +93,11 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 	}
 
 	var out []*unit.Unit
+	// The snippet that declares each unit, index for index with out. Spans
+	// are attributed by this position: matching by name gave every method
+	// called Render the first Render's span, and the others lost their
+	// references.
+	var declaredBy []*file.Snippet
 	byName := map[string]*unit.Unit{}
 
 	for i, t := range types {
@@ -109,6 +127,7 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 			}
 		}
 		out = append(out, u)
+		declaredBy = append(declaredBy, t)
 		byName[t.Value] = u
 	}
 
@@ -130,15 +149,24 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 			Files: []string{path},
 			Owner: ownerID,
 		})
+		declaredBy = append(declaredBy, m)
 	}
 
 	for _, f := range funcs {
+		unitID := id(pkg, f.Value)
+		// A package may declare init (and _) once per file. Sharing one id
+		// folded them into a single unit whose references came from every
+		// file's init at once.
+		if f.Value == "init" || f.Value == "_" {
+			unitID = id(pkg, f.Value) + "@" + filepath.Base(path)
+		}
 		out = append(out, &unit.Unit{
-			ID:    id(pkg, f.Value),
+			ID:    unitID,
 			Kind:  unit.KindFunction,
 			Name:  f.Value,
 			Files: []string{path},
 		})
+		declaredBy = append(declaredBy, f)
 	}
 
 	// A directive is about the file rather than any one declaration, so it
@@ -154,7 +182,112 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 		}
 	}
 
+	attachGoRefs(out, declaredBy, pkg, aliases, importPaths, selPkgs, selNames, declSpans, locals)
 	return out
+}
+
+// Which unit used which package, and what it took from it.
+//
+// Go imports a package rather than a name, and writes the use as
+// `pkg.Symbol`, so the edge only exists once the alias in a selector is
+// paired with the import path it stands for. An import with no alias is
+// known by the last element of its path, which is what the code writes.
+//
+// No textual scan is needed here, unlike the languages where an import
+// clause names what it took: the selector says the package and the symbol
+// together, and its position says which declaration used it.
+func attachGoRefs(units []*unit.Unit, declaredBy []*file.Snippet, pkg string, aliases, importPaths, selPkgs, selNames, declSpans, locals []*file.Snippet) {
+	if len(units) == 0 {
+		return
+	}
+	byOffset(importPaths)
+	byOffset(aliases)
+	byOffset(selPkgs)
+	byOffset(selNames)
+
+	// alias -> import path. An explicit alias sits immediately before the
+	// path it renames.
+	pathFor := map[string]string{}
+	for _, p := range importPaths {
+		last := p.Value
+		if i := strings.LastIndex(last, "/"); i != -1 {
+			last = last[i+1:]
+		}
+		if last != "" {
+			pathFor[last] = p.Value
+		}
+	}
+	for _, a := range aliases {
+		for _, p := range importPaths {
+			if p.Begin.Offset > a.Begin.Offset {
+				pathFor[a.Value] = p.Value
+				break
+			}
+		}
+	}
+
+	// Which unit owns each declaration span: the one whose own declaring
+	// name sits inside it.
+	type span struct{ begin, end, unitIdx int }
+	var owned []span
+	for _, sp := range declSpans {
+		best, bestOffset := -1, 0
+		for i, d := range declaredBy {
+			off := d.Begin.Offset
+			if off < sp.Begin.Offset || off > sp.End.Offset {
+				continue
+			}
+			if best == -1 || off < bestOffset {
+				best, bestOffset = i, off
+			}
+		}
+		if best >= 0 {
+			owned = append(owned, span{sp.Begin.Offset, sp.End.Offset, best})
+		}
+	}
+	sort.SliceStable(owned, func(i, j int) bool {
+		return (owned[i].end - owned[i].begin) < (owned[j].end - owned[j].begin)
+	})
+
+	for i, sel := range selPkgs {
+		path, known := pathFor[sel.Value]
+		if !known || i >= len(selNames) {
+			continue
+		}
+		name := selNames[i]
+		for _, sp := range owned {
+			if sel.Begin.Offset >= sp.begin && sel.Begin.Offset <= sp.end {
+				u := units[sp.unitIdx]
+				u.Refs = appendGoRef(u.Refs, unit.Ref{Module: path, Name: name.Value})
+				break
+			}
+		}
+	}
+
+	// Names used unqualified are this package's own declarations -- every
+	// use of Context inside gin's root package, which is most of gin. They
+	// resolve exactly in this package or not at all: locals, parameters and
+	// builtins name nothing declared at package level and are dropped.
+	for _, l := range locals {
+		for _, sp := range owned {
+			if l.Begin.Offset >= sp.begin && l.Begin.Offset <= sp.end {
+				u := units[sp.unitIdx]
+				if l.Value != u.Name {
+					u.Refs = appendGoRef(u.Refs, unit.Ref{Module: pkg, Name: l.Value, Exact: true})
+				}
+				break
+			}
+		}
+	}
+}
+
+func appendGoRef(list []unit.Ref, r unit.Ref) []unit.Ref {
+	for _, existing := range list {
+		if existing == r {
+			return list
+		}
+	}
+	return append(list, r)
 }
 
 func byOffset(snippets []*file.Snippet) {

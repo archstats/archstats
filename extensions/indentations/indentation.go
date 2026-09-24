@@ -76,6 +76,12 @@ func avgAccumulator(indentations []interface{}) interface{} {
 		allIndentations += float64(stat.indentation)
 		allLines += float64(stat.lines)
 	}
+	// An empty or blank file has no indented lines to average: 0, not the
+	// NaN of 0/0, which was stored as NULL and blanked the file's static
+	// complexity with it.
+	if allLines == 0 {
+		return 0.0
+	}
 	return allIndentations / allLines
 }
 

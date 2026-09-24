@@ -2,8 +2,12 @@ package walker
 
 import (
 	"bytes"
+	"path/filepath"
+	"sort"
+
 	"github.com/archstats/archstats/core/file"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"os"
 	"runtime"
 	"strings"
@@ -157,4 +161,60 @@ func TestWalkFilesRecoversFromVisitorPanic(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, walkedFiles, 1)
 	assert.Contains(t, walkedFiles[0], "fine.txt")
+}
+
+func TestVersionControlMetadataIsNeverWalked(t *testing.T) {
+	for _, name := range []string{".git", ".hg", ".svn", ".bzr", "_darcs", ".jj"} {
+		assert.True(t, isVCSMetadata(name), name)
+	}
+	for _, name := range []string{".github", ".gitignore", "git", ".gitlab-ci.yml"} {
+		assert.False(t, isVCSMetadata(name), name)
+	}
+}
+
+// A nested ignore file's patterns are relative to its own directory, and
+// apply to nothing outside it. IntelliJ commits `.idea/.gitignore` with
+// anchored entries such as `/workspace.xml`; pooled with the root's patterns
+// they matched nothing, and IDE state was scanned as code.
+func TestNestedIgnoreFilesAreRelativeToTheirDirectory(t *testing.T) {
+	root := t.TempDir()
+	write := func(p string) {
+		full := filepath.Join(root, p)
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
+		require.NoError(t, os.WriteFile(full, []byte("x"), 0o644))
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "sub"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "sub", ".gitignore"), []byte("/dist\n*.log\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".idea"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".idea", ".gitignore"), []byte("/workspace.xml\n"), 0o644))
+	for _, p := range []string{"dist/root.js", "sub/dist/sub.js", "sub/keep.js", "sub/a.log", "sibling/b.log", ".idea/workspace.xml", ".idea/misc.xml"} {
+		write(p)
+	}
+	files, err := GetAllFiles(root)
+	require.NoError(t, err)
+	var got []string
+	for _, f := range files {
+		got = append(got, strings.TrimPrefix(f.Path(), "./"))
+	}
+	sort.Strings(got)
+	assert.Equal(t, []string{".idea/misc.xml", "dist/root.js", "sibling/b.log", "sub/keep.js"}, got)
+}
+
+// `dir/*` ignores what is in dir, not dir itself, so a negation can bring a
+// file back -- nopCommerce keeps an Index.htm in each App_Data folder that way.
+func TestNegationBringsAFileBackFromAnIgnoredFolder(t *testing.T) {
+	root := t.TempDir()
+	for _, p := range []string{"store/Index.htm", "store/token.json", "target/out.class"} {
+		full := filepath.Join(root, p)
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
+		require.NoError(t, os.WriteFile(full, []byte("x"), 0o644))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".gitignore"), []byte("store/*\n!store/Index.htm\ntarget/\n"), 0o644))
+	files, err := GetAllFiles(root)
+	require.NoError(t, err)
+	var got []string
+	for _, f := range files {
+		got = append(got, strings.TrimPrefix(f.Path(), "./"))
+	}
+	assert.Equal(t, []string{"store/Index.htm"}, got)
 }

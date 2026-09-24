@@ -3,7 +3,6 @@ package git
 import (
 	"fmt"
 	"github.com/rs/zerolog/log"
-	"github.com/samber/lo"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 type rawCommit struct {
@@ -22,6 +22,8 @@ type rawCommit struct {
 	AuthorEmail string
 	Message     string
 	Files       []*rawPartOfCommit
+	// Read with --cc --raw and listing files that differ from every parent.
+	combined bool
 }
 
 type rawPartOfCommit struct {
@@ -145,78 +147,161 @@ func HasRepos(root string) bool {
 	return len(findGitRepos(root).repos) > 0
 }
 
+// The fields of one commit header, in the order the format string asks for.
+// Unit and record separators rather than printable ones: a subject reading
+// "fix -- again" split the old "--"-delimited header and dropped every file
+// of that commit.
+const (
+	commitMarker = "\x1e[-archstatscommit-]"
+	fieldSep     = "\x1f"
+	headerEnd    = "\x1d"
+	gitLogFormat = "%x1e[-archstatscommit-]%h%x1f%at%x1f%aN%x1f%aE%x1f%s%x1d"
+)
+
 func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 	// Check if the Git command exists
 	if !gitCommandExists() {
 		return nil, fmt.Errorf("git command not found")
 	}
 
-	argsRaw := []string{
-		"-C", filepath.Clean(path),
-	}
+	// core.quotepath=off keeps non-ASCII paths as written instead of
+	// C-quoting them, which no file in the scan would ever match.
+	argsRaw := []string{"-C", filepath.Clean(path), "-c", "core.quotepath=off", "log"}
+	// Only the history of what is checked out. `--all` read every branch
+	// and ref: commits that never reached the analysed code, and the same
+	// change counted once per branch it was cherry-picked onto.
+	argsRaw = append(argsRaw, "HEAD")
+	// --since and --after are options of `log`, not of git itself; placed
+	// before the subcommand they made git refuse to run.
 	if e.GitSince != "" {
 		argsRaw = append(argsRaw, "--since", e.GitSince)
 	}
 	if e.GitAfter != "" {
 		argsRaw = append(argsRaw, "--after", e.GitAfter)
 	}
-	argsRaw = append(argsRaw, "log", "--all", "--numstat", "--no-renames", "--pretty=format:[-archstatscommit-]%h--%at--%an--%ae--%s--")
+	// %aN and %aE honour .mailmap, so a project's own record of who is who
+	// is used before any guessing.
+	argsRaw = append(argsRaw, "--numstat", "--no-renames", "--pretty=format:"+gitLogFormat)
 
-	cmd := exec.Command(
-		"git",
-		argsRaw...,
-	)
-	output, err := cmd.Output()
+	commitArgs := append(append([]string{}, argsRaw...), "--no-merges")
+	output, err := exec.Command("git", commitArgs...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to run git log command: %s", err)
 	}
-	outputString := string(output)
-	return parseGitLogString(path, outputString), nil
+	commits := parseGitLogString(path, string(output))
+
+	// A merge changes a file when it differs from every parent: what was
+	// written while resolving it. Those are the only files a merge reports
+	// here; everything else it brings in was counted in the branch commits
+	// that made it. Merges used to report nothing, so a file only ever
+	// changed in a merge had no history at all -- 7 of Sylius's files.
+	//
+	// --numstat on a merge diffs it against its first parent, which would
+	// count a branch's work a second time; --cc --raw lists the files that
+	// differ from every parent, and only those rows are kept.
+	mergeArgs := append(append([]string{}, argsRaw...), "--merges", "--cc", "--raw")
+	mergeOutput, err := exec.Command("git", mergeArgs...).Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to run git log for merges: %s", err)
+	}
+	for _, merge := range parseGitLogString(path, string(mergeOutput)) {
+		// A clean merge lists no such files, and its numstat rows are all
+		// branch work already counted.
+		if merge.combined && len(merge.Files) > 0 {
+			commits = append(commits, merge)
+		}
+	}
+	return commits, nil
 }
 
 func parseGitLogString(repo, outputString string) []*rawCommit {
-
-	// Split the output into individual commits
-	commitStrings := strings.Split(outputString, "[-archstatscommit-]")
-
-	return lo.Map(commitStrings[1:], func(commitRaw string, _ int) *rawCommit {
-		return parseCommitString(repo, commitRaw)
-	})
+	var out []*rawCommit
+	for _, raw := range strings.Split(outputString, commitMarker)[1:] {
+		if c := parseCommitString(repo, raw); c != nil {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func parseCommitString(repo, commitRaw string) *rawCommit {
-	// Parse commit data
-	commitStrings := strings.Split(commitRaw, "--")
-	// Let's pray this doesn't  fail ;)
-	unixTimestamp, _ := strconv.ParseInt(commitStrings[1], 10, 64)
+	header, body, found := strings.Cut(commitRaw, headerEnd)
+	if !found {
+		return nil
+	}
+	fields := strings.Split(header, fieldSep)
+	if len(fields) < 5 {
+		return nil
+	}
+	unixTimestamp, _ := strconv.ParseInt(fields[1], 10, 64)
 
 	commit := &rawCommit{
 		Repo:        repo,
-		Hash:        commitStrings[0],
+		Hash:        fields[0],
 		Time:        time.Unix(unixTimestamp, 0),
-		AuthorName:  commitStrings[2],
-		AuthorEmail: commitStrings[3],
-		Message:     commitStrings[4],
+		AuthorName:  asUTF8(fields[2]),
+		AuthorEmail: asUTF8(fields[3]),
+		// A subject can itself contain the separator in principle; keep
+		// whatever follows rather than truncating it.
+		Message: asUTF8(strings.Join(fields[4:], fieldSep)),
 	}
 
-	// Parse file data
-	fileStrings := strings.Split(strings.TrimSpace(commitStrings[5]), "\n")
-	for _, fileString := range fileStrings {
-		fields := strings.Fields(fileString)
-		if len(fields) == 3 {
-			additions := 0
-			deletions := 0
-			fmt.Sscanf(fields[0], "%d", &additions)
-			fmt.Sscanf(fields[1], "%d", &deletions)
-			commit.Files = append(commit.Files, &rawPartOfCommit{
-				Repo:      repo,
-				Additions: additions,
-				Deletions: deletions,
-				Path:      fields[2],
-			})
+	// numstat rows are tab-separated. Splitting them on whitespace dropped
+	// every file whose path contains a space.
+	//
+	// A merge read with --cc --raw also lists, as "::" rows, the files that
+	// differ from every parent; when there are any, only those count.
+	var combined map[string]bool
+	for _, line := range strings.Split(strings.TrimSpace(body), "\n") {
+		if strings.HasPrefix(line, "::") {
+			if _, path, ok := strings.Cut(strings.TrimRight(line, "\r"), "\t"); ok && path != "" {
+				if combined == nil {
+					combined = map[string]bool{}
+				}
+				combined[path] = true
+			}
 		}
 	}
+	for _, line := range strings.Split(strings.TrimSpace(body), "\n") {
+		if strings.HasPrefix(line, "::") {
+			continue
+		}
+		parts := strings.SplitN(strings.TrimRight(line, "\r"), "\t", 3)
+		if len(parts) != 3 || parts[2] == "" {
+			continue
+		}
+		if combined != nil && !combined[parts[2]] {
+			continue
+		}
+		additions, deletions := 0, 0
+		// Binary files report "-" for both counts; they are changes all the same.
+		fmt.Sscanf(parts[0], "%d", &additions)
+		fmt.Sscanf(parts[1], "%d", &deletions)
+		commit.Files = append(commit.Files, &rawPartOfCommit{
+			Repo:      repo,
+			Additions: additions,
+			Deletions: deletions,
+			Path:      parts[2],
+		})
+	}
+	commit.combined = combined != nil
 	return commit
+}
+
+// asUTF8 reads text git passed through undecoded. A commit made without an
+// encoding header by a Latin-1 terminal is stored as Latin-1 and printed as
+// such: Sylius has "Javier Gonz\xe1lez", which is not UTF-8 and broke every
+// reader of the author table. Latin-1 is what git itself assumes of such
+// commits, and every byte of it is a character.
+func asUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	out := make([]rune, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		out = append(out, rune(s[i]))
+	}
+	return string(out)
 }
 
 func gitCommandExists() bool {
@@ -275,6 +360,22 @@ func lazyRepos(rootPath string, repos []string) []LazyRepo {
 		found = append(found, LazyRepo{Dir: dir, Filter: filter, Setting: setting})
 	}
 	return found
+}
+
+// shallowRepos are the repositories cloned with --depth, whose history stops
+// at a commit that is not the first. gin cloned that way reads one commit and
+// one contributor, and a file's age is the age of the clone.
+func shallowRepos(rootPath string, repos []string) map[string]bool {
+	out := map[string]bool{}
+	for _, repo := range repos {
+		dir := filepath.Join(rootPath, repo)
+		answer, err := exec.Command("git", "-C", dir, "rev-parse", "--is-shallow-repository").Output()
+		if err == nil && strings.TrimSpace(string(answer)) == "true" {
+			out[repo] = true
+			log.Warn().Msgf("%s is a shallow clone, so its history is cut short: commit counts, contributors and file ages cover only what was fetched. `git -C %s fetch --unshallow` fetches the rest.", dir, dir)
+		}
+	}
+	return out
 }
 
 func warnAboutLazyRepos(rootPath string, repos []string) {

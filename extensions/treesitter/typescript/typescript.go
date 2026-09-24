@@ -29,7 +29,8 @@ func (a *tsAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	if res == nil {
 		return nil
 	}
-	res.Units = common.JSUnitsFrom(f.Path(), res)
+	common.KeepReactOnlyWhereUsed(f.Path(), res)
+	res.Units = common.JSUnitsFrom(f.Path(), f.Content(), res)
 	return res
 }
 
@@ -80,6 +81,20 @@ func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
 			`(call_expression
 				function: (import)
 				arguments: (arguments (string) @modularity__component__imports))`,
+			// The same strings again, under a name the component linker does
+			// not rewrite. It rewrites imports in place to the component
+			// they resolve to, which is what makes a component graph and
+			// what destroys the evidence of what the file actually asked
+			// for. Framework detection reads these prefixes.
+			`(import_statement source: (string) @modularity__import__raw)`,
+			`(export_statement source: (string) @modularity__import__raw)`,
+			`((call_expression
+				function: (identifier) @_rawreq
+				arguments: (arguments (string) @modularity__import__raw))
+			  (#eq? @_rawreq "require"))`,
+			`(call_expression
+				function: (import)
+				arguments: (arguments (string) @modularity__import__raw))`,
 			// Classes (total types)
 			`(class_declaration name: (type_identifier) @modularity__types__total)`,
 			`(abstract_class_declaration name: (type_identifier) @modularity__types__total)`,
@@ -107,6 +122,7 @@ func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
 		SnippetTransformers: map[string]func(*file.Snippet) *file.Snippet{
 			file.ComponentImport:         stripQuotes,
 			file.ComponentImportTypeOnly: stripQuotes,
+			file.ImportRaw:               stripQuotes,
 		},
 	}
 

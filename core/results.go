@@ -39,6 +39,12 @@ type Results struct {
 	ConnectionsFrom map[string][]*component.Connection
 	ConnectionsTo   map[string][]*component.Connection
 
+	// Files that are someone else's code carried in the repository: vendored
+	// packages, minified bundles, well-known libraries. See file.IsThirdParty.
+	ThirdPartyFiles map[string]bool
+	// Files a tool wrote and says so in their header. See file.IsGenerated.
+	GeneratedFiles map[string]bool
+
 	FileToComponent map[string]string
 	FileToDirectory map[string]string
 	FileToModule    map[string]string
@@ -78,6 +84,18 @@ type groupedSnippets struct {
 }
 
 func breakSnippetsIntoGroups(fileResults []*file.Results) groupedSnippets {
+	// Someone else's code is no component of this codebase: moment.js's 137
+	// locale files were one of nopCommerce's components, and 45 of its 710
+	// were vendored npm packages. Cleared here rather than when the file is
+	// read, because the component linkers run in between and assign one.
+	for _, fr := range fileResults {
+		if fr.ThirdParty {
+			fr.Component = ""
+			for _, sn := range fr.Snippets {
+				sn.Component = ""
+			}
+		}
+	}
 	allSnippets := lo.FlatMap(fileResults, func(fileResult *file.Results, idx int) []*file.Snippet {
 		return fileResult.Snippets
 	})
@@ -90,6 +108,8 @@ func breakSnippetsIntoGroups(fileResults []*file.Results) groupedSnippets {
 
 	snippetsByComponent, snippetsByType, snippetsByFile, snippetsByDirectory :=
 		allSnippetGroups["ByComponent"], allSnippetGroups["ByType"], allSnippetGroups["ByFile"], allSnippetGroups["ByDirectory"]
+	// Belonging to no component is not a component.
+	delete(snippetsByComponent, "")
 
 	return groupedSnippets{
 		all:         allSnippets,
@@ -114,7 +134,20 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 			return snippet.File
 		}))
 	})
-	directoryToFiles := mapDirectoryToFiles(lo.Keys(snippets.byFile))
+	// Every file, not only those with a snippet: a directory's size left out
+	// its XML and text files while the same files counted towards its
+	// component and towards the codebase total.
+	directoryToFiles := mapDirectoryToFiles(lo.Keys(statRecordsByFile))
+	thirdParty := map[string]bool{}
+	generated := map[string]bool{}
+	for _, fr := range fileResults {
+		if fr.ThirdParty {
+			thirdParty[fr.Name] = true
+		}
+		if fr.Generated {
+			generated[fr.Name] = true
+		}
+	}
 	allStatRecords := lo.Flatten(lo.MapToSlice(statRecordsByFile, func(file string, statRecords []*stats.Record) []*stats.Record {
 		return statRecords
 	}))
@@ -147,6 +180,11 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	// of them.
 	var rawUnits []*unit.Unit
 	for _, fr := range fileResults {
+		// Someone else's code declares nothing in this codebase: minified
+		// bundles were nearly half of one codebase's units, named $e and $i.
+		if fr.ThirdParty {
+			continue
+		}
 		rawUnits = append(rawUnits, fr.Units...)
 	}
 	allUnits := unit.Merge(rawUnits)
@@ -200,6 +238,8 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		FileToModule:     fileToModule,
 		ComponentToFiles: componentToFiles,
 		DirectoryToFiles: directoryToFiles,
+		ThirdPartyFiles:  thirdParty,
+		GeneratedFiles:   generated,
 		ModuleToFiles:    moduleToFiles,
 		Modules:          moduleMap,
 
@@ -265,6 +305,16 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer) ([]*file.R
 			}
 		}
 		currentFileResults := mergeFileResults(currentFileResultsToMerge)
+		currentFileResults.ThirdParty = file.IsThirdParty(theFile.Path(), theFile.Content())
+		currentFileResults.Generated = !currentFileResults.ThirdParty && file.IsGenerated(theFile.Content())
+		// Recorded as stats too, so a reader of the snapshot can tell which
+		// files are not the project's own writing.
+		if currentFileResults.ThirdParty {
+			currentFileResults.Stats = append(currentFileResults.Stats, &stats.Record{StatType: file.ThirdPartyFileCount, Value: 1})
+		}
+		if currentFileResults.Generated {
+			currentFileResults.Stats = append(currentFileResults.Stats, &stats.Record{StatType: file.GeneratedFileCount, Value: 1})
+		}
 		currentFileResults.Name = theFile.Path()
 		currentFileResults.Directory = theFile.Path()[:strings.LastIndex(theFile.Path(), "/")]
 		file.AddLineNumberAndCharInLineToSnippets(theFile.Content(), currentFileResults.Snippets)

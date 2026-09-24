@@ -1,8 +1,9 @@
 id: graph__farness_centrality
 name: Farness Centrality
-short_description: Sum of shortest path distances from this component to all other components.
+short_description: Sum of shortest path distances to this component from every component that reaches it.
 long_description: |
-  Farness is the sum of shortest path lengths from a component to every other reachable component in the dependency graph. It is the inverse concept of closeness centrality.
-  
-  Lower farness means the component is more central; higher farness means it is more peripheral.
+  Farness adds up, over every component that depends on this one directly or transitively, the
+  number of hops its shortest dependency path takes to get here. Components that cannot reach this
+  one are not counted, so a component nothing depends on has a farness of 0: read it together with
+  the number of components that reach it, not on its own.
 category: "Dependency Graph & Cycles"

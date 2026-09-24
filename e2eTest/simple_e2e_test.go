@@ -32,16 +32,17 @@ func Test_SimpleComponents_DirectConnections(t *testing.T) {
 	})
 }
 func Test_SimpleComponents_IndirectConnections(t *testing.T) {
+	// Lengths are hops: a direct dependency is 1 away.
 	simpleComponentsTest(t, "component_connections_indirect", "from,to,shortest_path_length,shortest_path", []ComponentConnectionIndirect{
-		indirectConnection("a", "d", 2, "a -> d"),
-		indirectConnection("a", "c", 2, "a -> c"),
-		indirectConnection("a", "b", 2, "a -> b"),
-		indirectConnection("b", "d", 4, "b -> c -> a -> d"),
-		indirectConnection("b", "c", 2, "b -> c"),
-		indirectConnection("b", "a", 3, "b -> c -> a"),
-		indirectConnection("c", "b", 3, "c -> a -> b"),
-		indirectConnection("c", "d", 3, "c -> a -> d"),
-		indirectConnection("c", "a", 2, "c -> a"),
+		indirectConnection("a", "d", 1, "a -> d"),
+		indirectConnection("a", "c", 1, "a -> c"),
+		indirectConnection("a", "b", 1, "a -> b"),
+		indirectConnection("b", "d", 3, "b -> c -> a -> d"),
+		indirectConnection("b", "c", 1, "b -> c"),
+		indirectConnection("b", "a", 2, "b -> c -> a"),
+		indirectConnection("c", "b", 2, "c -> a -> b"),
+		indirectConnection("c", "d", 2, "c -> a -> d"),
+		indirectConnection("c", "a", 1, "c -> a"),
 	})
 }
 

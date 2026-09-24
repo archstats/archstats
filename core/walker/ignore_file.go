@@ -2,8 +2,8 @@ package walker
 
 import (
 	"bufio"
-	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/rs/zerolog/log"
+	ignore "github.com/sabhiram/go-gitignore"
 	"io/fs"
 	filepath "path"
 
@@ -15,16 +15,97 @@ var (
 	ignoreFilesConst = [...]string{".gitignore", ".archstatsignore"}
 )
 
+// ignoreContext is every ignore file on the way down to a directory, each
+// kept with the directory it sits in.
+//
+// Patterns in a nested .gitignore are relative to that file's directory. They
+// used to be pooled and matched as if every file sat at the root, so an
+// anchored pattern such as IntelliJ's `/workspace.xml` in `.idea/.gitignore`
+// never matched `.idea/workspace.xml`, and IDE state was scanned as code.
 type ignoreContext struct {
-	lines []string
+	layers []ignoreLayer
 }
 
-func (ctx *ignoreContext) getGitIgnore() *ignore.GitIgnore {
-	return ignore.CompileIgnoreLines(ctx.lines...)
+type ignoreLayer struct {
+	base string
+	gi   *ignore.GitIgnore
+	// The layer's negated patterns ("!keep.me"), without the "!".
+	negations []string
 }
 
-func (ctx *ignoreContext) addIgnoreLines(fileSystem fs.FS, dirPath string, files []fs.DirEntry) {
-	ctx.lines = append(ctx.lines, getIgnoreLinesInDir(fileSystem, dirPath, files)...)
+// within returns the context for a directory: this one plus the ignore files
+// the directory itself holds. A copy, so a sibling never sees them.
+func (ctx ignoreContext) within(fileSystem fs.FS, dirPath string, files []fs.DirEntry) ignoreContext {
+	lines := getIgnoreLinesInDir(fileSystem, dirPath, files)
+	if len(lines) == 0 {
+		return ctx
+	}
+	layers := make([]ignoreLayer, 0, len(ctx.layers)+1)
+	layers = append(layers, ctx.layers...)
+	var negations []string
+	for _, l := range lines {
+		if t := strings.TrimSpace(l); strings.HasPrefix(t, "!") {
+			negations = append(negations, strings.TrimPrefix(t, "!"))
+		}
+	}
+	layers = append(layers, ignoreLayer{base: dirPath, gi: ignore.CompileIgnoreLines(lines...), negations: negations})
+	return ignoreContext{layers: layers}
+}
+
+// prunes reports whether a directory can be skipped whole.
+//
+// The ignore library matches `dir/*` against the directory itself, which git
+// does not: git keeps the directory and ignores its contents one by one, which
+// is what lets `!dir/Index.htm` bring a file back. Skipping the directory lost
+// such files. A directory is therefore walked, and each file judged on its
+// own, whenever a negation could apply somewhere inside it.
+func (ctx ignoreContext) prunes(dirPath string) bool {
+	if !ctx.ignores(dirPath) {
+		return false
+	}
+	for _, l := range ctx.layers {
+		rel, ok := relativeTo(dirPath, l.base)
+		if !ok {
+			continue
+		}
+		rel = strings.TrimSuffix(rel, "/")
+		for _, n := range l.negations {
+			pattern := strings.TrimPrefix(n, "/")
+			// No slash but a trailing one: the pattern can match at any depth.
+			if !strings.Contains(strings.TrimSuffix(pattern, "/"), "/") {
+				return false
+			}
+			if strings.HasPrefix(pattern, rel+"/") || strings.HasPrefix(pattern, "**") {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// ignores reports whether any ignore file on the way down excludes the path,
+// each matching it relative to its own directory.
+func (ctx ignoreContext) ignores(path string) bool {
+	if isIgnoreFile(path) {
+		return true
+	}
+	for _, l := range ctx.layers {
+		if rel, ok := relativeTo(path, l.base); ok && l.gi.MatchesPath(rel) {
+			return true
+		}
+	}
+	return false
+}
+
+func relativeTo(path, base string) (string, bool) {
+	if base == "." || base == "" {
+		return strings.TrimPrefix(path, "./"), true
+	}
+	prefix := strings.TrimSuffix(base, "/") + "/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", false
+	}
+	return strings.TrimPrefix(path, prefix), true
 }
 
 func getIgnoreLinesInDir(fileSystem fs.FS, path string, entries []fs.DirEntry) []string {
@@ -56,12 +137,6 @@ func getIgnoreLinesInFile(fileSystem fs.FS, path string, fileInfo fs.DirEntry) [
 		globs = append(globs, scanner.Text())
 	}
 	return globs
-}
-func shouldIgnore(path string, gitIgnore *ignore.GitIgnore) bool {
-	if isIgnoreFile(path) {
-		return true
-	}
-	return gitIgnore.MatchesPath(path)
 }
 func isIgnoreFile(path string) bool {
 	for _, s := range ignoreFilesConst {

@@ -4,6 +4,7 @@ import (
 	"embed"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/definitions"
+	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
 	"math"
 	"path/filepath"
@@ -135,6 +136,13 @@ func isExcludedFromCodeSmells(path string) bool {
 		"composer.lock",
 	}
 	for _, excl := range exclusions {
+		// A directory, not a package named like one: see InDirOutsideSourceRoot.
+		if strings.HasSuffix(excl, "/") {
+			if file.InDirOutsideSourceRoot(lowerPath, excl) {
+				return true
+			}
+			continue
+		}
 		if strings.Contains(lowerPath, excl) {
 			return true
 		}
@@ -154,6 +162,23 @@ func isExcludedFromCodeSmells(path string) bool {
 		".ini":  true,
 		".conf": true,
 		".csv":  true,
+		// A health reading is about how code is shaped, so text that is not
+		// code gets none. Without these, django-oscar's hottest file was its
+		// French translation catalogue and LibreChat's its stylesheet.
+		".po":         true,
+		".pot":        true,
+		".mo":         true,
+		".properties": true,
+		".css":        true,
+		".scss":       true,
+		".sass":       true,
+		".less":       true,
+		".styl":       true,
+		".svg":        true,
+		".map":        true,
+		".snap":       true,
+		".rst":        true,
+		".adoc":       true,
 	}
 	if ignoredExts[ext] {
 		return true
@@ -236,7 +261,9 @@ func (e *extension) EditResults(results *core.Results) {
 	var maxRawHotspot float64
 
 	for file, records := range results.StatRecordsByFile {
-		if isExcludedFromCodeSmells(file) {
+		// Vendored and minified code is not the project's to keep healthy, and
+		// was the hottest "hotspot" in at least one codebase.
+		if isExcludedFromCodeSmells(file) || results.ThirdPartyFiles[file] || results.GeneratedFiles[file] {
 			continue // skip excluded files entirely from codesmell evaluations
 		}
 		fileStats := results.Calculate(records)

@@ -23,7 +23,24 @@ func TestFileInput(t *testing.T) {
 
 	assert.Len(t, results.Stats, 1)
 	assert.Equal(t, results.Stats[0].StatType, LineCount)
-	assert.Equal(t, results.Stats[0].Value, 8)
+	// real_test.txt has seven lines and ends with a newline, as `wc -l` agrees.
+	assert.Equal(t, 7, results.Stats[0].Value)
+}
+
+func TestLinesAreCountedLikeAnEditorCountsThem(t *testing.T) {
+	cases := map[string]int{
+		"":               0,
+		"\n":             1,
+		"one":            1,
+		"one\n":          1,
+		"one\ntwo":       2,
+		"one\ntwo\n":     2,
+		"one\r\ntwo\r\n": 2,
+		"one\n\n":        2,
+	}
+	for content, want := range cases {
+		assert.Equalf(t, want, countLines([]byte(content)), "%q", content)
+	}
 }
 
 type fakeFile struct {

@@ -18,7 +18,9 @@ func getStatsByDirectory(results *core.Results) map[string]*stats.Stats {
 			StatType: file.FileCount,
 			Value:    len(files),
 		})
-		return results.Calculate(stats_)
+		dirStats := results.Calculate(stats_)
+		util.RollUpCodeSmells(results, files, dirStats)
+		return dirStats
 	})
 	return statsByDirectory
 }

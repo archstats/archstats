@@ -1,0 +1,8 @@
+id: complexity__files__third_party
+name: Third-party Files
+short_description: Files that are someone else's code carried in the repository.
+long_description: |
+  Vendored packages (node_modules, vendor, third_party, lib_npm, wwwroot/lib), minified bundles and
+  well-known libraries such as jQuery or moment.js. They count as files and lines, since they are in
+  the repository, but declare no units and receive no code-health reading.
+category: "Size & Indentation Complexity"

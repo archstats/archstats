@@ -9,15 +9,15 @@ import (
 func (e *extension) componentCouplingViewFactory(results *core.Results) *core.View {
 	components := lo.Keys(results.ComponentToFiles)
 
-	componentToCommits := e.splittedCommits.ComponentToCommitHashes()
+	componentToCommits := e.couplingCommits.ComponentToCommitHashes()
 	sharedCommits := commits.PairsToCommitsInCommon(components, componentToCommits)
 	dayBucketSharedCommitCounts := map[int]map[string]commits.CommitHashes{}
 
-	for days, split := range e.splittedCommits.DayBuckets() {
+	for days, split := range e.couplingCommits.DayBuckets() {
 		dayBucketSharedCommitCounts[days] = commits.PairsToCommitsInCommon(components, split.ComponentToCommitHashes())
 	}
 
-	mappedDayBuckets := lo.MapValues(e.splittedCommits.DayBuckets(), func(splitted *commits.Splitted, _ int) map[string]commits.CommitHashes {
+	mappedDayBuckets := lo.MapValues(e.couplingCommits.DayBuckets(), func(splitted *commits.Splitted, _ int) map[string]commits.CommitHashes {
 		return splitted.ComponentToCommitHashes()
 	})
 	rows := sharedCommitsToRows(components, sharedCommits, dayBucketSharedCommitCounts, componentToCommits, mappedDayBuckets)

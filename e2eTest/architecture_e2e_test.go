@@ -132,8 +132,10 @@ func Test_Architecture_RulesReportWhetherTheyApplied(t *testing.T) {
 	assert.Equal(t, "violation", status["rules__symfony__component_must_not_depend_on_bundle"])
 	// A PHP project has no .NET projects, so that rule has no opinion.
 	assert.Equal(t, "not_applicable", status["rules__dotnet__core_must_not_depend_on_plugin"])
-	// The internal rule applies everywhere and holds here.
-	assert.Equal(t, "ok", status["rules__go__internal_must_not_be_imported_from_outside"])
+	// Nor any Go modules, so the internal/ rule has no opinion either. It
+	// used to apply everywhere and report "ok" here, which claimed a check
+	// nobody made.
+	assert.Equal(t, "not_applicable", status["rules__go__internal_must_not_be_imported_from_outside"])
 }
 
 // Only the rows that report a broken rule. Every rule also reports whether

@@ -49,14 +49,14 @@ func TestShippedRulesFireAndStaySilent(t *testing.T) {
 			// optional.
 			id: "rules__dotnet__core_must_not_depend_on_plugin",
 			modules: []NamedDir{
-				{"Nop.Core", "src/Libraries/Nop.Core"},
-				{"Nop.Web.Framework", "src/Presentation/Nop.Web.Framework"},
-				{"Nop.Plugin.Payments.PayPal", "src/Plugins/Nop.Plugin.Payments.PayPal"},
+				{Name: "Nop.Core", Dir: "src/Libraries/Nop.Core"},
+				{Name: "Nop.Web.Framework", Dir: "src/Presentation/Nop.Web.Framework"},
+				{Name: "Nop.Plugin.Payments.PayPal", Dir: "src/Plugins/Nop.Plugin.Payments.PayPal"},
 			},
-			badFrom: NamedDir{"Nop.Core", "src/Libraries/Nop.Core"},
-			badTo:   NamedDir{"Nop.Plugin.Payments.PayPal", "src/Plugins/Nop.Plugin.Payments.PayPal"},
-			okFrom:  NamedDir{"Nop.Plugin.Payments.PayPal", "src/Plugins/Nop.Plugin.Payments.PayPal"},
-			okTo:    NamedDir{"Nop.Web.Framework", "src/Presentation/Nop.Web.Framework"},
+			badFrom: NamedDir{Name: "Nop.Core", Dir: "src/Libraries/Nop.Core"},
+			badTo:   NamedDir{Name: "Nop.Plugin.Payments.PayPal", Dir: "src/Plugins/Nop.Plugin.Payments.PayPal"},
+			okFrom:  NamedDir{Name: "Nop.Plugin.Payments.PayPal", Dir: "src/Plugins/Nop.Plugin.Payments.PayPal"},
+			okTo:    NamedDir{Name: "Nop.Web.Framework", Dir: "src/Presentation/Nop.Web.Framework"},
 		},
 		{
 			// Sylius: the domain must stay usable without Symfony. Note the
@@ -64,24 +64,24 @@ func TestShippedRulesFireAndStaySilent(t *testing.T) {
 			// so the rule reads where each package sits.
 			id: "rules__symfony__component_must_not_depend_on_bundle",
 			modules: []NamedDir{
-				{"sylius/order", "src/Sylius/Component/Order"},
-				{"sylius/order-bundle", "src/Sylius/Bundle/OrderBundle"},
+				{Name: "sylius/order", Dir: "src/Sylius/Component/Order"},
+				{Name: "sylius/order-bundle", Dir: "src/Sylius/Bundle/OrderBundle"},
 			},
-			badFrom: NamedDir{"sylius/order", "src/Sylius/Component/Order"},
-			badTo:   NamedDir{"sylius/order-bundle", "src/Sylius/Bundle/OrderBundle"},
-			okFrom:  NamedDir{"sylius/order-bundle", "src/Sylius/Bundle/OrderBundle"},
-			okTo:    NamedDir{"sylius/order", "src/Sylius/Component/Order"},
+			badFrom: NamedDir{Name: "sylius/order", Dir: "src/Sylius/Component/Order"},
+			badTo:   NamedDir{Name: "sylius/order-bundle", Dir: "src/Sylius/Bundle/OrderBundle"},
+			okFrom:  NamedDir{Name: "sylius/order-bundle", Dir: "src/Sylius/Bundle/OrderBundle"},
+			okTo:    NamedDir{Name: "sylius/order", Dir: "src/Sylius/Component/Order"},
 		},
 		{
 			id: "rules__go__internal_must_not_be_imported_from_outside",
 			modules: []NamedDir{
-				{"github.com/acme/app", "app"},
-				{"github.com/other/lib", "lib"},
+				{Name: "github.com/acme/app", Dir: "app", Kind: "go"},
+				{Name: "github.com/other/lib", Dir: "lib", Kind: "go"},
 			},
-			badFrom: NamedDir{"github.com/other/lib", "lib"},
-			badTo:   NamedDir{"github.com/acme/app/internal/store", "app/internal/store"},
-			okFrom:  NamedDir{"github.com/other/lib", "lib"},
-			okTo:    NamedDir{"github.com/acme/app/store", "app/store"},
+			badFrom: NamedDir{Name: "github.com/other/lib", Dir: "lib", Kind: "go"},
+			badTo:   NamedDir{Name: "github.com/acme/app/internal/store", Dir: "app/internal/store"},
+			okFrom:  NamedDir{Name: "github.com/other/lib", Dir: "lib", Kind: "go"},
+			okTo:    NamedDir{Name: "github.com/acme/app/store", Dir: "app/store"},
 		},
 	}
 
@@ -108,14 +108,29 @@ func TestShippedRulesFireAndStaySilent(t *testing.T) {
 func TestAppliesWhenKeepsRulesQuiet(t *testing.T) {
 	loaded, err := loadRules(ruleDefs)
 	require.NoError(t, err)
-	plain := []NamedDir{{"github.com/acme/app", ""}, {"github.com/acme/app/store", "store"}}
+	plain := []NamedDir{{Name: "org.acme:app", Dir: "", Kind: "maven"}, {Name: "@acme/store", Dir: "store", Kind: "node"}}
 
 	for _, r := range loaded {
-		if r.rule.Id == "rules__go__internal_must_not_be_imported_from_outside" {
-			continue // deliberately universal
-		}
 		assert.Falsef(t, r.when.any(plain), "%s should not apply to %v", r.rule.Id, plain)
 	}
+}
+
+// The Go internal/ rule once applied to every codebase and so reported "kept"
+// on Java and TypeScript projects that have no internal/ boundary at all. It
+// applies where there is a Go module, and nowhere else.
+func TestGoInternalRuleAppliesOnlyToGoModules(t *testing.T) {
+	loaded, err := loadRules(ruleDefs)
+	require.NoError(t, err)
+	for _, r := range loaded {
+		if r.rule.Id != "rules__go__internal_must_not_be_imported_from_outside" {
+			continue
+		}
+		assert.True(t, r.when.any([]NamedDir{{Name: "github.com/acme/app", Dir: "", Kind: "go"}}))
+		assert.False(t, r.when.any([]NamedDir{{Name: "org.acme:app", Dir: "", Kind: "maven"}}))
+		assert.False(t, r.when.any(nil))
+		return
+	}
+	t.Fatal("go internal rule not loaded")
 }
 
 // An empty selector selects nothing. A rule that forgot to say what it is
@@ -125,5 +140,5 @@ func TestEmptySelectorSelectsNothing(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, c.selects("anything", "anywhere"))
 	// But an empty applies_when means "always".
-	assert.True(t, c.any([]NamedDir{{"anything", "anywhere"}}))
+	assert.True(t, c.any([]NamedDir{{Name: "anything", Dir: "anywhere"}}))
 }

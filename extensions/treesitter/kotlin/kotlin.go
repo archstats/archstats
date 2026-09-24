@@ -15,7 +15,7 @@ type Extension struct {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
-	settings.RegisterFileAnalyzer(createKotlinLanguagePack())
+	settings.RegisterFileAnalyzer(&kotlinAnalyzer{lp: createKotlinLanguagePack()})
 	return nil
 }
 
@@ -38,6 +38,7 @@ func createKotlinLanguagePack() *common.LanguagePack {
 			// while any other import ends in the member it names — a class, a
 			// top-level function, a constant — and that segment is not part
 			// of the component.
+			`(import_header (identifier) @modularity__import__raw)`,
 			`((import_header (identifier) @modularity__component__imports) @_import
 			  (#match? @_import "[*]"))`,
 			`((import_header (identifier) @kotlin__import__member) @_import
@@ -46,18 +47,25 @@ func createKotlinLanguagePack() *common.LanguagePack {
 ((class_declaration (type_identifier) @modularity__types__total))
 ((object_declaration (type_identifier) @modularity__types__total))
 `,
+			// Abstract: an abstract or sealed class, and every interface. The
+			// interfaces were left out, so a Kotlin codebase's abstractness
+			// counted only its abstract classes.
 			`
 ((class_declaration
   (modifiers) @_mods
+  "class"
   (type_identifier) @modularity__types__abstract)
-  (#match? @_mods "abstract"))
+  (#match? @_mods "abstract|sealed"))
 `,
+			`(class_declaration "interface" (type_identifier) @modularity__types__abstract)`,
 		},
 	}
 
 	template.SnippetTransformers = map[string]func(*file.Snippet) *file.Snippet{
 		importedMember: toPackage,
 	}
+
+	template.QueriesForSnippets = unitQueries()
 
 	pack, err := common.PackFromTemplate(template)
 	if err != nil {

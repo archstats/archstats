@@ -106,3 +106,23 @@ func write(t *testing.T, root, rel, content string) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
 	require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
 }
+
+// A workspace package whose entry points are build output that is not in
+// the scan (LibreChat's librechat-data-provider: main "dist/index.js") must
+// resolve to its source, not climb from the missing dist/ to the package
+// root. It did, and 134 components read as depending on two rollup configs.
+func TestResolve_PackageWithUnbuiltEntryPointLandsOnSource(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "packages/data-provider/package.json",
+		`{"name":"librechat-data-provider","main":"dist/index.js","module":"dist/index.es.js","types":"./dist/types/index.d.ts"}`)
+	m := readAliasesFrom(root, []string{"packages/data-provider/package.json"})
+	fileDirs := map[string]string{
+		"packages/data-provider/rollup.config.js":         "packages/data-provider",
+		"packages/data-provider/src/index.ts":             "packages/data-provider/src",
+		"packages/data-provider/src/react-query/index.ts": "packages/data-provider/src/react-query",
+	}
+	assert.Equal(t, "packages/data-provider/src", m.resolve("librechat-data-provider", fileDirs))
+	assert.Equal(t, "packages/data-provider/src/react-query", m.resolve("librechat-data-provider/react-query", fileDirs))
+	// A subpath naming a file still lands on the directory holding it.
+	assert.Equal(t, "packages/data-provider/src", m.resolve("librechat-data-provider/config", fileDirs))
+}

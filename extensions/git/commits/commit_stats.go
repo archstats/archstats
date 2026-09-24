@@ -39,7 +39,11 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 		totalDeletionCount += part.Deletions
 
 		commits[part.Commit] = true
-		components[part.Component] = true
+		// A file that no longer exists belongs to no component. Counting ""
+		// gave nearly every author one component they never touched.
+		if part.Component != "" {
+			components[part.Component] = true
+		}
 		files[part.File] = true
 		directories[part.Directory] = true
 		authors[part.Author] = true

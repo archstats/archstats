@@ -84,7 +84,7 @@ func loadRules(fileSystem fs.FS) ([]*compiledRule, error) {
 func (e *extension) view(results *core.Results) *core.View {
 	present := make([]NamedDir, 0, results.Modules.Len())
 	for _, m := range results.Modules.Modules() {
-		present = append(present, NamedDir{Name: m.Name, Dir: m.Dir})
+		present = append(present, NamedDir{Name: m.Name, Dir: m.Dir, Kind: string(m.Kind)})
 	}
 
 	var rows []*core.Row

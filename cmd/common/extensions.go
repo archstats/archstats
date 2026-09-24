@@ -18,6 +18,7 @@ import (
 	"github.com/archstats/archstats/extensions/treesitter/java"
 	"github.com/archstats/archstats/extensions/treesitter/javascript"
 	"github.com/archstats/archstats/extensions/treesitter/kotlin"
+	"github.com/archstats/archstats/extensions/treesitter/php"
 	"github.com/archstats/archstats/extensions/treesitter/python"
 	"github.com/archstats/archstats/extensions/treesitter/typescript"
 	"github.com/gobwas/glob"
@@ -67,6 +68,11 @@ func Optional() []*config.CLIConfiguredExtension {
 		return ctx.HasFileExtension(".py")
 	}
 
+	phpExt := config.CreateEmptyCLIExtension("php", &php.Extension{})
+	phpExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".php")
+	}
+
 	extensions := []*config.CLIConfiguredExtension{
 		gitExt,
 		javaExt,
@@ -76,6 +82,7 @@ func Optional() []*config.CLIConfiguredExtension {
 		typescriptExt,
 		pythonExt,
 		goExt,
+		phpExt,
 		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {
@@ -83,7 +90,7 @@ func Optional() []*config.CLIConfiguredExtension {
 		// Their regex definitions stay in the yaml as a record of what the
 		// pack has to match, and for anybody running the regex extension by
 		// name.
-		if name == "kotlin" || name == "javascript" || name == "typescript" || name == "python" || name == "go" {
+		if name == "kotlin" || name == "javascript" || name == "typescript" || name == "python" || name == "go" || name == "php" {
 			continue
 		}
 		cliExt := config.CreateEmptyCLIExtension(name, extension)

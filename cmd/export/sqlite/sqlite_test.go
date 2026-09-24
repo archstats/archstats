@@ -1,7 +1,11 @@
 package sqlite
 
 import (
+	"database/sql"
+	"fmt"
+	"github.com/archstats/archstats/core"
 	"github.com/stretchr/testify/assert"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -52,5 +56,31 @@ func TestViewInclusion(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+// A snapshot says which analysis wrote it, so the desktop can tell a scan
+// taken before a fix from one taken after.
+func TestSnapshotRecordsAnalysisRevision(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "snap.db")
+	db, err := sql.Open("sqlite3", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := saveSnapshotInfo(db); err != nil {
+		t.Fatal(err)
+	}
+	// Writing twice (a re-export into the same file) keeps one row.
+	if err := saveSnapshotInfo(db); err != nil {
+		t.Fatal(err)
+	}
+	var value string
+	var rows int
+	if err := db.QueryRow(`SELECT value, (SELECT count(*) FROM _snapshot) FROM _snapshot WHERE key = 'analysis_revision'`).Scan(&value, &rows); err != nil {
+		t.Fatal(err)
+	}
+	if value != fmt.Sprint(core.AnalysisRevision) || rows != 1 {
+		t.Fatalf("got revision %q in %d rows, want %d in 1", value, rows, core.AnalysisRevision)
 	}
 }

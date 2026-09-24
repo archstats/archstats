@@ -122,15 +122,22 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 		return &FileResults{}, nil
 	}
 
-	ignoreCtx.addIgnoreLines(fileSystem, dirAbsolutePath, files)
+	ignoreCtx = ignoreCtx.within(fileSystem, dirAbsolutePath, files)
 
-	gitIgnore := ignoreCtx.getGitIgnore()
 	for _, entry := range files {
 		path := dirAbsolutePath + separator + entry.Name()
 
+		// Version-control metadata is never source, and no ignore file lists
+		// it: git does not track .git, so .gitignore has no reason to name it.
+		// Walking it counted packed-refs and hook samples as code.
+		if isVCSMetadata(entry.Name()) {
+			ignoredFiles = append(ignoredFiles, path)
+			continue
+		}
+
 		if entry.IsDir() {
 			path += separator
-			if shouldIgnore(path, gitIgnore) {
+			if ignoreCtx.prunes(path) {
 				ignoredFiles = append(ignoredFiles, path)
 				continue
 			}
@@ -138,7 +145,7 @@ func getAllFiles(fileSystem fs.ReadDirFS, dirAbsolutePath string, depth int, ign
 			foundFiles = append(foundFiles, allFiles.FoundFiles...)
 			ignoredFiles = append(ignoredFiles, allFiles.IgnoredFiles...)
 		} else {
-			if shouldIgnore(path, gitIgnore) {
+			if ignoreCtx.ignores(path) {
 				ignoredFiles = append(ignoredFiles, path)
 				continue
 			}
@@ -174,4 +181,15 @@ func (f *pathToFile) File() fs.FileInfo {
 
 func (f *pathToFile) Path() string {
 	return f.path
+}
+
+// isVCSMetadata reports whether a directory entry is a version-control
+// system's own bookkeeping. `.git` is also a plain file in a worktree or a
+// submodule, pointing at the real repository, so both forms are skipped.
+func isVCSMetadata(name string) bool {
+	switch name {
+	case ".git", ".hg", ".svn", ".bzr", "_darcs", ".jj":
+		return true
+	}
+	return false
 }

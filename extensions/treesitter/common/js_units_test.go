@@ -43,7 +43,7 @@ func TestFunctionsAndClassesAreBothUnits(t *testing.T) {
 		snip(CaptureJSFunction, "MessageList", 200),
 	}}
 
-	units := JSUnitsFrom("client/src/chat.ts", res)
+	units := JSUnitsFrom("client/src/chat.ts", nil, res)
 	assert.ElementsMatch(t, []string{
 		"client/src/chat#ChatStore",
 		"client/src/chat#useChat",
@@ -58,17 +58,25 @@ func TestFunctionsAndClassesAreBothUnits(t *testing.T) {
 	assert.Equal(t, unit.KindFunction, byID["client/src/chat#useChat"].Kind)
 }
 
-// A method belongs to the class above it.
-func TestMethodsBelongToTheClassAboveThem(t *testing.T) {
+func span(snippetType string, begin, end int) *file.Snippet {
+	return &file.Snippet{Type: snippetType, Begin: &file.Position{Offset: begin}, End: &file.Position{Offset: end}}
+}
+
+// A method belongs to the class whose body holds it.
+func TestMethodsBelongToTheClassThatHoldsThem(t *testing.T) {
 	res := &file.Results{Snippets: []*file.Snippet{
-		snip(CaptureJSClass, "Alpha", 0),
+		snip(CaptureJSClass, "Alpha", 6),
+		span(CaptureJSClassSpan, 0, 90),
 		snip(CaptureJSMethod, "run", 50),
-		snip(CaptureJSClass, "Beta", 100),
+		snip(CaptureJSClass, "Beta", 106),
+		span(CaptureJSClassSpan, 100, 190),
 		snip(CaptureJSMethod, "run", 150),
+		// An object literal's method below both classes belongs to neither.
+		snip(CaptureJSMethod, "handler", 250),
 	}}
 
 	byID := map[string]*unit.Unit{}
-	for _, u := range JSUnitsFrom("src/two.ts", res) {
+	for _, u := range JSUnitsFrom("src/two.ts", nil, res) {
 		byID[u.ID] = u
 	}
 
@@ -76,6 +84,7 @@ func TestMethodsBelongToTheClassAboveThem(t *testing.T) {
 	// qualified by the class it belongs to.
 	assert.Equal(t, "src/two#Alpha", byID["src/two#Alpha.run"].Owner)
 	assert.Equal(t, "src/two#Beta", byID["src/two#Beta.run"].Owner)
+	assert.Empty(t, byID["src/two#handler"].Owner)
 }
 
 // A method declared before any class belongs to nothing rather than to the
@@ -86,7 +95,7 @@ func TestMethodBeforeAnyClassHasNoOwner(t *testing.T) {
 		snip(CaptureJSClass, "Later", 100),
 	}}
 	byID := map[string]*unit.Unit{}
-	for _, u := range JSUnitsFrom("src/a.ts", res) {
+	for _, u := range JSUnitsFrom("src/a.ts", nil, res) {
 		byID[u.ID] = u
 	}
 	assert.Empty(t, byID["src/a#orphan"].Owner)
@@ -103,7 +112,7 @@ func TestDecoratorsAttachToTheClassBelowThem(t *testing.T) {
 	}}
 
 	byID := map[string]*unit.Unit{}
-	for _, u := range JSUnitsFrom("src/user.ts", res) {
+	for _, u := range JSUnitsFrom("src/user.ts", nil, res) {
 		byID[u.ID] = u
 	}
 	assert.True(t, byID["src/user#UserService"].HasMarker("Injectable"))
@@ -112,11 +121,11 @@ func TestDecoratorsAttachToTheClassBelowThem(t *testing.T) {
 
 func TestInterfacesAreTypesAndMarkedAsSuch(t *testing.T) {
 	res := &file.Results{Snippets: []*file.Snippet{snip(CaptureJSInterface, "Config", 0)}}
-	units := JSUnitsFrom("src/config.ts", res)
+	units := JSUnitsFrom("src/config.ts", nil, res)
 	assert.Equal(t, unit.KindType, units[0].Kind)
 	assert.True(t, units[0].HasMarker("interface"))
 }
 
 func TestNothingDeclaredIsNoUnits(t *testing.T) {
-	assert.Empty(t, JSUnitsFrom("src/empty.ts", &file.Results{}))
+	assert.Empty(t, JSUnitsFrom("src/empty.ts", nil, &file.Results{}))
 }

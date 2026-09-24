@@ -43,6 +43,17 @@ const (
 	captureEmbeds    = "go__struct__embeds"
 	captureTag       = "go__struct__tag"
 	captureDirective = "go__directive"
+	// Go names what it uses differently from every other language here. An
+	// import brings in a package, not a name, and the use is written
+	// `pkg.Symbol` -- so the edge is only recoverable by pairing the
+	// package alias in a selector with the import path it stands for.
+	captureAlias    = "go__import__alias"
+	captureSelPkg   = "go__selector__package"
+	captureSelName  = "go__selector__name"
+	captureDeclSpan = "go__declaration__span"
+	// Every name a declaration mentions, for references into its own
+	// package: Go writes those unqualified, so no selector ever names them.
+	captureLocalRef = "go__ref__local"
 )
 
 func createGoLanguagePack() *common.LanguagePack {
@@ -62,6 +73,11 @@ func createGoLanguagePack() *common.LanguagePack {
 			// directory tree, which is what an import path already points at.
 			`(import_spec path: (interpreted_string_literal
 				(interpreted_string_literal_content) @modularity__component__imports))`,
+
+			// The same path under a name the linker does not rewrite, so
+			// what the file asked for survives component resolution.
+			`(import_spec path: (interpreted_string_literal
+				(interpreted_string_literal_content) @modularity__import__raw))`,
 
 			`(type_declaration (type_spec name: (type_identifier) @modularity__types__total))`,
 			// An interface is Go's only abstract type. A struct with no
@@ -105,6 +121,35 @@ func createGoLanguagePack() *common.LanguagePack {
 			// `//go:embed`.
 			`(field_declaration tag: (raw_string_literal) @` + captureTag + `)`,
 			`((comment) @` + captureDirective + ` (#match? @` + captureDirective + ` "^//go:"))`,
+
+			// An import may rename the package it brings in, and then the
+			// alias is what the code writes.
+			`(import_spec name: (package_identifier) @` + captureAlias + `)`,
+
+			// `pkg.Symbol`. Restricted to a lower-case operand because that
+			// is what a package looks like: `s.handler` is a field on a
+			// receiver and not a dependency on anything, and capturing every
+			// selector in a large repository would put millions of snippets
+			// in the database to throw almost all of them away.
+			`((selector_expression
+				operand: (identifier) @` + captureSelPkg + `
+				field: (field_identifier) @` + captureSelName + `)
+			  (#match? @` + captureSelPkg + ` "^[a-z][a-z0-9_]*$"))`,
+
+			// A type from another package, written `binding.Binding`. That is
+			// a qualified_type, not a selector_expression, so only calls and
+			// values used to be seen: 36 of gin's 44 cross-package uses were
+			// types and had no edge.
+			`(qualified_type
+				package: (package_identifier) @` + captureSelPkg + `
+				name: (type_identifier) @` + captureSelName + `)`,
+
+			`(identifier) @` + captureLocalRef,
+			`(type_identifier) @` + captureLocalRef,
+
+			`(function_declaration) @` + captureDeclSpan,
+			`(method_declaration) @` + captureDeclSpan,
+			`(type_declaration) @` + captureDeclSpan,
 		},
 	}
 
@@ -125,5 +170,16 @@ func (a *goAnalyzer) AnalyzeFile(f file.File) *file.Results {
 		return nil
 	}
 	res.Units = unitsFrom(f.Path(), res)
+	// The captures above exist to build the units' references. Stored, they
+	// were every declaration's full text and every selector in the codebase.
+	kept := res.Snippets[:0]
+	for _, sn := range res.Snippets {
+		switch sn.Type {
+		case captureSelPkg, captureSelName, captureDeclSpan, captureLocalRef:
+			continue
+		}
+		kept = append(kept, sn)
+	}
+	res.Snippets = kept
 	return res
 }

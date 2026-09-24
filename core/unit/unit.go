@@ -64,6 +64,29 @@ type Marker struct {
 	Value  string `json:"value"`
 }
 
+// A Ref is something a unit uses, named the way the source named it and not
+// yet resolved to anything.
+//
+// `import { parse } from "./reader"` followed by a call to `parse` inside a
+// function is a dependency between two units, and it is the only kind most
+// languages give you: an import names a module, and the import clause names
+// what was taken from it. Java is the exception -- it imports the type
+// itself -- which is why Java had a class graph and nothing else did.
+//
+// Module is as written, so "./reader", "django.db" or "net/http". Resolving
+// it needs the whole codebase and happens once, in the engine.
+type Ref struct {
+	Module string `json:"module"`
+	Name   string `json:"name"`
+	// Exact resolves the name in exactly this module and nowhere else: no
+	// alias, suffix or barrel search. For references the language itself
+	// resolves that strictly -- Go's same-package names, Java's own package
+	// and on-demand imports -- where the barrel fallback would invent an edge
+	// into a sub-package the compiler would never look in. The empty module
+	// is a real one here: Go's root package declares its units there.
+	Exact bool `json:"exact,omitempty"`
+}
+
 // A Unit is a named, addressable thing in the code.
 type Unit struct {
 	// Stable across files and runs. Fully qualified where the ecosystem has
@@ -87,6 +110,11 @@ type Unit struct {
 	Owner string `json:"owner"`
 
 	Markers []Marker `json:"markers"`
+
+	// What this unit uses, unresolved. Empty for a language pack that cannot
+	// tell which unit used what, which is an honest answer and not a gap to
+	// be filled with a guess.
+	Refs []Ref `json:"refs"`
 }
 
 // Merge folds units that are the same thing seen in different files.
@@ -110,6 +138,7 @@ func Merge(units []*Unit) []*Unit {
 			clone := *u
 			clone.Files = append([]string(nil), u.Files...)
 			clone.Markers = append([]Marker(nil), u.Markers...)
+			clone.Refs = append([]Ref(nil), u.Refs...)
 			byID[u.ID] = &clone
 			order = append(order, u.ID)
 			continue
@@ -119,6 +148,9 @@ func Merge(units []*Unit) []*Unit {
 		}
 		for _, m := range u.Markers {
 			existing.Markers = appendUniqueMarker(existing.Markers, m)
+		}
+		for _, r := range u.Refs {
+			existing.Refs = appendUniqueRef(existing.Refs, r)
 		}
 		if existing.Owner == "" {
 			existing.Owner = u.Owner
@@ -170,6 +202,18 @@ func appendUniqueString(list []string, v string) []string {
 		}
 	}
 	return append(list, v)
+}
+
+func appendUniqueRef(list []Ref, r Ref) []Ref {
+	if r.Name == "" {
+		return list
+	}
+	for _, existing := range list {
+		if existing == r {
+			return list
+		}
+	}
+	return append(list, r)
 }
 
 func appendUniqueMarker(list []Marker, m Marker) []Marker {

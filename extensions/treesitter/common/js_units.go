@@ -28,6 +28,21 @@ const (
 	CaptureJSFunction  = "js__function__declaration"
 	CaptureJSMethod    = "js__method__definition"
 	CaptureJSDecorator = "js__decorator"
+	// What an import clause took, and where from. `import { parse } from
+	// "./reader"` names both the unit and the module it lives in, which is
+	// the only way most languages say which unit is depended on -- Java
+	// imports the type itself, which is why it had a class graph and nothing
+	// else did.
+	CaptureJSBinding    = "js__import__binding"
+	CaptureJSImportSpan = "js__import__span"
+	// The whole declaration, so a usage can be attributed to the unit whose
+	// body contains it rather than to every unit in the file.
+	CaptureJSSpan = "js__declaration__span"
+	// A class's whole body, so a method belongs to the class that holds it.
+	CaptureJSClassSpan = "js__class__span"
+	// `export default class extends Controller {}`: a class with no name of
+	// its own, which the file's default export names.
+	CaptureJSDefaultClass = "js__class__default"
 )
 
 // JSUnitQueries are the snippet queries for a JavaScript-family grammar.
@@ -57,14 +72,80 @@ func JSUnitQueries(typeIdentifier string, withTypes bool) []string {
 			(identifier) @` + CaptureJSDecorator + `
 			(call_expression function: (identifier) @` + CaptureJSDecorator + `)
 		])`,
+
+		`(import_statement (import_clause (named_imports
+			(import_specifier name: (identifier) @` + CaptureJSBinding + `))))`,
+		`(import_statement (import_clause (identifier) @` + CaptureJSBinding + `))`,
+		`(import_statement (import_clause (namespace_import (identifier) @` + CaptureJSBinding + `)))`,
+		`(import_statement) @` + CaptureJSImportSpan,
+
+		// CommonJS takes its names by destructuring instead. An enormous
+		// amount of real JavaScript never writes the word `import`: express,
+		// at the commit the fixtures pin, has 66 require() calls and no ESM
+		// imports at all.
+		`((lexical_declaration (variable_declarator
+			name: (object_pattern (shorthand_property_identifier_pattern) @` + CaptureJSBinding + `)
+			value: (call_expression
+				function: (identifier) @_cjsreq
+				arguments: (arguments (string)))))
+		  (#eq? @_cjsreq "require"))`,
+		`((lexical_declaration (variable_declarator
+			name: (identifier) @` + CaptureJSBinding + `
+			value: (call_expression
+				function: (identifier) @_cjsreq2
+				arguments: (arguments (string)))))
+		  (#eq? @_cjsreq2 "require"))`,
+		`((variable_declaration (variable_declarator
+			name: (object_pattern (shorthand_property_identifier_pattern) @` + CaptureJSBinding + `)
+			value: (call_expression
+				function: (identifier) @_cjsreq3
+				arguments: (arguments (string)))))
+		  (#eq? @_cjsreq3 "require"))`,
+		`((variable_declaration (variable_declarator
+			name: (identifier) @` + CaptureJSBinding + `
+			value: (call_expression
+				function: (identifier) @_cjsreq4
+				arguments: (arguments (string)))))
+		  (#eq? @_cjsreq4 "require"))`,
+		// The statement, so the name and the module it came from can be
+		// paired: both sit inside it.
+		`((lexical_declaration (variable_declarator
+			value: (call_expression function: (identifier) @_cjsspan
+				arguments: (arguments (string))))) @` + CaptureJSImportSpan + `
+		  (#eq? @_cjsspan "require"))`,
+		`((variable_declaration (variable_declarator
+			value: (call_expression function: (identifier) @_cjsspan2
+				arguments: (arguments (string))))) @` + CaptureJSImportSpan + `
+		  (#eq? @_cjsspan2 "require"))`,
+
+		`(function_declaration) @` + CaptureJSSpan,
+		`(generator_function_declaration) @` + CaptureJSSpan,
+		`(class_declaration) @` + CaptureJSSpan,
+		`(class_declaration) @` + CaptureJSClassSpan,
+		`(class) @` + CaptureJSClassSpan,
+		`(export_statement value: (class) @` + CaptureJSDefaultClass + `)`,
+		`(method_definition) @` + CaptureJSSpan,
+		`(lexical_declaration (variable_declarator
+			value: [(arrow_function) (function_expression)])) @` + CaptureJSSpan,
 	}
 	if withTypes {
 		queries = append(queries,
 			`(abstract_class_declaration name: (`+typeIdentifier+`) @`+CaptureJSClass+`)`,
+			`(abstract_class_declaration) @`+CaptureJSClassSpan,
 			`(interface_declaration name: (`+typeIdentifier+`) @`+CaptureJSInterface+`)`,
 		)
 	}
 	return queries
+}
+
+// defaultExportName is what an anonymous default export is called: its file,
+// which is what an importer of the default almost always names it.
+func defaultExportName(filePath string) string {
+	base := path.Base(filePath)
+	if i := strings.Index(base, "."); i > 0 {
+		base = base[:i]
+	}
+	return base
 }
 
 // ModuleOf is the module a file is, which is its path without the extension.
@@ -74,7 +155,10 @@ func ModuleOf(filePath string) string {
 	p := path.Clean(strings.TrimPrefix(filePath, "./"))
 	ext := path.Ext(p)
 	p = strings.TrimSuffix(p, ext)
-	if base := path.Base(p); base == "index" {
+	// A package's own file is named by its directory: `index.ts` is what
+	// `import "./components"` means, and Python's `__init__.py` is what
+	// `from oscar import get_version` means.
+	if base := path.Base(p); base == "index" || (base == "__init__" && ext == ".py") {
 		if dir := path.Dir(p); dir != "." && dir != "/" {
 			return dir
 		}
@@ -83,10 +167,18 @@ func ModuleOf(filePath string) string {
 }
 
 // JSUnitsFrom builds units from what the shared queries captured.
-func JSUnitsFrom(filePath string, res *file.Results) []*unit.Unit {
+//
+// content is the file, used to find where an imported name is actually used.
+// Nothing in a tree-sitter query can ask "where is this identifier
+// referenced", and capturing every identifier in a codebase would put
+// millions of snippets in the database to throw almost all of them away, so
+// the usages are found by scanning for the name and attributed to whichever
+// declaration's span contains them.
+func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit {
 	module := ModuleOf(filePath)
 
 	var classes, interfaces, functions, methods, decorators []*file.Snippet
+	var bindings, importSpans, spans, sources, classSpans []*file.Snippet
 	for _, s := range res.Snippets {
 		switch s.Type {
 		case CaptureJSClass:
@@ -99,12 +191,33 @@ func JSUnitsFrom(filePath string, res *file.Results) []*unit.Unit {
 			methods = append(methods, s)
 		case CaptureJSDecorator:
 			decorators = append(decorators, s)
+		case CaptureJSBinding:
+			bindings = append(bindings, s)
+		case CaptureJSImportSpan:
+			importSpans = append(importSpans, s)
+		case CaptureJSClassSpan:
+			classSpans = append(classSpans, s)
+		case CaptureJSDefaultClass:
+			// Named for the file, as whoever imports the default writes it.
+			classes = append(classes, &file.Snippet{
+				File: s.File, Type: CaptureJSClass, Component: s.Component,
+				Value: defaultExportName(filePath), Begin: s.Begin, End: s.Begin,
+			})
+		case CaptureJSSpan:
+			spans = append(spans, s)
+		case file.ImportRaw:
+			sources = append(sources, s)
 		}
 	}
+	byOffset(spans)
+	byOffset(sources)
 	byOffset(classes)
 	byOffset(methods)
 
 	var out []*unit.Unit
+	// The snippet declaring each unit, index for index with out; nil where a
+	// unit has no span of its own to own (an interface).
+	var declaredBy []*file.Snippet
 	for i, c := range classes {
 		u := &unit.Unit{
 			ID:    module + "#" + c.Value,
@@ -119,6 +232,7 @@ func JSUnitsFrom(filePath string, res *file.Results) []*unit.Unit {
 			}
 		}
 		out = append(out, u)
+		declaredBy = append(declaredBy, c)
 	}
 	for _, i := range interfaces {
 		out = append(out, &unit.Unit{
@@ -128,11 +242,35 @@ func JSUnitsFrom(filePath string, res *file.Results) []*unit.Unit {
 			Files:   []string{filePath},
 			Markers: []unit.Marker{{Source: unit.SourceSupertype, Key: "interface"}},
 		})
+		declaredBy = append(declaredBy, nil)
+	}
+	// A method belongs to the innermost class whose body holds it. It used
+	// to belong to the class declared above it, so a method of an anonymous
+	// class, or of an object literal below a class, joined whichever class
+	// came before -- and Sylius's Stimulus controllers, all
+	// `export default class extends Controller`, had every method loose at
+	// the top of the file.
+	classAt := func(at int) int {
+		best, bestSize := -1, 0
+		for _, sp := range classSpans {
+			if at < sp.Begin.Offset || at > sp.End.Offset {
+				continue
+			}
+			for i, c := range classes {
+				if c.Begin.Offset >= sp.Begin.Offset && c.Begin.Offset <= sp.End.Offset {
+					if size := sp.End.Offset - sp.Begin.Offset; best == -1 || size < bestSize {
+						best, bestSize = i, size
+					}
+					break
+				}
+			}
+		}
+		return best
 	}
 	for _, m := range methods {
 		owner := ""
 		name := m.Value
-		if idx := precedingIndex(m, classes); idx >= 0 {
+		if idx := classAt(m.Begin.Offset); idx >= 0 {
 			owner = module + "#" + classes[idx].Value
 			name = classes[idx].Value + "." + m.Value
 		}
@@ -143,6 +281,7 @@ func JSUnitsFrom(filePath string, res *file.Results) []*unit.Unit {
 			Files: []string{filePath},
 			Owner: owner,
 		})
+		declaredBy = append(declaredBy, m)
 	}
 	for _, f := range functions {
 		// A function declared inside a class body is a method and has
@@ -153,8 +292,181 @@ func JSUnitsFrom(filePath string, res *file.Results) []*unit.Unit {
 			Name:  f.Value,
 			Files: []string{filePath},
 		})
+		declaredBy = append(declaredBy, f)
+	}
+
+	moduleRefs := AttachRefs(out, declaredBy, content, bindings, sources, importSpans, spans)
+	if mu := ModuleUnit(module, filePath, moduleRefs); mu != nil {
+		out = append(out, mu)
 	}
 	return out
+}
+
+// ModuleUnit is the file itself, as the unit that makes the references its
+// declarations do not: top-level code, a barrel's re-exported names, a test
+// file's calls. Without it a file declaring nothing could never be an edge's
+// source, so every barrel, context file and spec lost all of its imports --
+// 191 of them in LibreChat alone. Returns nil when the module itself uses
+// nothing, so a file is not given a unit only to stand for nothing.
+//
+// Its id ends in "#" with no name, so it can be a reference's source but
+// never a target: nothing imports "the module" by name.
+func ModuleUnit(module, filePath string, refs []unit.Ref) *unit.Unit {
+	if len(refs) == 0 {
+		return nil
+	}
+	return &unit.Unit{
+		ID:    module + "#",
+		Kind:  unit.KindModule,
+		Name:  path.Base(module),
+		Files: []string{filePath},
+		Refs:  refs,
+	}
+}
+
+// AttachRefs works out which unit used which imported name, and returns the
+// references the module itself makes: uses outside every declaration.
+//
+// An import clause says what was taken and from where; the usages say by
+// whom. declaredBy is the snippet that declares each unit, index for index
+// (nil for a unit with no span of its own); a declaration span belongs to the
+// unit whose own declaring name sits inside it. It used to be matched by
+// name, which gave every method called render the first render's span.
+//
+// The usages are found by scanning the file for the name, because nothing in
+// a tree-sitter query can ask "where is this identifier referenced" and
+// capturing every identifier would put millions of snippets in the database
+// to throw almost all of them away. Textual rather than semantic: a name in
+// a comment or a string counts, which overstates a little and is far better
+// than the alternative of attributing every import to every unit in the file.
+func AttachRefs(units []*unit.Unit, declaredBy []*file.Snippet, content []byte, bindings, sources, importSpans, spans []*file.Snippet) []unit.Ref {
+	if len(bindings) == 0 {
+		return nil
+	}
+	type span struct {
+		begin, end int
+		unitIdx    int
+	}
+	var owned []span
+	for _, sp := range spans {
+		best, bestOffset := -1, 0
+		for i, d := range declaredBy {
+			if d == nil || i >= len(units) {
+				continue
+			}
+			off := d.Begin.Offset
+			if off < sp.Begin.Offset || off > sp.End.Offset {
+				continue
+			}
+			if best == -1 || off < bestOffset {
+				best, bestOffset = i, off
+			}
+		}
+		if best >= 0 {
+			owned = append(owned, span{begin: sp.Begin.Offset, end: sp.End.Offset, unitIdx: best})
+		}
+	}
+	// Innermost first, so a method inside a class is preferred over the class.
+	sort.SliceStable(owned, func(i, j int) bool {
+		return (owned[i].end - owned[i].begin) < (owned[j].end - owned[j].begin)
+	})
+
+	var moduleRefs []unit.Ref
+	text := string(content)
+	for _, b := range bindings {
+		source := firstSourceAfter(b, sources, importSpans)
+		if source == "" || b.Value == "" {
+			continue
+		}
+		ref := unit.Ref{Module: source, Name: b.Value}
+		for _, at := range occurrencesOf(text, b.Value) {
+			if insideAny(at, importSpans) {
+				continue
+			}
+			attributed := false
+			for _, sp := range owned {
+				if at >= sp.begin && at <= sp.end {
+					units[sp.unitIdx].Refs = appendRef(units[sp.unitIdx].Refs, ref)
+					attributed = true
+					break
+				}
+			}
+			if !attributed {
+				moduleRefs = appendRef(moduleRefs, ref)
+			}
+		}
+	}
+	return moduleRefs
+}
+
+func appendRef(list []unit.Ref, r unit.Ref) []unit.Ref {
+	for _, existing := range list {
+		if existing == r {
+			return list
+		}
+	}
+	return append(list, r)
+}
+
+// The snippet that named a unit, so a declaration span can be matched to it.
+func nameSnippetOf(u *unit.Unit, nameSnippets []*file.Snippet) *file.Snippet {
+	for _, s := range nameSnippets {
+		if s.Value == u.Name {
+			return s
+		}
+	}
+	return nil
+}
+
+// The module an import clause took its names from: the first source string
+// inside the same import statement.
+func firstSourceAfter(binding *file.Snippet, sources, importSpans []*file.Snippet) string {
+	for _, span := range importSpans {
+		if binding.Begin.Offset < span.Begin.Offset || binding.Begin.Offset > span.End.Offset {
+			continue
+		}
+		for _, src := range sources {
+			if src.Begin.Offset >= span.Begin.Offset && src.End.Offset <= span.End.Offset {
+				return src.Value
+			}
+		}
+	}
+	return ""
+}
+
+func insideAny(offset int, spans []*file.Snippet) bool {
+	for _, s := range spans {
+		if offset >= s.Begin.Offset && offset <= s.End.Offset {
+			return true
+		}
+	}
+	return false
+}
+
+// Whole-word occurrences of a name. Textual rather than semantic: a name in
+// a comment or a string counts, which overstates a little and is far better
+// than the alternative of attributing every import to every unit in the file.
+func occurrencesOf(text, name string) []int {
+	var out []int
+	for from := 0; ; {
+		idx := strings.Index(text[from:], name)
+		if idx < 0 {
+			return out
+		}
+		at := from + idx
+		from = at + len(name)
+		if at > 0 && isWordByte(text[at-1]) {
+			continue
+		}
+		if end := at + len(name); end < len(text) && isWordByte(text[end]) {
+			continue
+		}
+		out = append(out, at)
+	}
+}
+
+func isWordByte(b byte) bool {
+	return b == '_' || b == '$' || (b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
 func byOffset(snippets []*file.Snippet) {

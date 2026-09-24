@@ -51,12 +51,50 @@ func createCSharpLanguagePack() *common.LanguagePack {
 			// -- but what is there is worth recording, and the base list is
 			// where ASP.NET and EF actually say what something is.
 			`(attribute_list (attribute name: [(identifier) (qualified_name)] @csharp__class__attribute))`,
+
+			// Where a type is named rather than declared. C# imports a
+			// namespace rather than a type -- `using Acme.Core` says nothing
+			// about which of its types are used -- so the usages have to be
+			// read from the places a type can appear. Narrow on purpose: a
+			// base list, a field or parameter type, a return type and a
+			// `new`. Capturing every identifier would name every local
+			// variable too.
+			`(base_list (identifier) @csharp__type__use)`,
+			`(variable_declaration type: (identifier) @csharp__type__use)`,
+			`(parameter type: (identifier) @csharp__type__use)`,
+			`(method_declaration returns: (identifier) @csharp__type__use)`,
+			`(object_creation_expression type: (identifier) @csharp__type__use)`,
+			// Those five saw 55% of the dependencies the source names. The
+			// rest were a static class, an enum or a constant reached through
+			// a dot -- nopCommerce names StandardPermission in 129 files and
+			// had no edge to it -- a generic argument (`IRepository<Product>`
+			// in every service constructor), a property type, and the nullable,
+			// array, typeof, cast and pattern forms. A name that is not a type
+			// of this codebase in a namespace the file can see resolves to
+			// nothing, so a local variable caught here costs nothing.
+			`(member_access_expression expression: (identifier) @csharp__type__use)`,
+			`(generic_name (identifier) @csharp__type__use)`,
+			`(type_argument_list (identifier) @csharp__type__use)`,
+			`(property_declaration type: (identifier) @csharp__type__use)`,
+			`(nullable_type (identifier) @csharp__type__use)`,
+			`(array_type (identifier) @csharp__type__use)`,
+			`(typeof_expression (identifier) @csharp__type__use)`,
+			`(cast_expression type: (identifier) @csharp__type__use)`,
+			`(as_expression right: (identifier) @csharp__type__use)`,
+			`(declaration_pattern type: (identifier) @csharp__type__use)`,
+			`(type_pattern (identifier) @csharp__type__use)`,
+			`(default_expression (identifier) @csharp__type__use)`,
+			`(class_declaration) @csharp__declaration__span`,
+			`(struct_declaration) @csharp__declaration__span`,
+			`(interface_declaration) @csharp__declaration__span`,
+			`(record_declaration) @csharp__declaration__span`,
 			`(base_list [
 				(identifier) @csharp__class__base
 				(generic_name (identifier) @csharp__class__base)
 				(qualified_name (identifier) @csharp__class__base)
 			])`,
 			`
+(using_directive (qualified_name) @modularity__import__raw)
 (using_directive (qualified_name) @modularity__component__imports)
 (using_directive (identifier)  @modularity__component__imports !name)
 (using_directive name: (identifier) (identifier) @modularity__component__imports)`,

@@ -219,3 +219,24 @@ func TestSumAccumulator(t *testing.T) {
 		t.Errorf("Expected 6.5, got %v", sumMixed)
 	}
 }
+
+// Text that is not code gets no health reading: a translation catalogue and
+// a stylesheet topped the hotspot lists of django-oscar and LibreChat.
+func TestNonCodeTextGetsNoCodeSmells(t *testing.T) {
+	for _, p := range []string{
+		"src/oscar/locale/fr/LC_MESSAGES/django.po",
+		"client/src/style.css",
+		"themes/admin/scss/_layout.scss",
+		"static/icons/logo.svg",
+		"dist-maps/app.js.map",
+	} {
+		if !isExcludedFromCodeSmells(p) {
+			t.Errorf("%s: want excluded", p)
+		}
+	}
+	for _, p := range []string{"src/oscar/apps/basket/models.py", "client/src/App.tsx", "Nop.Core/Caching/CacheKey.cs"} {
+		if isExcludedFromCodeSmells(p) {
+			t.Errorf("%s: want a reading", p)
+		}
+	}
+}

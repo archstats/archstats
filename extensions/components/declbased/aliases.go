@@ -215,6 +215,13 @@ func (m *aliasMap) resolve(importValue string, fileDirs map[string]string) strin
 				return candidate
 			}
 			// The import named a file; its component is the directory holding it.
+			// Only when it named something inside the package: a bare package
+			// name has nothing to climb out of, and climbing from an entry
+			// directory that is not in the scan (dist/, build output) landed
+			// on the package root instead of trying the source directory next.
+			if rest == "" {
+				continue
+			}
 			if parent := path.Dir(candidate); isKnownDir(parent, fileDirs) {
 				return parent
 			}

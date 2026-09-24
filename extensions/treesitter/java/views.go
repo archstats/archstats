@@ -246,23 +246,32 @@ func ClassConnectionsIndirectView(results *core.Results) *core.View {
 
 			shortestPaths, _ := allShortest.AllBetween(fromNode.id, toNode.id)
 
+			// One row per pair, the alphabetically first of the tied shortest
+			// paths, and its length in hops rather than nodes: the same two
+			// corrections as the component view.
+			best, bestLen := "", 0
 			for _, shortest := range shortestPaths {
-				if len(shortest) >= 2 {
-					rows = append(rows, &core.Row{
-						Data: map[string]interface{}{
-							"from":                 from,
-							"to":                   to,
-							"shortest_path_length": len(shortest),
-							"shortest_path": strings.Join(lo.Map(
-								shortest,
-								func(node graph.Node, _ int) string {
-									return g.nodes[node.ID()].name
-								},
-							), " -> "),
-						},
-					})
+				if len(shortest) < 2 {
+					continue
+				}
+				joined := strings.Join(lo.Map(shortest, func(node graph.Node, _ int) string {
+					return g.nodes[node.ID()].name
+				}), " -> ")
+				if best == "" || joined < best {
+					best, bestLen = joined, len(shortest)
 				}
 			}
+			if best == "" {
+				continue
+			}
+			rows = append(rows, &core.Row{
+				Data: map[string]interface{}{
+					"from":                 from,
+					"to":                   to,
+					"shortest_path_length": bestLen - 1,
+					"shortest_path":        best,
+				},
+			})
 		}
 	}
 

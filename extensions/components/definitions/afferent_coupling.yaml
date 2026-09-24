@@ -1,8 +1,11 @@
 id: modularity__coupling__afferent
 name: Afferent Coupling
-short_description: Number of components that depend on this component.
+short_description: Number of files in other components that import this component.
 long_description: |
-  Afferent coupling (Ca) measures the number of other components that depend on this component. A high afferent coupling means many other components rely on this one, making it a responsibility hub.
-  
-  Components with high afferent coupling should be stable and well-tested, as changes to them cascade to many dependents.
+  Afferent coupling (Ca) counts the files outside this component that import something from it. This
+  is Robert Martin's definition, which counts the depending classes rather than the depending
+  packages; for the number of components that depend on this one, see Direct Dependent Count.
+
+  A high afferent coupling means much of the codebase leans on this component, so changes to it
+  cascade widely and it should be stable and well tested.
 category: "Modularity & Component Structure"

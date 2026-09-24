@@ -172,3 +172,73 @@ func TestEnumsCountAsTypes(t *testing.T) {
 	// An enum is concrete: it must not move abstractness.
 	assertSnippetCount(t, results.Snippets, "modularity__types__abstract", 1)
 }
+
+// A type named anywhere but a declaration is a dependency: through a dot, as
+// a generic argument, as a property, nullable, array, typeof, cast or
+// pattern. nopCommerce names StandardPermission in 129 files and had no edge
+// to it.
+func TestTypesNamedInExpressionsAreReferences(t *testing.T) {
+	src := `using Acme.Security;
+using Acme.Domain;
+namespace Acme.Web
+{
+    public class OrderController
+    {
+        public Customer Buyer { get; set; }
+        private readonly IRepository<Product> _products;
+        public void Handle(Order? order, Discount[] discounts)
+        {
+            if (!Can(StandardPermission.Manage)) return;
+            var status = OrderStatus.Pending;
+            var t = typeof(Shipment);
+            var s = (Store)order.Owner;
+            var v = order.Owner as Vendor;
+            if (order.Owner is Warehouse w) { }
+            var d = default(Currency);
+        }
+    }
+}`
+	res := createCSharpLanguagePack().AnalyzeFileContent("Web/OrderController.cs", []byte(src))
+	require.NotNil(t, res)
+	units := unitsFrom("Web/OrderController.cs", res)
+	require.Len(t, units, 1)
+	names := map[string]bool{}
+	for _, r := range units[0].Refs {
+		names[r.Name] = true
+	}
+	for _, want := range []string{"Customer", "IRepository", "Product", "Order", "Discount", "StandardPermission",
+		"OrderStatus", "Shipment", "Store", "Vendor", "Warehouse", "Currency"} {
+		assert.Truef(t, names[want], "%s is used and not referenced", want)
+	}
+}
+
+// A nested type is named through its enclosing type, so two classes of one
+// namespace each declaring a `ConvertFrom` are two types.
+func TestNestedTypesAreNamedThroughTheirEnclosingType(t *testing.T) {
+	src := `namespace Acme.Shipping
+{
+    public class PickupPoint
+    {
+        public class ConvertFrom { }
+        public enum Kind { A, B }
+    }
+    public class Warehouse
+    {
+        public class ConvertFrom { }
+    }
+}`
+	res := createCSharpLanguagePack().AnalyzeFileContent("Shipping/Types.cs", []byte(src))
+	require.NotNil(t, res)
+	assert.ElementsMatch(t, []string{
+		"Acme.Shipping.PickupPoint", "Acme.Shipping.PickupPoint.ConvertFrom", "Acme.Shipping.PickupPoint.Kind",
+		"Acme.Shipping.Warehouse", "Acme.Shipping.Warehouse.ConvertFrom",
+	}, idsOf(unitsFrom("Shipping/Types.cs", res)))
+	for _, u := range unitsFrom("Shipping/Types.cs", res) {
+		if u.ID == "Acme.Shipping.PickupPoint.Kind" {
+			assert.Equal(t, "Acme.Shipping.PickupPoint", u.Owner)
+		}
+		if u.ID == "Acme.Shipping.Warehouse" {
+			assert.Empty(t, u.Owner)
+		}
+	}
+}

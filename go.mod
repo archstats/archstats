@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.4
 
 require (
-	github.com/fwcd/tree-sitter-kotlin v0.0.0-20241009173401-76f53c48d29e
+	github.com/fwcd/tree-sitter-kotlin v0.0.0-20260801230305-1852ea17b7f6
 	github.com/gobwas/glob v0.2.3
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/jszwec/csvutil v1.8.0
@@ -30,6 +30,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/tree-sitter/tree-sitter-go v0.23.4 // indirect
+	github.com/tree-sitter/tree-sitter-php v0.23.12 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 )
 

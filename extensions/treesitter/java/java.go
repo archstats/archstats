@@ -83,8 +83,15 @@ func (ja *javaAnalyzer) AnalyzeFile(f file.File) *file.Results {
 			Name:    javaClass,
 			Files:   []string{f.Path()},
 			Markers: javaMarkers(res.Snippets),
+			// Java is the one language that imports the type itself, so the
+			// reference needs no resolving beyond splitting the name: an
+			// import of com.acme.Order is a reference to Order in com.acme.
+			// One public type to a file means there is no question which
+			// unit made it, either.
+			Refs: javaRefs(res.Snippets, javaPackage),
 		})
 	}
+	res.Snippets = withoutReferenceCaptures(res.Snippets)
 	return res
 }
 
@@ -105,6 +112,130 @@ func javaMarkers(snippets []*file.Snippet) []unit.Marker {
 	return markers
 }
 
+// Every type this file uses, as a reference to the unit it names, resolved
+// the way the compiler resolves a simple name: a single-type import first,
+// then the file's own package, then its on-demand (wildcard) imports.
+//
+// Only imports used to count. A class never imports the types in its own
+// package, so every same-package reference was missing -- all 928 of
+// Broadleaf's `implements`/`extends` of a same-package type among them, the
+// most common relationship in Java -- along with everything reached through
+// `import a.b.*`. Names that resolve to nothing in the codebase (generic
+// parameters, JDK types, locals) are dropped by the resolver.
+func javaRefs(snippets []*file.Snippet, pkg string) []unit.Ref {
+	var refs []unit.Ref
+	seen := map[string]bool{}
+	add := func(module, name string) {
+		key := module + "\x00" + name
+		if module == "" || name == "" || seen[key] {
+			return
+		}
+		seen[key] = true
+		refs = append(refs, unit.Ref{Module: module, Name: name})
+	}
+	// A simple name looked up in a package the language names exactly.
+	addExact := func(module, name string) {
+		key := module + "\x00" + name + "\x00exact"
+		if module == "" || name == "" || seen[key] {
+			return
+		}
+		seen[key] = true
+		refs = append(refs, unit.Ref{Module: module, Name: name, Exact: true})
+	}
+	split := func(v string) (string, string) {
+		idx := strings.LastIndex(v, ".")
+		if idx <= 0 || idx == len(v)-1 {
+			return "", ""
+		}
+		return v[:idx], v[idx+1:]
+	}
+
+	wildcard, static := map[string]bool{}, map[string]bool{}
+	for _, s := range snippets {
+		switch s.Type {
+		case "java__ref__wildcard":
+			wildcard[s.Value] = true
+		case "java__ref__static":
+			static[s.Value] = true
+		}
+	}
+
+	imported := map[string]bool{}
+	var onDemand []string
+	for _, s := range snippets {
+		if s.Type != "java__import__declaration" {
+			continue
+		}
+		v := s.Value
+		switch {
+		case static[v] && wildcard[v]:
+			// import static a.b.C.*; -- a reference to C.
+			add(split(v))
+		case static[v]:
+			// import static a.b.C.member; -- a reference to C, not to member.
+			typ, _ := split(v)
+			module, name := split(typ)
+			add(module, name)
+			imported[name] = true
+		case wildcard[v]:
+			// import a.b.*; -- a package to look names up in, not a type.
+			onDemand = append(onDemand, v)
+		default:
+			module, name := split(v)
+			add(module, name)
+			imported[name] = true
+		}
+	}
+
+	declared := map[string]bool{}
+	for _, s := range snippets {
+		if s.Type == "java__type__declaration" {
+			declared[s.Value] = true
+		}
+	}
+	for _, s := range snippets {
+		if s.Type != "java__ref__type" {
+			continue
+		}
+		name := s.Value
+		if name == "" || imported[name] || declared[name] || !isUpper(name[0]) {
+			continue
+		}
+		addExact(pkg, name)
+		for _, p := range onDemand {
+			addExact(p, name)
+		}
+	}
+	return refs
+}
+
+func isUpper(b byte) bool { return b >= 'A' && b <= 'Z' }
+
+// The captures javaRefs reads. They are not snippets anyone reads afterwards,
+// so they are removed before the results leave the analyser rather than
+// stored once per type mention in every file.
+func javaReferenceQueries() []string {
+	return []string{`
+(type_identifier) @java__ref__type
+(marker_annotation name: (identifier) @java__ref__type)
+(annotation name: (identifier) @java__ref__type)
+(method_invocation object: (identifier) @java__ref__type)
+(field_access object: (identifier) @java__ref__type)
+(import_declaration (scoped_identifier) @java__ref__wildcard (asterisk))
+(import_declaration "static" (scoped_identifier) @java__ref__static)
+`}
+}
+
+func withoutReferenceCaptures(snippets []*file.Snippet) []*file.Snippet {
+	out := snippets[:0]
+	for _, s := range snippets {
+		if !strings.HasPrefix(s.Type, "java__ref__") {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 func (e *Extension) Init(settings core.Analyzer) error {
 	loadedDefs, err := definitions.LoadYamlFiles(javaDefs)
 	if err == nil {
@@ -112,8 +243,12 @@ func (e *Extension) Init(settings core.Analyzer) error {
 			settings.AddDefinition(def)
 		}
 	}
-	settings.RegisterStatAccumulator("java_class", stats.LastRecordStatMerger)
-	settings.RegisterStatAccumulator("java_full_class", stats.LastRecordStatMerger)
+	// A class name describes a file, not a group of them. The last-record
+	// merger stamped one arbitrary class on every component, directory and on
+	// the codebase summary; a group now carries a name only when all of its
+	// files agree on it.
+	settings.RegisterStatAccumulator("java_class", stats.SameOrNothingStatMerger)
+	settings.RegisterStatAccumulator("java_full_class", stats.SameOrNothingStatMerger)
 
 	settings.RegisterFileAnalyzer(&javaAnalyzer{lp: e.createJavaLanguagePack()})
 
@@ -148,6 +283,7 @@ func (e *Extension) createJavaLanguagePack() *common.LanguagePack {
 	allQueriesForSnippets = append(allQueriesForSnippets, jpaQueriesForSnippets()...)
 	allQueriesForSnippets = append(allQueriesForSnippets, javaQueriesForSnippets(ignoreList)...)
 	allQueriesForSnippets = append(allQueriesForSnippets, javaFrameworkFactQueries()...)
+	allQueriesForSnippets = append(allQueriesForSnippets, javaReferenceQueries()...)
 
 	allQueriesForSnippets = append(allQueriesForSnippets, e.ExtraQueries...)
 
@@ -311,13 +447,17 @@ func javaQueriesForSnippets(ignoreImportsFor []string) []string {
 ((class_declaration name: (identifier) @java__type__declaration))
 ((record_declaration name: (identifier) @java__type__declaration))
 ((enum_declaration name: (identifier) @java__type__declaration))
+((annotation_type_declaration name: (identifier) @java__type__declaration))
 
 (field_declaration (variable_declarator name: (identifier) @java__field__declaration))
 (method_declaration name: (identifier) @java__method__declaration)
 (import_declaration (scoped_identifier) @java__import__declaration
 %s
 )
-`, ignoreList),
+(import_declaration (scoped_identifier) @modularity__import__raw
+%s
+)
+`, ignoreList, ignoreList),
 	}
 }
 func javaQueriesForStats() []string {

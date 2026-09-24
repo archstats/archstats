@@ -1,8 +1,11 @@
 id: graph__residual_closeness
-name: Residual Closeness
-short_description: How close a component remains to the rest of the graph if it were removed.
+name: Closeness (Dangalchev)
+short_description: Sum of 2^-distance over every component that reaches this component.
 long_description: |
-  Residual closeness measures a component's centrality by evaluating how much the overall closeness of the graph would decrease if the component were removed. It captures the structural importance of a component beyond simple distance measures.
-  
-  A high residual closeness indicates that the component is a critical connector whose removal would significantly increase distances between other components.
+  Dangalchev's closeness adds 2 to the power of minus the shortest-path length from every component
+  that depends on this one: a direct dependent adds 1/2, one two hops away adds 1/4, and components
+  that cannot reach it add nothing. Like harmonic centrality it rewards being depended on closely
+  by many components, with far dependents counting for much less.
+
+  Despite the metric's stored name, nothing is removed from the graph to compute it.
 category: "Dependency Graph & Cycles"

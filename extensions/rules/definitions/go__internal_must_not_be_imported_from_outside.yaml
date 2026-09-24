@@ -12,7 +12,7 @@ long_description: |
   means more than one module is involved.
 category: "Architecture Rules"
 applies_when:
-  matches: '.'
+  kind: go
 from:
   matches: '.'
 to:

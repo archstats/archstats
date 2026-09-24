@@ -19,7 +19,6 @@ import (
 //go:embed definitions/**
 var gitDefs embed.FS
 
-
 const (
 	AuthorCount                = "git__authors"
 	AgeInDays                  = "git__age_in_days"
@@ -95,12 +94,18 @@ type extension struct {
 
 	// Represents an individual change in a commit. A commit can have multiple parts if it changes multiple files.
 	commitParts []*commits.PartOfCommit
+	// The subset of commitParts co-change is measured on: sweeping commits
+	// left out.
+	couplingParts   []*commits.PartOfCommit
+	couplingCommits *commits.Splitted
 
 	splittedCommits *commits.Splitted
 
 	rootPath string
 
 	repositories []string
+	// Repositories whose history was cut short by a shallow clone.
+	shallow map[string]bool
 }
 
 func (e *extension) AnalyzeFile(fileE file.File) *file.Results {
@@ -156,7 +161,9 @@ func (e *extension) Init(settings core.Analyzer) error {
 	}
 
 	settings.RegisterStatAccumulator(Repository, stats.MostCommonStatMerger)
-	settings.RegisterStatAccumulator(AgeInDays, stats.MostCommonStatMerger)
+	// A group is as old as its oldest file. The most common file age said
+	// nothing about the group at all.
+	settings.RegisterStatAccumulator(AgeInDays, maxIntMerger)
 	settings.RegisterStatAccumulator(toTotalStat(AuthorCount), UniqueAuthors)
 	settings.RegisterStatAccumulator(toTotalStat(CommitCount), UniqueCommits)
 	settings.RegisterStatAccumulator(toTotalStat(UniqueFileChangeCount), UniqueFiles)
@@ -245,33 +252,53 @@ func (e *extension) Init(settings core.Analyzer) error {
 	}
 	e.repositories = scan.repos
 	warnAboutLazyRepos(settings.RootPath(), scan.repos)
+	e.shallow = shallowRepos(settings.RootPath(), scan.repos)
 	e.rootPath = settings.RootPath()
 	rawCommits, err := e.getGitCommitsFromAllReposConcurrently(e.rootPath, scan.repos)
 	log.Info().Msgf("Found %d commits total across %d repositories", len(rawCommits), len(scan.repos))
 	if err != nil {
 		return err
 	}
-	var filteredCommits []*rawCommit
+	canonicalizeAuthors(rawCommits)
+
+	// Every commit counts for what happened to a file: its age, its churn,
+	// who touched it. A copyright sweep over 3,000 files is still a change to
+	// each of them; dropping it left files that were fifteen years old
+	// reading as new and never changed. Sweeps are noise only for the
+	// question "which files change together", so only co-change filters them.
+	var couplingCommits []*rawCommit
 	var excludedCount int
 	for _, commit := range rawCommits {
 		if e.MaxChangesPerCommit > 0 && len(commit.Files) > e.MaxChangesPerCommit {
-			log.Debug().Msgf("Skipped noisy commit %s (%d files changed): %s", commit.Hash, len(commit.Files), commit.Message)
+			log.Debug().Msgf("Leaving sweeping commit %s (%d files changed) out of co-change: %s", commit.Hash, len(commit.Files), commit.Message)
 			excludedCount++
 			continue
 		}
-		filteredCommits = append(filteredCommits, commit)
+		couplingCommits = append(couplingCommits, commit)
 	}
-
 	if excludedCount > 0 {
-		log.Info().Msgf("Excluded %d noisy commits (modifying > %d files) out of %d total commits", excludedCount, e.MaxChangesPerCommit, len(rawCommits))
+		log.Info().Msgf("Left %d sweeping commits (modifying > %d files) out of co-change, of %d total commits", excludedCount, e.MaxChangesPerCommit, len(rawCommits))
 	}
 
-	e.commitParts = lo.FlatMap(filteredCommits, func(commit *rawCommit, index int) []*commits.PartOfCommit {
-		return gitCommitToPartOfCommit(settings.RootPath(), commit)
-	})
-	e.splittedCommits = commits.Split(e.BasedOn, e.DayBuckets, e.commitParts)
+	partsByCommit := make(map[*rawCommit][]*commits.PartOfCommit, len(rawCommits))
+	for _, commit := range rawCommits {
+		parts := gitCommitToPartOfCommit(settings.RootPath(), commit)
+		partsByCommit[commit] = parts
+		e.commitParts = append(e.commitParts, parts...)
+	}
+	for _, commit := range couplingCommits {
+		e.couplingParts = append(e.couplingParts, partsByCommit[commit]...)
+	}
+	e.splitAll()
 
 	return nil
+}
+
+// splitAll indexes both commit sets. They share their PartOfCommit values, so
+// a component set on one is set on the other.
+func (e *extension) splitAll() {
+	e.splittedCommits = commits.Split(e.BasedOn, e.DayBuckets, e.commitParts)
+	e.couplingCommits = commits.Split(e.BasedOn, e.DayBuckets, e.couplingParts)
 }
 
 // TODO add definitions after API is stable
@@ -282,7 +309,7 @@ func (e *extension) EditResults(results *core.Results) {
 	setComponent(results, e.commitParts)
 	// Re-split commits based on components
 	// This is necessary because components aren't known on Init()
-	e.splittedCommits = commits.Split(e.BasedOn, e.DayBuckets, e.commitParts)
+	e.splitAll()
 
 }
 func setComponent(results *core.Results, commitParts []*commits.PartOfCommit) {
@@ -298,14 +325,16 @@ func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.P
 
 		//absolutePath := rootPath + "/" + rawCommit.Repo + "/" + file.Path
 
-		filePath := trimLeadingSlash(pathToRepo + "/" + file.Path)
+		filePath := asWalked(trimLeadingSlash(pathToRepo + "/" + file.Path))
 		return &commits.PartOfCommit{
-			Component:   "",
-			Repo:        pathToRepo,
-			Commit:      rawCommit.Hash,
-			Time:        rawCommit.Time,
-			File:        filePath,
-			Directory:   getDir(file.Path),
+			Component: "",
+			Repo:      pathToRepo,
+			Commit:    rawCommit.Hash,
+			Time:      rawCommit.Time,
+			File:      filePath,
+			// From the path under the scan root, not under the repository:
+			// for a repository in a subfolder the two differ.
+			Directory:   getDir(strings.TrimPrefix(filePath, "./")),
 			Author:      rawCommit.AuthorName,
 			AuthorEmail: rawCommit.AuthorEmail,
 			Message:     rawCommit.Message,
@@ -313,6 +342,16 @@ func gitCommitToPartOfCommit(rootPath string, rawCommit *rawCommit) []*commits.P
 			Deletions:   file.Deletions,
 		}
 	})
+}
+
+// asWalked names a file the way the walker does. The walker starts from "."
+// and names a file at the scan root "./go.mod"; git names it "go.mod". Every
+// root-level file -- 52 of gin's 129 -- was reported as having no history.
+func asWalked(path string) string {
+	if !strings.Contains(path, "/") {
+		return "./" + path
+	}
+	return path
 }
 
 func trimRepoPath(rootPath string, rawRepoName string) string {
@@ -420,4 +459,17 @@ func toRow(
 	}
 
 	return row1
+}
+
+func maxIntMerger(values []interface{}) interface{} {
+	best, found := 0, false
+	for _, v := range values {
+		if i, ok := v.(int); ok && (!found || i > best) {
+			best, found = i, true
+		}
+	}
+	if !found {
+		return nil
+	}
+	return best
 }

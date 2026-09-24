@@ -10,11 +10,11 @@ func (e *extension) shortestCycleViewFactory(results *core.Results) *core.View {
 
 	graph := results.ComponentGraph
 	cycles := graph.ShortestCycles()
-	hashIdx := e.splittedCommits.SplitByCommitHash()
+	hashIdx := e.couplingCommits.SplitByCommitHash()
 
 	var rows []*core.Row
 	for cycleKey, cycle := range cycles {
-		commitHashesInCommon := commits.SharedCommitsForGroup(cycle, e.splittedCommits.ComponentToCommitHashes())
+		commitHashesInCommon := commits.SharedCommitsForGroup(cycle, e.couplingCommits.ComponentToCommitHashes())
 
 		commitsInCommon := lo.FlatMap(commitHashesInCommon, func(commitHash string, _ int) []*commits.PartOfCommit {
 			return hashIdx[commitHash]

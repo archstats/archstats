@@ -1,8 +1,11 @@
 id: modularity__coupling__efferent
 name: Efferent Coupling
-short_description: Number of components that this component depends on.
+short_description: Number of files in this component that import another component.
 long_description: |
-  Efferent coupling (Ce) measures the number of other components that this component depends on. A high efferent coupling means this component relies on many external dependencies.
-  
-  Components with high efferent coupling are more likely to be affected by changes in their dependencies, making them less stable.
+  Efferent coupling (Ce) counts the files inside this component that import something from
+  another component. This is Robert Martin's definition, which counts the depending classes rather
+  than the packages depended on; for the number of components this one depends on, see Direct
+  Dependency Count.
+
+  Components with high efferent coupling are more exposed to changes in their dependencies.
 category: "Modularity & Component Structure"
