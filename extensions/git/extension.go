@@ -20,8 +20,12 @@ import (
 var gitDefs embed.FS
 
 const (
-	AuthorCount                = "git__authors"
-	AgeInDays                  = "git__age_in_days"
+	AuthorCount = "git__authors"
+	AgeInDays   = "git__age_in_days"
+	// LastChangeAgeInDays is days from the file's last change to the anchor
+	// (the newest commit scanned): how long code has sat untouched, which
+	// git__age_in_days -- days since it first appeared -- cannot say.
+	LastChangeAgeInDays        = "git__last_change_age_in_days"
 	AdditionCount              = "git__additions"
 	DeletionCount              = "git__deletions"
 	UniqueFileChangeCount      = "git__unique_file_changes"
@@ -141,6 +145,7 @@ func (e *extension) AnalyzeFile(fileE file.File) *file.Results {
 
 	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: Repository, Value: repo})
 	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: AgeInDays, Value: commitStats.OldestCommitAgeInDays})
+	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: LastChangeAgeInDays, Value: commitStats.NewestCommitAgeInDays})
 	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(AdditionCount), Value: commitStats})
 	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(DeletionCount), Value: commitStats})
 	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(CommitCount), Value: commitStats})
@@ -178,6 +183,8 @@ func (e *extension) Init(settings core.Analyzer) error {
 	// A group is as old as its oldest file. The most common file age said
 	// nothing about the group at all.
 	settings.RegisterStatAccumulator(AgeInDays, maxIntMerger)
+	// A group last changed when its most recently changed file did.
+	settings.RegisterStatAccumulator(LastChangeAgeInDays, minIntMerger)
 	settings.RegisterStatAccumulator(toTotalStat(AuthorCount), UniqueAuthors)
 	settings.RegisterStatAccumulator(toTotalStat(CommitCount), UniqueCommits)
 	settings.RegisterStatAccumulator(toTotalStat(UniqueFileChangeCount), UniqueFiles)
@@ -513,6 +520,20 @@ func toRow(
 	}
 
 	return row1
+}
+
+func minIntMerger(values []interface{}) interface{} {
+	best, found := 0, false
+	for _, v := range values {
+		n, ok := v.(int)
+		if ok && (!found || n < best) {
+			best, found = n, true
+		}
+	}
+	if !found {
+		return nil
+	}
+	return best
 }
 
 func maxIntMerger(values []interface{}) interface{} {

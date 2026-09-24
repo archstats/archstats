@@ -10,8 +10,11 @@ type CommitStats struct {
 	AdditionCount int
 	CommitCount   int
 
-	DeletionCount              int
-	OldestCommitAgeInDays      int
+	DeletionCount         int
+	OldestCommitAgeInDays int
+	// NewestCommitAgeInDays is how long before the anchor the group last
+	// changed; -1 when it has no commits.
+	NewestCommitAgeInDays      int
 	UniqueFileChangeCount      int
 	UniqueDirectoryChangeCount int
 	UniqueComponentChangeCount int
@@ -33,6 +36,7 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 	totalAdditionCount := 0
 	totalDeletionCount := 0
 	oldestCommitAgeInDays := 0
+	newestCommitAgeInDays := -1
 
 	for _, part := range commitParts {
 		totalAdditionCount += part.Additions
@@ -51,6 +55,9 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 		commitAge := dayDiff(basedOn, part.Time)
 
 		oldestCommitAgeInDays = int(math.Max(float64(commitAge), float64(oldestCommitAgeInDays)))
+		if newestCommitAgeInDays < 0 || commitAge < newestCommitAgeInDays {
+			newestCommitAgeInDays = commitAge
+		}
 	}
 
 	return &CommitStats{
@@ -58,6 +65,7 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 		AdditionCount:              totalAdditionCount,
 		DeletionCount:              totalDeletionCount,
 		OldestCommitAgeInDays:      oldestCommitAgeInDays,
+		NewestCommitAgeInDays:      newestCommitAgeInDays,
 		UniqueFileChangeCount:      len(files),
 		UniqueDirectoryChangeCount: len(directories),
 		UniqueComponentChangeCount: len(components),

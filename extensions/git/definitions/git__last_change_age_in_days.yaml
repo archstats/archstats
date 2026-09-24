@@ -1,0 +1,6 @@
+id: git__last_change_age_in_days
+name: "Days since last change"
+short_description: "Days between the last commit that touched it and the newest commit scanned."
+long_description: |
+  How long code has sat untouched. Counted back from the newest commit in the snapshot, not from the day of the scan, so a dormant repository reads the same whenever it is scanned. A component or directory reads its most recently changed file's. Compare git__age_in_days, which counts from the first commit instead.
+category: "Git History & Churn"

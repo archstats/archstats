@@ -19,4 +19,10 @@ package core
 //	               health reading; shortest_path_length counts hops, not
 //	               nodes; commits touching more than 100 files stay in
 //	               git_commits but are left out of co-change.
-const AnalysisRevision = 1
+//	2  2026-09-24  history follows moved files; time windows count back from
+//	               the scanned commit; co-change no longer credits a component
+//	               with commits it never had; snapshots record the commit,
+//	               branch and uncommitted files they read, and what the walker
+//	               left out; files carry a role; health keeps its deductions;
+//	               days since last change; metric categories.
+const AnalysisRevision = 2
