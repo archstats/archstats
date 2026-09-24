@@ -6,6 +6,9 @@ import (
 	"github.com/samber/lo"
 )
 
+// DirectoryCouplingMinShared is the fewest shared commits a directory pair needs to be kept.
+const DirectoryCouplingMinShared = 2
+
 func (e *extension) directoryCouplingViewFactory(results *core.Results) *core.View {
 	directory := lo.Keys(results.DirectoryToFiles)
 
@@ -20,6 +23,16 @@ func (e *extension) directoryCouplingViewFactory(results *core.Results) *core.Vi
 		return splitted.DirectoryToCommitHashes()
 	})
 	rows := sharedCommitsToRows(directory, sharedCommits, dayBucketSharedCommitCounts, e.couplingCommits.DirectoryToCommitHashes(), mappedDayBuckets)
+	// Directory pairs that shared one commit are most of the table and say
+	// little: kept from two shared commits up.
+	kept := rows[:0]
+	for _, r := range rows {
+		if n, ok := r.Data[SharedCommitCount].(int); ok && n < DirectoryCouplingMinShared {
+			continue
+		}
+		kept = append(kept, r)
+	}
+	rows = kept
 
 	return &core.View{
 		Columns: sharedCommitColumns(e.DayBuckets),

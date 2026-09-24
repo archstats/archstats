@@ -151,7 +151,10 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 
 // shortestDirEndingIn finds the directory a path names, wherever the import
 // root happens to sit in the tree. The shortest wins: between `src/acme/db`
-// and `vendor/other/src/acme/db`, the first is the one the code means.
+// and `vendor/other/src/acme/db`, the first is the one the code means. Two
+// of the same length (django-oscar's `catalogue/reviews` and
+// `dashboard/reviews` for the label `reviews`) are settled by name, so the
+// same code resolves the same way on every scan; map order used to decide.
 func shortestDirEndingIn(path string, fileDirs map[string]string) string {
 	if path == "" || path == "." || path == "/" {
 		return ""
@@ -159,7 +162,7 @@ func shortestDirEndingIn(path string, fileDirs map[string]string) string {
 	best := ""
 	for _, dir := range fileDirs {
 		if dir == path || strings.HasSuffix(dir, "/"+path) {
-			if best == "" || len(dir) < len(best) {
+			if best == "" || len(dir) < len(best) || (len(dir) == len(best) && dir < best) {
 				best = dir
 			}
 		}

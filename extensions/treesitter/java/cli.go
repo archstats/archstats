@@ -11,6 +11,7 @@ import (
 const (
 	IgnoreCommonImports   = "java-ignore-common-imports"
 	TreesitterQueriesFile = "java-treesitter-queries"
+	ClassIndirect         = "java-class-indirect"
 )
 
 func CLIExtension() *config.CLIConfiguredExtension {
@@ -21,6 +22,12 @@ func CLIExtension() *config.CLIConfiguredExtension {
 			IgnoreCommonImports: {
 				Default:     true,
 				Description: "Ignore common Java imports",
+				Required:    false,
+				Type:        config.Bool,
+			},
+			ClassIndirect: {
+				Default:     false,
+				Description: "Also write java_class_connections_indirect, every class reachable from every class (large)",
 				Required:    false,
 				Type:        config.Bool,
 			},
@@ -37,6 +44,10 @@ func CLIExtension() *config.CLIConfiguredExtension {
 
 func Init(command *cobra.Command) (core.Extension, error) {
 	ignoreCommonImports, err := command.Flags().GetBool(IgnoreCommonImports)
+	if err != nil {
+		return nil, err
+	}
+	classIndirect, err := command.Flags().GetBool(ClassIndirect)
 	if err != nil {
 		return nil, err
 	}
@@ -63,5 +74,6 @@ func Init(command *cobra.Command) (core.Extension, error) {
 	return &Extension{
 		IgnoreCommonJavaImports: ignoreCommonImports,
 		ExtraQueries:            extraQueries,
+		ClassIndirect:           classIndirect,
 	}, nil
 }

@@ -25,4 +25,9 @@ package core
 //	               branch and uncommitted files they read, and what the walker
 //	               left out; files carry a role; health keeps its deductions;
 //	               days since last change; metric categories.
-const AnalysisRevision = 2
+//	3  2026-09-24  smaller snapshots (file_matrix keeps co-changed pairs,
+//	               directory co-change from two shared commits, Java class
+//	               reachability opt-in); scan-level ignore patterns apply to
+//	               files and their history; file-grain shared commits; an
+//	               ambiguous dynamic lookup resolves the same way every scan.
+const AnalysisRevision = 3

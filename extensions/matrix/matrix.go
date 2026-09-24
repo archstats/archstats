@@ -369,9 +369,10 @@ func FileMatrixView(results *core.Results) *core.View {
 				pathDist = d
 			}
 
-			// Filter row to prevent N^2 blowup:
-			// Only include if there's a localized Git co-commit or a reasonably short dependency path (<= 3 hops)
-			if sharedCommits > 0 || (pathDist >= 1 && pathDist <= 3) {
+			// Only pairs that changed together: the rest (nearby files that
+			// never co-changed) were two thirds of the rows, the largest table
+			// of a Java snapshot, and nothing reads them.
+			if sharedCommits > 0 {
 				lingSim := jaccardSimilarityPrecomputed(f1TokenSet, fileTokenSets[j])
 				rows = append(rows, &core.Row{
 					Data: map[string]interface{}{

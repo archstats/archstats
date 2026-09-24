@@ -340,3 +340,16 @@ func TestComponentLinker_Go_ModulePrefixedImports(t *testing.T) {
 		t.Errorf("stdlib import resolved into the project: %q", imports[1].Value)
 	}
 }
+
+func TestShortestDirEndingInIsDeterministic(t *testing.T) {
+	dirs := map[string]string{
+		"a.py": "src/oscar/apps/dashboard/reviews",
+		"b.py": "src/oscar/apps/catalogue/reviews",
+		"c.py": "vendor/x/src/oscar/apps/catalogue/reviews",
+	}
+	for i := 0; i < 50; i++ {
+		if got := shortestDirEndingIn("reviews", dirs); got != "src/oscar/apps/catalogue/reviews" {
+			t.Fatalf("got %q", got)
+		}
+	}
+}

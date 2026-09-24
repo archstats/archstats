@@ -183,10 +183,9 @@ func TestViews(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, directView)
 
-	// Test class connections indirect view
-	indirectView, err := results.RenderView("java_class_connections_indirect")
-	assert.NoError(t, err)
-	assert.NotNil(t, indirectView)
+	// The indirect view is opt-in: absent unless asked for.
+	_, err = results.RenderView("java_class_connections_indirect")
+	assert.Error(t, err)
 }
 
 func assertSnippetCount(t *testing.T, snippets []*file.Snippet, snippetType string, expected int) {

@@ -20,6 +20,10 @@ type Extension struct {
 	IgnoreImportsFor        []string
 	IgnoreCommonJavaImports bool
 	ExtraQueries            []string
+	// ClassIndirect writes java_class_connections_indirect: every class
+	// reachable from every class. It was the largest table of a Java
+	// snapshot and nothing in the app reads it, so it is opt-in.
+	ClassIndirect bool
 }
 
 func (e *Extension) typeAssert() core.Extension {
@@ -257,10 +261,12 @@ func (e *Extension) Init(settings core.Analyzer) error {
 		CreateViewFunc: ClassConnectionsDirectView,
 	})
 
-	settings.RegisterView(&core.ViewFactory{
-		Name:           "java_class_connections_indirect",
-		CreateViewFunc: ClassConnectionsIndirectView,
-	})
+	if e.ClassIndirect {
+		settings.RegisterView(&core.ViewFactory{
+			Name:           "java_class_connections_indirect",
+			CreateViewFunc: ClassConnectionsIndirectView,
+		})
+	}
 
 	return nil
 }

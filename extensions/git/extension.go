@@ -262,6 +262,10 @@ func (e *extension) Init(settings core.Analyzer) error {
 			Name:           "git_directory_shared_commits",
 			CreateViewFunc: e.directoryCouplingViewFactory,
 		})
+		settings.RegisterView(&core.ViewFactory{
+			Name:           "git_file_shared_commits",
+			CreateViewFunc: e.fileCouplingViewFactory,
+		})
 	}
 
 	if e.GenerateCommitView {
