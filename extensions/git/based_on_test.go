@@ -1,7 +1,7 @@
 package git
 
 import (
-	"fmt"
+	"github.com/archstats/archstats/extensions/git/commits"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,15 +41,18 @@ func TestWindowsCountBackFromTheNewestCommit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "2020-01-20T10:00:00Z", results.SnapshotInfo["git_based_on"])
 
-	var total, recent string
-	for _, r := range results.StatRecordsByFile["./recent.txt"] {
-		switch r.StatType {
-		case "git__commits__total":
-			total = fmt.Sprint(r.Value)
-		case "git__commits__last_30_days":
-			recent = fmt.Sprint(r.Value)
+	// Compared by commit count: the stats also hold lists built from map
+	// keys, whose order differs run to run.
+	count := func(typ string) int {
+		for _, r := range results.StatRecordsByFile["./recent.txt"] {
+			if r.StatType == typ {
+				if cs, ok := r.Value.(*commits.CommitStats); ok {
+					return cs.CommitCount
+				}
+			}
 		}
+		return -1
 	}
-	assert.NotEmpty(t, recent)
-	assert.Equal(t, total, recent, "both commits to recent.txt fall in its last 30 days")
+	assert.Equal(t, 2, count("git__commits__total"))
+	assert.Equal(t, 2, count("git__commits__last_30_days"), "both commits to recent.txt fall in its last 30 days")
 }
