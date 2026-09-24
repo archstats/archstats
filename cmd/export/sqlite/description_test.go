@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"github.com/archstats/archstats/core"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -32,7 +33,7 @@ func TestSchemaIsDocumented(t *testing.T) {
 			t.Errorf("view %q is exported but not described in DESCRIPTION.md", name)
 		}
 	}
-	for key := range snapshotInfo() {
+	for _, key := range core.KnownSnapshotKeys {
 		if !strings.Contains(documented, "`"+key+"`") {
 			t.Errorf("_snapshot key %q is written but not described in DESCRIPTION.md", key)
 		}

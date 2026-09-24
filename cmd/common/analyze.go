@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strings"
 )
 
 const (
@@ -85,7 +87,14 @@ func Analyze(command *cobra.Command) (*core.Results, error) {
 		RootPath:   rootDir,
 		Extensions: archstatsExtensions,
 	}).Analyze()
-
+	if err == nil && allResults != nil {
+		names := make([]string, 0, len(enabledExtensions))
+		for _, ext := range enabledExtensions {
+			names = append(names, ext.Name)
+		}
+		sort.Strings(names)
+		allResults.SetSnapshotInfo("extensions", strings.Join(names, ","))
+	}
 	return allResults, err
 }
 

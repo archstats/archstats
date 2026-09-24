@@ -104,6 +104,12 @@ type extension struct {
 	rootPath string
 
 	repositories []string
+	// What each repository's working tree was when it was scanned.
+	heads map[string]headInfo
+	// Commits left out of co-change for touching too many files, in total
+	// and per repository.
+	sweepingTotal  int
+	sweepingByRepo map[string]int
 	// Repositories whose history was cut short by a shallow clone.
 	shallow map[string]bool
 }
@@ -253,6 +259,7 @@ func (e *extension) Init(settings core.Analyzer) error {
 	e.repositories = scan.repos
 	warnAboutLazyRepos(settings.RootPath(), scan.repos)
 	e.shallow = shallowRepos(settings.RootPath(), scan.repos)
+	e.heads = readHeads(settings.RootPath(), scan.repos)
 	e.rootPath = settings.RootPath()
 	rawCommits, err := e.getGitCommitsFromAllReposConcurrently(e.rootPath, scan.repos)
 	log.Info().Msgf("Found %d commits total across %d repositories", len(rawCommits), len(scan.repos))
@@ -272,10 +279,15 @@ func (e *extension) Init(settings core.Analyzer) error {
 		if e.MaxChangesPerCommit > 0 && len(commit.Files) > e.MaxChangesPerCommit {
 			log.Debug().Msgf("Leaving sweeping commit %s (%d files changed) out of co-change: %s", commit.Hash, len(commit.Files), commit.Message)
 			excludedCount++
+			if e.sweepingByRepo == nil {
+				e.sweepingByRepo = map[string]int{}
+			}
+			e.sweepingByRepo[repoName(e.rootPath, commit.Repo)]++
 			continue
 		}
 		couplingCommits = append(couplingCommits, commit)
 	}
+	e.sweepingTotal = excludedCount
 	if excludedCount > 0 {
 		log.Info().Msgf("Left %d sweeping commits (modifying > %d files) out of co-change, of %d total commits", excludedCount, e.MaxChangesPerCommit, len(rawCommits))
 	}
@@ -306,6 +318,7 @@ func (e *extension) definitions() []*definitions.Definition {
 	return []*definitions.Definition{}
 }
 func (e *extension) EditResults(results *core.Results) {
+	e.recordSnapshotInfo(results.SetSnapshotInfo)
 	setComponent(results, e.commitParts)
 	// Re-split commits based on components
 	// This is necessary because components aren't known on Init()
@@ -352,6 +365,16 @@ func asWalked(path string) string {
 		return "./" + path
 	}
 	return path
+}
+
+// repoName is a commit's repository as the repositories list names it: ""
+// for a repository at the scan root, its relative path otherwise.
+func repoName(rootPath, rawRepo string) string {
+	name := trimLeadingSlash(trimRepoPath(rootPath, rawRepo))
+	if name == "." {
+		return ""
+	}
+	return name
 }
 
 func trimRepoPath(rootPath string, rawRepoName string) string {

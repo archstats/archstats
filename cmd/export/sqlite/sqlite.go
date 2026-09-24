@@ -202,7 +202,7 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 		return err
 	}
 
-	err = saveSnapshotInfo(db)
+	err = saveSnapshotInfo(db, results, options)
 	if err != nil {
 		return err
 	}
@@ -219,27 +219,62 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 	return err
 }
 
-// saveSnapshotInfo records which analysis wrote the snapshot, so a reader can
-// tell a scan taken before a fix from one taken after it. See
-// core.AnalysisRevision.
-func saveSnapshotInfo(db *sql.DB) error {
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS _snapshot (key TEXT PRIMARY KEY, value TEXT)`); err != nil {
-		return fmt.Errorf("creating _snapshot: %w", err)
+// saveSnapshotInfo records what the scan says about itself -- which analysis
+// wrote it, when, for which report, the commit it read and its settings -- so
+// a reader can tell one scan from another and a scan taken before a fix from
+// one taken after. Keyed by report: several reports can share one file.
+func saveSnapshotInfo(db *sql.DB, results *core.Results, options *SqlOptions) error {
+	if err := ensureSnapshotTable(db); err != nil {
+		return err
 	}
-	for key, value := range snapshotInfo() {
-		if _, err := db.Exec(`INSERT OR REPLACE INTO _snapshot (key, value) VALUES (?, ?)`, key, value); err != nil {
+	for key, value := range snapshotInfo(results, options) {
+		if _, err := db.Exec(`INSERT OR REPLACE INTO _snapshot (report_id, key, value) VALUES (?, ?, ?)`, options.ReportId, key, value); err != nil {
 			return fmt.Errorf("writing _snapshot %s: %w", key, err)
 		}
 	}
 	return nil
 }
 
-// snapshotInfo is every _snapshot key this build writes. Each must be
-// documented in DESCRIPTION.md; TestSchemaIsDocumented holds that.
-func snapshotInfo() map[string]string {
-	return map[string]string{
-		"analysis_revision": fmt.Sprint(core.AnalysisRevision),
+// ensureSnapshotTable creates _snapshot keyed by (report_id, key), and
+// rebuilds one written before it had a report_id column, keeping its rows.
+func ensureSnapshotTable(db *sql.DB) error {
+	var legacy int
+	_ = db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = '_snapshot'`).Scan(&legacy)
+	if legacy > 0 {
+		var hasReport int
+		_ = db.QueryRow(`SELECT count(*) FROM pragma_table_info('_snapshot') WHERE name = 'report_id'`).Scan(&hasReport)
+		if hasReport == 0 {
+			if _, err := db.Exec(`
+ALTER TABLE _snapshot RENAME TO _snapshot_legacy;
+CREATE TABLE _snapshot (report_id TEXT NOT NULL DEFAULT '', key TEXT NOT NULL, value TEXT, PRIMARY KEY (report_id, key));
+INSERT INTO _snapshot (report_id, key, value) SELECT '', key, value FROM _snapshot_legacy;
+DROP TABLE _snapshot_legacy;`); err != nil {
+				return fmt.Errorf("upgrading _snapshot: %w", err)
+			}
+		}
+		return nil
 	}
+	_, err := db.Exec(`CREATE TABLE _snapshot (report_id TEXT NOT NULL DEFAULT '', key TEXT NOT NULL, value TEXT, PRIMARY KEY (report_id, key))`)
+	return err
+}
+
+// snapshotInfo is every _snapshot key this export writes. Each must be one of
+// core.KnownSnapshotKeys, documented in DESCRIPTION.md.
+func snapshotInfo(results *core.Results, options *SqlOptions) map[string]string {
+	out := map[string]string{}
+	if results != nil {
+		for k, v := range results.SnapshotInfo {
+			out[k] = v
+		}
+	}
+	out["analysis_revision"] = fmt.Sprint(core.AnalysisRevision)
+	out["report_id"] = options.ReportId
+	scanned := options.ScanTime
+	if scanned.IsZero() {
+		scanned = time.Now()
+	}
+	out["scanned_at"] = scanned.UTC().Format(time.RFC3339)
+	return out
 }
 
 func saveMetricDefinitions(db *sql.DB, results *core.Results, options *SqlOptions) error {

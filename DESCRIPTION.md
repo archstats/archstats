@@ -77,7 +77,7 @@ extensions.
 
 | Table | One row per | Columns |
 |---|---|---|
-| `_snapshot` | fact about the snapshot | `key`, `value`. Keys: `analysis_revision` — the `core.AnalysisRevision` that wrote the file (absent means a snapshot older than the stamp; read it as 0). |
+| `_snapshot` | (report, fact about the scan) | `report_id`, `key`, `value`. Keys: `analysis_revision` — the `core.AnalysisRevision` that wrote the file (a snapshot without it predates the stamp; read it as 0); `scanned_at` (RFC 3339); `report_id`; `extensions` — the extensions that ran, comma-separated; `git_head_commit` (full sha), `git_branch` (`detached` when detached) and `git_dirty_files` (uncommitted files, `git status --porcelain`) for a scan root that is a repository; `git_head_time` — the newest HEAD commit time across repositories; `git_based_on` — the time the `last_N_days` windows count back from; `git_max_changes_per_commit` and `git_sweeping_commits` — commits touching more files than the limit are left out of co-change, and how many were; `walker_ignored_files`, `walker_ignored_dirs` and `walker_ignored_top` (JSON) — what the walker left out. Older snapshots have a `_snapshot` without `report_id`. |
 | `_metric_definitions` | metric id | `id`, `name`, `short_description`, `long_description` |
 | `definitions` | metric id | the same as `_metric_definitions`, as a view (kept for older readers) |
 | `file_contents` | file (*opt-in*: `--store-content`) | `file`, `content` |
@@ -89,7 +89,7 @@ extensions.
 | `components` | component (package, namespace or directory) | `name` |
 | `files` | file | `name`, `directory`, `component`, `module`. Third-party and generated files carry `complexity__files__third_party` / `complexity__files__generated` = 1 and no `codesmells__*` reading. |
 | `directories` | directory | `name` |
-| `git_repos` | git repository (*git*) | `name` |
+| `git_repos` | git repository (*git*) | `name`, `git__shallow_clone`, `git__head_commit`, `git__branch`, `git__head_time`, `git__dirty_files`, `git__sweeping_commits` |
 | `summary` | metric, totalled over the codebase | `name`, `value` |
 | `modules` | build module a manifest declares | `name`, `kind` (`maven`, `gradle`, `dotnet`, `composer`, `node`, `go`, `django`), `directory`, `manifest`, `files`, `declared_dependencies`, `internal_dependencies`, `depends_on` |
 | `units` | declared thing: type, function or module | `id`, `kind` (`type`, `function`, `module`), `name`, `component`, `module`, `owner`, `file`, `files`, `markers` |

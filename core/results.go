@@ -45,6 +45,11 @@ type Results struct {
 	// Files a tool wrote and says so in their header. See file.IsGenerated.
 	GeneratedFiles map[string]bool
 
+	// SnapshotInfo is what the scan says about itself -- the commit it read,
+	// its settings, what it left out -- written to the snapshot's _snapshot
+	// table. Extensions add to it with SetSnapshotInfo.
+	SnapshotInfo map[string]string
+
 	FileToComponent map[string]string
 	FileToDirectory map[string]string
 	FileToModule    map[string]string
@@ -248,6 +253,15 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		renderedViews: make(map[string]*View),
 		accumulators:  theAccumulator,
 	}
+}
+
+// SetSnapshotInfo records one fact about the scan for the _snapshot table.
+// Keys are documented in DESCRIPTION.md; KnownSnapshotKeys lists them.
+func (r *Results) SetSnapshotInfo(key, value string) {
+	if r.SnapshotInfo == nil {
+		r.SnapshotInfo = map[string]string{}
+	}
+	r.SnapshotInfo[key] = value
 }
 
 func (r *Results) Calculate(records []*stats.Record) *stats.Stats {
