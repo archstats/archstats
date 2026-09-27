@@ -90,7 +90,7 @@ extensions.
 | Table | One row per | Non-metric columns |
 |---|---|---|
 | `components` | component (package, namespace or directory) | `name` |
-| `files` | file | `name`, `directory`, `component`, `module`, `role` (`production`, `test`, `generated`, `third_party`, `non_code`; by precedence in that reverse order). Test files also count in `complexity__files__test` and `complexity__lines__test`. Third-party and generated files carry `complexity__files__third_party` / `complexity__files__generated` = 1 and no `codesmells__*` reading. |
+| `files` | file | `name`, `directory`, `component`, `module`, `role` (`production`, `test`, `generated`, `third_party`, `non_code`; by precedence in that reverse order). Test files also count in `complexity__files__test` and `complexity__lines__test`. Third-party and generated files carry `complexity__files__third_party` / `complexity__files__generated` = 1 and no `codesmells__*` reading. `system_kind` says what part of building, shipping or running the software the file describes (revision 5): `build` (pom.xml, package.json, go.mod, .csproj, Makefile…), `lockfile` (package-lock.json, go.sum…), `ci` (GitHub workflows, Jenkinsfile, .gitlab-ci.yml…), `container` (Dockerfile, Containerfile), `deploy` (compose, Kubernetes manifests, Helm charts and values, kustomize, Skaffold, SAM, serverless.yml), `infra` (Terraform, CloudFormation, Terragrunt), `config` (application.yml/.properties, appsettings.json, .env); empty for every other file. YAML and JSON with an uninformative name are classified by their first 8 KB. |
 | `directories` | directory | `name` |
 | `git_repos` | git repository (*git*) | `name`, `git__shallow_clone`, `git__head_commit`, `git__branch`, `git__head_time`, `git__dirty_files`, `git__sweeping_commits` |
 | `summary` | metric, totalled over the codebase | `name`, `value` |
@@ -133,8 +133,40 @@ Java files also carry `java_class` / `java_full_class`.
 | `git_authors` | author, identities merged by email | `author_name`, `author_email`, `git__*` metrics over the whole history, including files no longer present |
 | `git_component_shared_commits` | component pair | `pair_1`, `pair_2`, `shared_commits`, `percentage_of_all_commits_pair_1`, `percentage_of_all_commits_pair_2`, and the same per `__last_N_days` window. Commits touching more than 100 files are left out of co-change (they stay in `git_commits`). |
 | `git_directory_shared_commits` | directory pair | as above, for pairs sharing at least 2 commits |
-| `git_file_shared_commits` | file pair, once (`file_1` < `file_2`) | `file_1`, `file_2`, `shared_commits`, `percentage_of_all_commits_file_1`, `percentage_of_all_commits_file_2` (0–100). Kept only where the two share at least 3 commits and that is at least 10% of the smaller side's commits; sweeping commits and files outside the snapshot are left out. |
+| `git_file_shared_commits` | file pair, once (`file_1` < `file_2`) | `file_1`, `file_2`, `shared_commits`, `percentage_of_all_commits_file_1`, `percentage_of_all_commits_file_2` (0–100). Kept only where the two share at least 3 commits and that is at least 10% of the smaller side's commits; sweeping commits and files outside the snapshot are left out. Counted over files in a component and, from revision 5, files with a `system_kind`, so a build file or pipeline that changes with the code pairs with it. |
 | `git_component_cycles_shortest_shared_commits` | shortest cycle | `cycle`, `cycle_size`, `shared_commits`, `shared_commits__last_N_days` |
+
+### What the workspace builds and ships (revision 5)
+
+A *deployable* is what gets built and shipped as one unit: a container image,
+an executable app whose image is built elsewhere (or not at all), or a
+serverless function. They are read from Dockerfiles, compose files, Skaffold,
+Kubernetes and Helm, Maven/Gradle/.NET build plugins, .NET Aspire app hosts,
+SAM and Serverless templates, and pipelines. Every fact carries the `file` and
+`line` it was read from, and every join says how it was made in `resolution`:
+`declared` (named outright), `path` (a relative path, resolved),
+`build_output` (a jar or dist folder traced to the module that builds it),
+`module_dependency` (an internal module a manifest depends on), `name`
+(joined on a normalised name; the weakest), `shared_config` (read from a
+ConfigMap several workloads load, so every one of them receives every
+address), `repository` (the only deployable in its repository) or `paths`
+(what a pipeline's path filter watches). A name that fits two things is never
+chosen between; it is listed in `deployable_unresolved` as `ambiguous`.
+Values of configuration keys that name secrets are never stored, and URLs are
+reduced to host, port and database.
+
+| Table | One row per | Columns |
+|---|---|---|
+| `deployables` | deployable | `id` (its name, qualified by repository or file when two share one), `name`, `kind` (`image`, `app`, `function`), `repository`, `file`, `line` (where it is declared: the Dockerfile's first FROM, a pom's artifactId), `built_by` (`skaffold`, `jib`, `buildpacks`, `pipeline`, `compose`, `maven-docker`, `spring-boot`, `dotnet-publish`, `dockerfile`, `maven`, `gradle`, `dotnet`, `aspire`, `sam`, `serverless`, or `delegated` when a pipeline hands the build to a template outside the workspace), `context`, `base_image`, `runtime` (`java 17`, `node 20`…), `files` (production files it holds, build files excluded), `components` |
+| `deployable_contents` | (deployable, path) | `deployable`, `path` (a folder or file; `.` is the whole workspace), `pattern` (a glob below `path`, from `COPY package*.json ./`), `module`, `file`, `line` (the COPY, context or manifest that put it there), `resolution` |
+| `deployable_components` | (deployable, component) | `deployable`, `component`, `files` |
+| `deployable_links` | link | `from` (a deployable), `to`, `to_kind` (`deployable`, `external` for something the workspace does not build, `module` for `shares_module`), `kind` (`calls`, `messages`, `uses_datastore`, `shares_datastore`, `shares_module`, `depends_on`), `mode` (`sync`, `async`, empty), `via` (the host, topic, database, vendor or module count it went through), `file`, `line`, `resolution`. `shares_module` is one row per deployable carrying an internal module that at least one other deployable carries too. |
+| `deployable_unresolved` | reference that joined to nothing | `from`, `ref`, `file`, `line`, `reason` (`not_built_here`, `external` (a well-known public image), `interpolated`, `ambiguous`, `not_found`) |
+| `pipelines` | pipeline file | `id`, `name`, `system` (`github_actions`, `gitlab`, `jenkins`, `azure_pipelines`, `circleci`, `travis`, `bitbucket`, `cloud_build`), `file`, `repository`, `parsed` (`full`, `partial` for a scripted Jenkinsfile, `none` for a system recognised but not read), `triggers`, `paths` (path filters, `!` for ignored), `stages` (in order: `build`, `test`, `scan`, `package`, `publish`, `deploy`, `approve`), `tools`, `delegates_to` and `delegates_ref` (reusable workflows, Jenkins shared libraries and GitLab includes outside the workspace, and the ref each is pinned to), `environments`, `deployables` |
+| `pipeline_deployables` | (pipeline, deployable, action) | `pipeline`, `deployable`, `action` (`builds`, `deploys`), `file`, `line`, `resolution` |
+| `deployable_environments` | (deployable, environment, source) | `deployable`, `environment`, `kind` (`enumerated`, or `pattern` for an open-ended set such as one per pull request), `source` (`helm_values`, `kustomize_overlay`, `workflow`, `applicationset`, `config_profile`), `file`, `line` |
+| `deployable_environment_values` | (deployable, environment, key) | `deployable`, `environment`, `source`, `key` (dotted path in a Helm values file), `value` (empty when `secret` is 1), `secret`, `file`, `line`. Only values files of the same kind are comparable; nothing else is stored. |
+| `deployable_dependencies` | (deployable, dependency) | `deployable`, `ecosystem` (`maven`, `npm`, `go`, `nuget`, `composer`, `container`, `runtime`, or a CycloneDX purl type), `name`, `version` (exact from a lockfile, declared from a manifest, empty when managed elsewhere), `role` (`runtime`, `framework`, `base_image`, `internal`, `library`), `source` (`manifest`, `lockfile`, `dockerfile`, `pipeline`, `cyclonedx`), `file`, `line`. Direct dependencies only for Maven and Gradle; resolving the rest needs the network. |
 
 ### Architecture rules
 

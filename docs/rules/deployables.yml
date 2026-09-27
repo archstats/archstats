@@ -1,0 +1,65 @@
+# Rule templates about what the workspace builds and ships.
+#
+# Copy the ones that state your architecture into your own rules file and run
+#   archstats assert -r rules.yml -f .
+# Each query lists what breaks the rule; `expect: 0` means none may. They are
+# templates, not verdicts: a floor on the runtime, or whether two services may
+# share a database, is the architect's call. Tables are described in
+# DESCRIPTION.md under "What the workspace builds and ships".
+
+assertions:
+  - name: "Every deployable is built by a pipeline here"
+    description: >
+      A deployable no pipeline in the workspace builds is built by hand, or by
+      something the workspace cannot show.
+    query: |
+      SELECT id AS deployable, file, line FROM deployables
+      WHERE id NOT IN (SELECT deployable FROM pipeline_deployables WHERE action = 'builds')
+    expect: 0
+
+  - name: "No pipeline hands its work to a template that follows a branch"
+    description: >
+      A reusable workflow, shared library or include pinned to main changes
+      under every pipeline that calls it, without a change in the calling
+      repository.
+    query: |
+      SELECT id AS pipeline, delegates_to, delegates_ref FROM pipelines
+      WHERE ',' || replace(delegates_ref, ' ', '') || ',' GLOB '*,main,*'
+         OR ',' || replace(delegates_ref, ' ', '') || ',' GLOB '*,master,*'
+         OR ',' || replace(delegates_ref, ' ', '') || ',' GLOB '*,develop,*'
+    expect: 0
+
+  - name: "No two deployables share a database"
+    description: >
+      Two deployables that read and write one database deploy apart but fail
+      and change together.
+    query: |
+      SELECT "from", "to", via AS database, file, line FROM deployable_links
+      WHERE kind = 'shares_datastore'
+    expect: 0
+
+  - name: "No Java runtime below 17"
+    description: Set the floor to the version your platform supports.
+    query: |
+      SELECT id AS deployable, runtime FROM deployables
+      WHERE runtime GLOB 'java *' AND CAST(substr(runtime, 6) AS INTEGER) < 17
+    expect: 0
+
+  - name: "Every base image names a version"
+    description: >
+      An image built FROM latest, or from no tag at all, changes whenever the
+      registry does.
+    query: |
+      SELECT deployable, name, version, file, line FROM deployable_dependencies
+      WHERE role = 'base_image' AND (version = '' OR version GLOB 'latest*')
+    expect: 0
+
+  - name: "Every deployable runs in production"
+    description: >
+      A deployable no values file, overlay or pipeline places in a production
+      environment is not shipped, or ships from somewhere the workspace cannot
+      show.
+    query: |
+      SELECT id AS deployable FROM deployables
+      WHERE id NOT IN (SELECT deployable FROM deployable_environments WHERE lower(environment) GLOB '*prod*' AND lower(environment) NOT GLOB '*nonprod*')
+    expect: 0

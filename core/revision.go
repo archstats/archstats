@@ -36,4 +36,9 @@ package core
 //	               component_matrix one row per co-changed pair;
 //	               component_connections_indirect records next_hop, not the
 //	               path text; Java counts no longer duplicated as snippets.
-const AnalysisRevision = 4
+//	5  2026-09-27  files carry a system_kind (build, lockfile, ci, container,
+//	               deploy, infra, config); file co-change counts those files
+//	               too; deployables: what the workspace builds and ships, what
+//	               goes into each, how they are built, where they run, what
+//	               they talk to and what technology they carry.
+const AnalysisRevision = 5
