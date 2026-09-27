@@ -30,4 +30,10 @@ package core
 //	               reachability opt-in); scan-level ignore patterns apply to
 //	               files and their history; file-grain shared commits; an
 //	               ambiguous dynamic lookup resolves the same way every scan.
-const AnalysisRevision = 3
+//	4  2026-09-25  smaller snapshots again: report_id and timestamp stored as
+//	               column defaults; git_commits a view over git_commit_info
+//	               and git_commit_files; file_matrix opt-in (--file-matrix);
+//	               component_matrix one row per co-changed pair;
+//	               component_connections_indirect records next_hop, not the
+//	               path text; Java counts no longer duplicated as snippets.
+const AnalysisRevision = 4

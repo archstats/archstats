@@ -33,16 +33,16 @@ func Test_SimpleComponents_DirectConnections(t *testing.T) {
 }
 func Test_SimpleComponents_IndirectConnections(t *testing.T) {
 	// Lengths are hops: a direct dependency is 1 away.
-	simpleComponentsTest(t, "component_connections_indirect", "from,to,shortest_path_length,shortest_path", []ComponentConnectionIndirect{
-		indirectConnection("a", "d", 1, "a -> d"),
-		indirectConnection("a", "c", 1, "a -> c"),
-		indirectConnection("a", "b", 1, "a -> b"),
-		indirectConnection("b", "d", 3, "b -> c -> a -> d"),
-		indirectConnection("b", "c", 1, "b -> c"),
-		indirectConnection("b", "a", 2, "b -> c -> a"),
-		indirectConnection("c", "b", 2, "c -> a -> b"),
-		indirectConnection("c", "d", 2, "c -> a -> d"),
-		indirectConnection("c", "a", 1, "c -> a"),
+	simpleComponentsTest(t, "component_connections_indirect", "from,to,shortest_path_length,next_hop", []ComponentConnectionIndirect{
+		indirectConnection("a", "d", 1, "d"),
+		indirectConnection("a", "c", 1, "c"),
+		indirectConnection("a", "b", 1, "b"),
+		indirectConnection("b", "d", 3, "c"),
+		indirectConnection("b", "c", 1, "c"),
+		indirectConnection("b", "a", 2, "c"),
+		indirectConnection("c", "b", 2, "a"),
+		indirectConnection("c", "d", 2, "a"),
+		indirectConnection("c", "a", 1, "a"),
 	})
 }
 
@@ -127,12 +127,12 @@ type ComponentConnectionDirect struct {
 	ReferenceCount int    `csv:"REFERENCE_COUNT"`
 }
 
-func indirectConnection(from, to string, shortestPathLength int, shortestPath string) ComponentConnectionIndirect {
+func indirectConnection(from, to string, shortestPathLength int, nextHop string) ComponentConnectionIndirect {
 	return ComponentConnectionIndirect{
 		From:               from,
 		To:                 to,
 		ShortestPathLength: shortestPathLength,
-		ShortestPath:       shortestPath,
+		NextHop:            nextHop,
 	}
 }
 
@@ -140,5 +140,5 @@ type ComponentConnectionIndirect struct {
 	From               string `csv:"FROM"`
 	To                 string `csv:"TO"`
 	ShortestPathLength int    `csv:"SHORTEST_PATH_LENGTH"`
-	ShortestPath       string `csv:"SHORTEST_PATH"`
+	NextHop            string `csv:"NEXT_HOP"`
 }

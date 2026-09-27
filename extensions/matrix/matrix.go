@@ -1,19 +1,50 @@
 package matrix
 
 import (
+	"github.com/archstats/archstats/cmd/config"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/unit"
 	"github.com/samber/lo"
+	"github.com/spf13/cobra"
 	"path/filepath"
 	"sort"
 	"strings"
 )
 
+const FileMatrix = "file-matrix"
+
 func Extension() core.Extension {
 	return &extension{}
 }
 
-type extension struct{}
+func CLIExtension() *config.CLIConfiguredExtension {
+	return &config.CLIConfiguredExtension{
+		Name:        "matrix",
+		Description: "Pairwise co-change, name similarity and path distance",
+		Arguments: config.Arguments{
+			FileMatrix: {
+				Default:     false,
+				Description: "Also write file_matrix, every pair of files that changed together (large; git_commits and git_file_shared_commits hold the same co-change)",
+				Required:    false,
+				Type:        config.Bool,
+			},
+		},
+		Initializer: func(command *cobra.Command) (core.Extension, error) {
+			fileMatrix, err := command.Flags().GetBool(FileMatrix)
+			if err != nil {
+				return nil, err
+			}
+			return &extension{fileMatrix: fileMatrix}, nil
+		},
+	}
+}
+
+type extension struct {
+	// fileMatrix writes file_matrix. It is opt-in: the table was the largest
+	// in most snapshots (every co-changed pair of files, both ways round),
+	// and building it held a path distance from every file to every file.
+	fileMatrix bool
+}
 
 func (v *extension) Init(settings core.Analyzer) error {
 	settings.RegisterView(&core.ViewFactory{
@@ -21,10 +52,12 @@ func (v *extension) Init(settings core.Analyzer) error {
 		CreateViewFunc: ComponentMatrixView,
 	})
 
-	settings.RegisterView(&core.ViewFactory{
-		Name:           "file_matrix",
-		CreateViewFunc: FileMatrixView,
-	})
+	if v.fileMatrix {
+		settings.RegisterView(&core.ViewFactory{
+			Name:           "file_matrix",
+			CreateViewFunc: FileMatrixView,
+		})
+	}
 
 	return nil
 }
@@ -510,9 +543,11 @@ func ComponentMatrixView(results *core.Results) *core.View {
 				pathDist = d
 			}
 
-			// Filter row to prevent N^2 blowup:
-			// Only include if there's a localized Git co-commit or a reasonably short dependency path (<= 3 hops)
-			if sharedCommits > 0 || (pathDist >= 1 && pathDist <= 3) {
+			// One row per pair that changed together, the pair written once
+			// (from < to): co-change is symmetric, and the rows for pairs
+			// that only sat within three hops were two thirds of the table
+			// and read by nothing. path_distance is from `from` to `to`.
+			if sharedCommits > 0 && c1 < c2 {
 				lingSim := jaccardSimilarityPrecomputed(c1TokenSet, compTokenSets[j])
 				rows = append(rows, &core.Row{
 					Data: map[string]interface{}{

@@ -176,13 +176,18 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 	}
 	defer db.Close()
 
-	err = ensureAllTablesExist(views, db)
+	views, commits, err := storageLayout(db, views)
+	if err != nil {
+		return err
+	}
+
+	fresh, err := ensureAllTablesExist(views, db)
 	if err != nil {
 		return err
 	}
 
 	// delete all data from tables
-	err = deleteExistingReportFromAllTables(options.ReportId, views, db)
+	err = deleteExistingReportFromAllTables(options.ReportId, views, db, fresh)
 	if err != nil {
 		return err
 	}
@@ -192,9 +197,21 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 		return err
 	}
 
-	err = insertRowsForAllViews(options, views, db)
+	err = insertRowsForAllViews(options, views, db, fresh)
 	if err != nil {
 		return err
+	}
+
+	err = addReportColumns(db, options, fresh)
+	if err != nil {
+		return err
+	}
+
+	if commits != nil {
+		err = createCommitsView(db, commits)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = saveMetricDefinitions(db, results, options)
@@ -352,7 +369,7 @@ func calculateOptimumChunkSize(rows, columns int) int {
 	return optimumChunkSize
 }
 
-func insertRowsForAllViews(options *SqlOptions, views []*core.View, db *sql.DB) error {
+func insertRowsForAllViews(options *SqlOptions, views []*core.View, db *sql.DB, fresh map[string]bool) error {
 	for _, view := range views {
 		columnCount := len(view.Columns) + 2
 		rowCount := len(view.Rows)
@@ -364,7 +381,7 @@ func insertRowsForAllViews(options *SqlOptions, views []*core.View, db *sql.DB) 
 		log.Info().Msgf("Inserting %d rows for view %s in chunks of %d rows", len(view.Rows), viewName, chunkValue)
 		chunks := lo.Chunk(view.Rows, chunkValue)
 		for _, chunk := range chunks {
-			err := insertRowsForView(db, viewName, view.Columns, chunk, options)
+			err := insertRowsForView(db, viewName, view.Columns, chunk, options, !fresh[viewName])
 			if err != nil {
 				return err
 			}
@@ -373,8 +390,11 @@ func insertRowsForAllViews(options *SqlOptions, views []*core.View, db *sql.DB) 
 	return nil
 }
 
-func deleteExistingReportFromAllTables(reportId string, views []*core.View, db *sql.DB) error {
+func deleteExistingReportFromAllTables(reportId string, views []*core.View, db *sql.DB, fresh map[string]bool) error {
 	for _, view := range views {
+		if fresh[view.Name] {
+			continue
+		}
 		_, err := db.Exec("DELETE FROM `"+view.Name+"` WHERE report_id = ?", reportId)
 		if err != nil {
 			return err
@@ -433,9 +453,15 @@ func createDb(options *SqlOptions) (*sql.DB, error) {
 	}
 	return db, nil
 }
-func insertRowsForView(db *sql.DB, name string, columns []*core.Column, rows []*core.Row, options *SqlOptions) error {
-	extraColumns := []*core.Column{core.StringColumn("report_id"), core.DateColumn("timestamp")}
-	allColumns := append(columns, extraColumns...)
+
+// insertRowsForView writes report_id and timestamp on each row only into a
+// table that already held a report; a table created by this export takes
+// them as defaults afterwards (addReportColumns).
+func insertRowsForView(db *sql.DB, name string, columns []*core.Column, rows []*core.Row, options *SqlOptions, withReport bool) error {
+	allColumns := columns
+	if withReport {
+		allColumns = append(append([]*core.Column{}, columns...), core.StringColumn("report_id"), core.DateColumn("timestamp"))
+	}
 
 	valueStrings := make([]string, 0, len(rows))
 	amountOfArgumentsPerRow := len(allColumns)
@@ -468,7 +494,7 @@ func insertRowsForView(db *sql.DB, name string, columns []*core.Column, rows []*
 	columnNames := lo.Map(allColumns, func(item *core.Column, index int) string {
 		return "`" + item.Name + "`"
 	})
-	theSql := "INSERT INTO " + name + " (" + strings.Join(columnNames, ",") + ") VALUES " + strings.Join(valueStrings, ",")
+	theSql := "INSERT INTO `" + name + "` (" + strings.Join(columnNames, ",") + ") VALUES " + strings.Join(valueStrings, ",")
 
 	_, err := db.Exec(theSql, valueArgs...)
 	if err != nil {
@@ -477,24 +503,32 @@ func insertRowsForView(db *sql.DB, name string, columns []*core.Column, rows []*
 	return nil
 }
 
-func ensureAllTablesExist(views []*core.View, db *sql.DB) error {
+// ensureAllTablesExist creates the tables the file lacks and returns them:
+// those are written without report_id and timestamp until addReportColumns.
+func ensureAllTablesExist(views []*core.View, db *sql.DB) (map[string]bool, error) {
+	fresh := map[string]bool{}
 	for _, view := range views {
-		err := ensureTableExists(db, view)
-
+		created, err := ensureTableExists(db, view)
 		if err != nil {
-			return err
+			return nil, err
+		}
+		if created {
+			fresh[view.Name] = true
 		}
 	}
-	return nil
+	return fresh, nil
 }
-func ensureTableExists(db *sql.DB, view *core.View) error {
-
-	ddl := tableDDL(view)
-	_, err := db.Exec(ddl)
-	if err != nil {
-		return err
+func ensureTableExists(db *sql.DB, view *core.View) (bool, error) {
+	kind, err := objectType(db, view.Name)
+	if err != nil || kind != "" {
+		return false, err
 	}
-	return nil
+	if len(view.Columns) == 0 {
+		_, err = db.Exec(tableDDL(view))
+		return false, err
+	}
+	_, err = db.Exec("CREATE TABLE `" + view.Name + "` (" + columnsDDL(view) + ")")
+	return err == nil, err
 }
 
 func tableDDL(view *core.View) string {
@@ -541,9 +575,33 @@ func createIndexes(db *sql.DB, views []*core.View) error {
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_snippets_component ON `snippets` (component)")
 		case "files":
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_files_component ON `files` (component)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_files_name ON `files` (name)")
+		case "components":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_components_name ON `components` (name)")
+		case "directories":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_directories_name ON `directories` (name)")
+		case "units":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_units_id ON `units` (id)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_units_component ON `units` (component)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_units_file ON `units` (file)")
+		case "unit_connections":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_uc_from ON `unit_connections` (`from`)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_uc_to ON `unit_connections` (`to`)")
+		case "unit_markers":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_unit_markers_unit ON `unit_markers` (unit)")
+		case "unit_uses":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_unit_uses_unit ON `unit_uses` (unit)")
+		case "git_file_shared_commits":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_gfsc_file1 ON `git_file_shared_commits` (file_1)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_gfsc_file2 ON `git_file_shared_commits` (file_2)")
 		case "git_commits":
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_git_commits_file ON `git_commits` (file)")
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_git_commits_component ON `git_commits` (component)")
+		case gitCommitFiles:
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_git_commit_files_file ON `git_commit_files` (file)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_git_commit_files_component ON `git_commit_files` (component)")
+		case gitCommitInfo:
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_git_commit_info_hash ON `git_commit_info` (commit_hash)")
 		case "component_connections_direct":
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_ccd_from ON `component_connections_direct` (`from`)")
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_ccd_to ON `component_connections_direct` (`to`)")

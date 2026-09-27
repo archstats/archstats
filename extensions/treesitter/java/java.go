@@ -280,9 +280,13 @@ func (e *Extension) createJavaLanguagePack() *common.LanguagePack {
 	ignoreList := e.getIgnoreList()
 	var allQueriesForStats []string
 	allQueriesForStats = append(allQueriesForStats, springQueriesForStats()...)
-	allQueriesForStats = append(allQueriesForStats, jpaQueriesForStats()...)
-	allQueriesForStats = append(allQueriesForStats, javaQueriesForStats()...)
 	allQueriesForStats = append(allQueriesForStats, modularityQueries(ignoreList)...)
+
+	// Counts whose every match is also a snippet of the singular name.
+	var allQueriesForCounts []string
+	allQueriesForCounts = append(allQueriesForCounts, springQueriesForCounts()...)
+	allQueriesForCounts = append(allQueriesForCounts, jpaQueriesForStats()...)
+	allQueriesForCounts = append(allQueriesForCounts, javaQueriesForStats()...)
 
 	var allQueriesForSnippets []string
 	allQueriesForSnippets = append(allQueriesForSnippets, springQueriesForSnippets()...)
@@ -298,6 +302,7 @@ func (e *Extension) createJavaLanguagePack() *common.LanguagePack {
 		Language:           language,
 		QueriesForStats:    allQueriesForStats,
 		QueriesForSnippets: allQueriesForSnippets,
+		QueriesForCounts:   allQueriesForCounts,
 	}
 	template, err := common.PackFromTemplate(lp)
 	if err != nil {
@@ -315,7 +320,9 @@ func (e *Extension) getIgnoreList() []string {
 	return ignoreList
 }
 
-func springQueriesForStats() []string {
+// springQueriesForCounts count the classes springQueriesForSnippets record,
+// one for one: java__spring__beans matches exactly where java__spring__bean does.
+func springQueriesForCounts() []string {
 	return []string{
 		createQueryForClassAnnotation("java__spring__controllers", "^(Controller|RestController)$"),
 		createQueryForClassAnnotation("java__spring__services", "^Service$"),
@@ -323,7 +330,11 @@ func springQueriesForStats() []string {
 		createQueryForClassAnnotation("java__spring__components", "^Component$"),
 		createQueryForClassAnnotation("java__spring__configurations", "^Configuration$"),
 		createQueryForClassAnnotation("java__spring__beans", "^(Component|Service|Repository|Controller|RestController|Configuration)$"),
+	}
+}
 
+func springQueriesForStats() []string {
+	return []string{
 		createQueryForMethodAnnotation("java__spring__request_mappings__total", "^(Request|Get|Put|Post|Delete|Patch)Mapping$"),
 		createQueryForMethodAnnotation("java__spring__request_mappings__get", "^GetMapping$"),
 		createQueryForMethodAnnotation("java__spring__request_mappings__put", "^PutMapping$"),

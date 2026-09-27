@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"errors"
 	"github.com/archstats/archstats/core/file"
 	"github.com/gobwas/glob"
 	"github.com/rs/zerolog/log"
@@ -17,6 +18,7 @@ type LanguagePack struct {
 	Language            *sitter.Language
 	QueriesForStats     []*sitter.Query
 	QueriesForSnippets  []*sitter.Query
+	QueriesForCounts    []*sitter.Query
 	ComponentResolution ComponentResolutionFunc
 	SnippetTransformers map[string]func(*file.Snippet) *file.Snippet
 }
@@ -28,6 +30,11 @@ type LanguagePackTemplate struct {
 	ComponentResolution ComponentResolutionFunc
 	SnippetTransformers map[string]func(*file.Snippet) *file.Snippet
 	QueriesForSnippets  []string
+	// QueriesForCounts feed stats but are not kept as snippets: each one
+	// counts what a snippet query already records at the same place (every
+	// java__method_declarations row had a java__method__declaration twin),
+	// so storing both doubled those rows and told a reader nothing.
+	QueriesForCounts []string
 }
 
 func PackFromTemplate(template *LanguagePackTemplate) (*LanguagePack, error) {
@@ -49,8 +56,14 @@ func PackFromTemplate(template *LanguagePackTemplate) (*LanguagePack, error) {
 		return nil, err
 	}
 
+	queriesForCounts, err := stringsToQueries(lp.Language, template.QueriesForCounts)
+	if err != nil {
+		return nil, err
+	}
+
 	lp.QueriesForStats = queriesForStats
 	lp.QueriesForSnippets = queriesForSnippets
+	lp.QueriesForCounts = queriesForCounts
 	lp.SnippetTransformers = template.SnippetTransformers
 	lp.ComponentResolution = GetComponentResolutionFromTemplate(template)
 	return lp, nil
@@ -103,22 +116,22 @@ func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Re
 	if !lp.FileGlob.Match(path) {
 		return nil
 	}
-	rawSnippetsForStats, err := analyzeFileContent(path, content, lp.Language, lp.QueriesForStats)
+	tree, err := parse(content, lp.Language)
 	if err != nil {
 		log.Warn().Err(err).Msgf("[treesitter] Skipping file %s", path)
 		return nil
 	}
-	rawSnippetsForSnippets, err := analyzeFileContent(path, content, lp.Language, lp.QueriesForSnippets)
-	if err != nil {
-		log.Warn().Err(err).Msgf("[treesitter] Skipping file %s", path)
-		return nil
-	}
+	defer tree.Close()
+	rawSnippetsForStats := runQueries(path, tree, content, lp.QueriesForStats)
+	rawSnippetsForSnippets := runQueries(path, tree, content, lp.QueriesForSnippets)
+	rawSnippetsForCounts := runQueries(path, tree, content, lp.QueriesForCounts)
 	snippetsForStats := lp.transformSnippets(rawSnippetsForStats)
 	snippetsForSnippets := lp.transformSnippets(rawSnippetsForSnippets)
+	snippetsForCounts := lp.transformSnippets(rawSnippetsForCounts)
 	allSnippets := append(snippetsForStats, snippetsForSnippets...)
 	results := &file.Results{
 		Snippets: allSnippets,
-		Stats:    file.SnippetsToStats(snippetsForStats),
+		Stats:    file.SnippetsToStats(append(append([]*file.Snippet{}, snippetsForStats...), snippetsForCounts...)),
 	}
 	component := lp.ComponentResolution(results)
 	results.Component = component
@@ -129,25 +142,34 @@ func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Re
 	return results
 }
 
-func analyzeFileContent(filePath string, content []byte, language *sitter.Language, queries []*sitter.Query) ([]*file.Snippet, error) {
+// parse reads the file once for all three query sets. The binding keeps
+// parsers, trees and cursors in C memory with no finalizer, so each one is
+// closed here; left open, every file parsed stayed in memory for the scan.
+func parse(content []byte, language *sitter.Language) (*sitter.Tree, error) {
 	parser := sitter.NewParser()
-
-	err := parser.SetLanguage(language)
-	if err != nil {
+	defer parser.Close()
+	if err := parser.SetLanguage(language); err != nil {
 		return nil, err
 	}
 	tree := parser.ParseCtx(context.Background(), content, nil)
+	if tree == nil {
+		return nil, errors.New("tree-sitter returned no tree")
+	}
+	return tree, nil
+}
+
+func runQueries(filePath string, tree *sitter.Tree, content []byte, queries []*sitter.Query) []*file.Snippet {
 	var snippetsToReturn []*file.Snippet
 	for _, qr := range queries {
-		snippets := execQuery(filePath, qr, tree, content)
-		snippetsToReturn = append(snippetsToReturn, snippets...)
+		snippetsToReturn = append(snippetsToReturn, execQuery(filePath, qr, tree, content)...)
 	}
-	return snippetsToReturn, nil
+	return snippetsToReturn
 }
 
 func execQuery(filePath string, query *sitter.Query, ctx *sitter.Tree, content []byte) []*file.Snippet {
 	var snippets []*file.Snippet
 	cursor := sitter.NewQueryCursor()
+	defer cursor.Close()
 
 	matches := cursor.Matches(query, ctx.RootNode(), content)
 

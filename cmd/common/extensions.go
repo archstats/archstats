@@ -122,7 +122,7 @@ func AlwaysEnabled() []*config.CLIConfiguredExtension {
 		config.CreateEmptyCLIExtension("lines", lines.Extension()),
 		declbased.CLIExtension(),
 		config.CreateEmptyCLIExtension("codesmells", codesmells.Extension()),
-		config.CreateEmptyCLIExtension("matrix", matrix.Extension()),
+		matrix.CLIExtension(),
 		config.CreateEmptyCLIExtension("rules", rules.Extension()),
 	}
 }

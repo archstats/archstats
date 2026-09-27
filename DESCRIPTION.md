@@ -63,6 +63,9 @@ Archstats maps classic package and graph topology metrics to assess architectura
 `archstats export sqlite` writes one table per registered view, plus three
 bookkeeping tables. Every view table carries `report_id` (the report name;
 several reports can share one file) and `timestamp` (when it was written).
+A table created by an export holds these two as column defaults rather than
+on every row; they read back the same, and a report appended later writes its
+own values explicitly.
 Tables marked *opt-in* only appear when their extension or view is enabled;
 tables marked *git* need a git checkout.
 
@@ -103,10 +106,10 @@ Java files also carry `java_class` / `java_full_class`.
 | Table | One row per | Columns |
 |---|---|---|
 | `component_connections_direct` | (from, to, file) import between components | `from`, `to`, `kind` (`import`, `type_only`, `dynamic`), `file`, `reference_count` |
-| `component_connections_indirect` | reachable pair | `from`, `to`, `shortest_path_length` (hops: a direct edge is 1), `shortest_path` (`a -> b -> c`) |
+| `component_connections_indirect` | reachable pair | `from`, `to`, `shortest_path_length` (hops: a direct edge is 1), `next_hop` (the first step of the alphabetically first shortest route; the row for (`next_hop`, `to`) gives the next, until `next_hop` = `to`). Snapshots before revision 4 store `shortest_path` (`a -> b -> c`) instead. |
 | `component_connections_furthest` | component | `component`, `furthest_component`, `furthest_component_distance`, `furthest_component_shortest_path` |
-| `component_matrix` | component pair | `from`, `to`, `linguistic_similarity`, `git_co_changes`, `path_distance` |
-| `file_matrix` | file pair | the same columns as `component_matrix`, for pairs that changed together (`git_co_changes > 0`) only; `linguistic_similarity` and `path_distance` are not recorded for pairs that never did. Not symmetric: a pair can appear once or both ways, so normalise pairs before summing. |
+| `component_matrix` | component pair that changed together, once (`from` < `to`) | `from`, `to`, `linguistic_similarity`, `git_co_changes`, `path_distance` (hops from `from` to `to`, -1 when it does not reach) |
+| `file_matrix` | file pair (*opt-in*, `--file-matrix`) | the same columns as `component_matrix`, for pairs that changed together, both ways round. Co-change per file pair is also in `git_file_shared_commits` (thresholded) and can be counted from `git_commits`. |
 | `unit_connections` | unit-to-unit reference | `from`, `to`, `via` (the import that carried it), `from_component`, `to_component`, `from_file`, `to_file` |
 | `unit_uses` | (unit, module) use | `unit`, `module` |
 | `unresolved_edges` | import that resolved to nothing | `from`, `names`, `file`, `line`, `reason` (`names a module this analysis did not see` or `named by an expression rather than a string`) |
@@ -126,7 +129,7 @@ Java files also carry `java_class` / `java_full_class`.
 
 | Table | One row per | Columns |
 |---|---|---|
-| `git_commits` | (commit, file) | `commit_hash`, `commit_time` (ISO-8601 with offset), `author_name`, `author_email`, `commit_message`, `file`, `component`, `repository`, `file_additions`, `file_deletions`, `path_at_commit` (the file's name in that commit; `file` is its name now), `change_kind` (`modify`, `rename`). Moves are followed: a renamed file's older rows carry its current name. A move that changed no lines is a `rename` row but counts in no commit total and no co-change. A file outside every component has an empty `component`. |
+| `git_commits` | (commit, file); a view over `git_commit_info` (one row per commit: `repository`, `commit_hash`, `commit_time`, `author_name`, `author_email`, `commit_message`) and `git_commit_files` (the rest, `path_at_commit` NULL where it equals `file`). Files written before revision 4 hold it as a table. | `commit_hash`, `commit_time` (ISO-8601 with offset), `author_name`, `author_email`, `commit_message`, `file`, `component`, `repository`, `file_additions`, `file_deletions`, `path_at_commit` (the file's name in that commit; `file` is its name now), `change_kind` (`modify`, `rename`). Moves are followed: a renamed file's older rows carry its current name. A move that changed no lines is a `rename` row but counts in no commit total and no co-change. A file outside every component has an empty `component`. |
 | `git_authors` | author, identities merged by email | `author_name`, `author_email`, `git__*` metrics over the whole history, including files no longer present |
 | `git_component_shared_commits` | component pair | `pair_1`, `pair_2`, `shared_commits`, `percentage_of_all_commits_pair_1`, `percentage_of_all_commits_pair_2`, and the same per `__last_N_days` window. Commits touching more than 100 files are left out of co-change (they stay in `git_commits`). |
 | `git_directory_shared_commits` | directory pair | as above, for pairs sharing at least 2 commits |
@@ -184,11 +187,22 @@ SELECT
     `from` AS SourceComponent,
     `to` AS TargetComponent,
     shortest_path_length AS HopCount,
-    shortest_path AS ExecutionPath
+    next_hop AS FirstStep
 FROM component_connections_indirect
 WHERE `from` LIKE '%core%' 
   AND `to` LIKE '%database%'
 ORDER BY shortest_path_length ASC;
+
+-- The whole route for one pair, step by step:
+WITH RECURSIVE route(step, component) AS (
+    SELECT 0, 'shop.core'
+    UNION ALL
+    SELECT step + 1, i.next_hop
+    FROM route r JOIN component_connections_indirect i
+      ON i.`from` = r.component AND i.`to` = 'shop.database'
+    WHERE r.component <> 'shop.database'
+)
+SELECT component FROM route ORDER BY step;
 ```
 
 ### 4. Locate Dependency Cycles and Circular Rigidity
