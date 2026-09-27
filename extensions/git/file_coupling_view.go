@@ -23,11 +23,7 @@ const (
 )
 
 func (e *extension) fileCouplingViewFactory(results *core.Results) *core.View {
-	inSnapshot := map[string]bool{}
-	for f := range results.FileToComponent {
-		inSnapshot[f] = true
-	}
-	rows := fileCouplingRows(e.couplingParts, inSnapshot, FileCouplingMinShared, FileCouplingMinRatio)
+	rows := fileCouplingRows(e.couplingParts, coChangeCandidates(results), FileCouplingMinShared, FileCouplingMinRatio)
 	return &core.View{
 		Columns: []*core.Column{
 			core.StringColumn(File1),
@@ -38,6 +34,26 @@ func (e *extension) fileCouplingViewFactory(results *core.Results) *core.View {
 		},
 		Rows: rows,
 	}
+}
+
+// coChangeCandidates is the files whose co-change is counted: those in a
+// component, and those that describe building, shipping or running the
+// software. The second half is why this exists. Build files, pipelines and
+// deployment descriptors belong to no component, so they never appeared in a
+// single pair: Fineract's fineract-provider/build.gradle is in 563 commits and
+// was paired with nothing. Other files with no component (documentation,
+// images) are still left out; their pairs say nothing about the design.
+func coChangeCandidates(results *core.Results) map[string]bool {
+	in := make(map[string]bool, len(results.FileToComponent)+len(results.FileSystemKinds))
+	for f := range results.FileToComponent {
+		in[f] = true
+	}
+	for f := range results.FileSystemKinds {
+		if !results.ThirdPartyFiles[f] && !results.GeneratedFiles[f] {
+			in[f] = true
+		}
+	}
+	return in
 }
 
 type filePair struct{ a, b string }

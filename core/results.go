@@ -52,6 +52,10 @@ type Results struct {
 
 	// FileRoles is each file's role; see file.Role.
 	FileRoles map[string]string
+	// FileSystemKinds holds the files that describe building, shipping or
+	// running the software, by kind; see file.SystemKind. Files with no
+	// system kind are absent.
+	FileSystemKinds map[string]string
 
 	FileToComponent map[string]string
 	FileToDirectory map[string]string
@@ -149,7 +153,11 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	thirdParty := map[string]bool{}
 	generated := map[string]bool{}
 	roles := map[string]string{}
+	systemKinds := map[string]string{}
 	for _, fr := range fileResults {
+		if fr.SystemKind != "" {
+			systemKinds[fr.Name] = fr.SystemKind
+		}
 		if fr.ThirdParty {
 			thirdParty[fr.Name] = true
 		}
@@ -251,6 +259,7 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		ThirdPartyFiles:  thirdParty,
 		GeneratedFiles:   generated,
 		FileRoles:        roles,
+		FileSystemKinds:  systemKinds,
 		ModuleToFiles:    moduleToFiles,
 		Modules:          moduleMap,
 
@@ -336,6 +345,9 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer, opts walke
 			currentFileResults.Stats = append(currentFileResults.Stats, &stats.Record{StatType: file.GeneratedFileCount, Value: 1})
 		}
 		currentFileResults.Role = file.Role(theFile.Path(), currentFileResults.ThirdParty, currentFileResults.Generated)
+		if !currentFileResults.ThirdParty {
+			currentFileResults.SystemKind = file.SystemKind(theFile.Path(), theFile.Content())
+		}
 		// Test code counted apart, so a component's size can say how much of
 		// it is tests.
 		if currentFileResults.Role == file.RoleTest {

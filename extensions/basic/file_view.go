@@ -15,7 +15,7 @@ func fileView(results *core.Results) *core.View {
 	statsByFile := getStatsByFile(results)
 	view := util.GenericView(util.GetDistinctColumnsFrom(statsByFile), statsByFile)
 
-	view.Columns = append(view.Columns, []*core.Column{core.StringColumn("directory"), core.StringColumn("component"), core.StringColumn("module"), core.StringColumn("role")}...)
+	view.Columns = append(view.Columns, []*core.Column{core.StringColumn("directory"), core.StringColumn("component"), core.StringColumn("module"), core.StringColumn("role"), core.StringColumn("system_kind")}...)
 	for _, row := range view.Rows {
 		name := row.Data["name"].(string)
 		row.Data["directory"] = results.FileToDirectory[name]
@@ -24,6 +24,9 @@ func fileView(results *core.Results) *core.View {
 		// single-package repositories.
 		row.Data["module"] = results.FileToModule[name]
 		row.Data["role"] = results.FileRoles[name]
+		// Empty for the files that describe no part of building, shipping or
+		// running the software -- most of them.
+		row.Data["system_kind"] = results.FileSystemKinds[name]
 	}
 	view.Columns = lo.Filter(view.Columns, func(c *core.Column, _ int) bool {
 		return c.Name != file.FileCount

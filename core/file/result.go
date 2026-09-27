@@ -21,4 +21,7 @@ type Results struct {
 	Generated bool
 	// Role is production, test, generated, third_party or non_code; see Role.
 	Role string
+	// SystemKind is build, lockfile, ci, container, deploy, infra, config or
+	// empty; see SystemKind.
+	SystemKind string
 }
