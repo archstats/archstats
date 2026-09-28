@@ -45,6 +45,16 @@ type Module struct {
 	// android-library, kotlin-multiplatform, build-logic. Empty when the
 	// manifest does not say, which for most ecosystems is always.
 	Type string
+	// The files the manifest lists one by one, where it does: an Xcode
+	// target's Sources build phase. They belong to this module whatever
+	// directory they are in, and a file two targets list belongs to the
+	// first.
+	Files []string
+	// Further directories the module owns beside Dir: an Xcode target
+	// synchronised with several folders. IceCubesApp's app target owns
+	// IceCubesApp/, IceCubesAppIntents/ and AlternateIcons/, whose common
+	// parent is the whole repository.
+	Dirs []string
 }
 
 // Map answers which module owns a file, and what the project declared.
@@ -54,6 +64,14 @@ type Map struct {
 	// composer.json; the bundle is the right answer for its files.
 	modules []*Module
 	byName  map[string]*Module
+	byFile  map[string]*Module
+	// Every directory a module owns, Dir and Dirs alike, longest first.
+	owned []ownedDir
+}
+
+type ownedDir struct {
+	dir string
+	mod *Module
 }
 
 // A Reader turns one manifest into the modules it declares.
@@ -83,6 +101,8 @@ var Readers = []Reader{
 	mavenReader{},
 	goReader{},
 	djangoReader{},
+	swiftpmReader{},
+	xcodeReader{},
 }
 
 // skipDir keeps the walk to a project's own source. Shared with the JS alias
@@ -170,9 +190,23 @@ func (m *Map) index() {
 	sort.SliceStable(m.modules, func(i, j int) bool {
 		return len(m.modules[i].Dir) > len(m.modules[j].Dir)
 	})
+	m.byFile = map[string]*Module{}
+	m.owned = nil
+	for _, mod := range m.modules {
+		m.owned = append(m.owned, ownedDir{mod.Dir, mod})
+		for _, d := range mod.Dirs {
+			m.owned = append(m.owned, ownedDir{d, mod})
+		}
+	}
+	sort.SliceStable(m.owned, func(i, j int) bool { return len(m.owned[i].dir) > len(m.owned[j].dir) })
 	for _, mod := range m.modules {
 		if _, taken := m.byName[mod.Name]; !taken {
 			m.byName[mod.Name] = mod
+		}
+		for _, f := range mod.Files {
+			if _, taken := m.byFile[f]; !taken {
+				m.byFile[f] = mod
+			}
 		}
 	}
 }
@@ -180,12 +214,15 @@ func (m *Map) index() {
 // Of returns the module owning a repo-relative file path, or nil.
 func (m *Map) Of(filePath string) *Module {
 	filePath = filepath.ToSlash(filePath)
-	for _, mod := range m.modules {
-		if mod.Dir == "" {
-			return mod
+	if mod := m.byFile[strings.TrimPrefix(filePath, "./")]; mod != nil {
+		return mod
+	}
+	for _, o := range m.owned {
+		if o.dir == "" {
+			return o.mod
 		}
-		if filePath == mod.Dir || strings.HasPrefix(filePath, mod.Dir+"/") {
-			return mod
+		if filePath == o.dir || strings.HasPrefix(filePath, o.dir+"/") {
+			return o.mod
 		}
 	}
 	return nil
