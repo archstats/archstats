@@ -295,3 +295,95 @@ func resolveGradleAccessors(m *Map) {
 		mod.DependsOn = uniq
 	}
 }
+
+var (
+	gradlePluginID = regexp.MustCompile(`\bid\s*\(?\s*["']([^"']+)["']|\bid\s*\(\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\)|alias\s*\(\s*libs\.plugins\.([A-Za-z0-9_.]+)\s*\)|` + "`" + `([a-z0-9.-]+)` + "`" + `|kotlin\s*\(\s*["']([^"']+)["']`)
+	camelBoundary  = regexp.MustCompile(`([a-z0-9])([A-Z])`)
+	nonWord        = regexp.MustCompile(`[^a-z0-9]+`)
+)
+
+// gradlePluginIDs is every plugin a build script applies, as written:
+// `com.android.library`, `signal-library`, `nowinandroid.android.feature`,
+// or a constant such as `ThunderbirdPlugins.App.androidCompose`.
+func gradlePluginIDs(raw string) []string {
+	var ids []string
+	for _, block := range gradlePluginsBlock.FindAllStringSubmatch(raw, -1) {
+		for _, m := range gradlePluginID.FindAllStringSubmatch(block[1]+block[2], -1) {
+			for _, g := range m[1:] {
+				if g != "" {
+					ids = appendUnique(ids, g)
+				}
+			}
+		}
+	}
+	return ids
+}
+
+// typeGradleConventions types the Gradle modules whose plugins name no
+// platform in so many words. Two conventions account for the rest:
+//
+//   - A precompiled script plugin, `build-logic/.../signal-library.gradle.kts`,
+//     which is itself a build script applying com.android.library. Signal's
+//     modules all apply one; none was typed.
+//   - A constant naming the plugin, `id(ThunderbirdPlugins.App.androidCompose)`,
+//     whose words are the platform's once split at the capitals. Thunderbird
+//     applies its 152 modules' plugins this way.
+func typeGradleConventions(m *Map, root string, paths []string) {
+	scripts := map[string]string{} // plugin id -> script path
+	for _, p := range paths {
+		base := filepath.Base(p)
+		for _, suffix := range []string{".gradle.kts", ".gradle"} {
+			if strings.HasSuffix(base, suffix) && base != "build"+suffix && base != "settings"+suffix {
+				scripts[strings.TrimSuffix(base, suffix)] = p
+			}
+		}
+	}
+	var typeOf func(raw string, depth int) string
+	typeOf = func(raw string, depth int) string {
+		if t := gradleModuleType(raw); t != "" {
+			return t
+		}
+		ids := gradlePluginIDs(raw)
+		if depth < 3 {
+			for _, id := range ids {
+				if script, ok := scripts[id]; ok {
+					if content, ok := readFile(filepath.Join(root, filepath.FromSlash(script))); ok {
+						if t := typeOf(content, depth+1); t != "" {
+							return t
+						}
+					}
+				}
+			}
+		}
+		return typeFromWords(ids)
+	}
+	for _, mod := range m.modules {
+		if mod.Kind != "gradle" || mod.Type != "" {
+			continue
+		}
+		if raw, ok := readFile(filepath.Join(root, filepath.FromSlash(mod.Manifest))); ok {
+			mod.Type = typeOf(raw, 0)
+		}
+	}
+}
+
+// typeFromWords reads a platform from plugin names split into words.
+func typeFromWords(ids []string) string {
+	for _, id := range ids {
+		words := map[string]bool{}
+		for _, w := range nonWord.Split(strings.ToLower(camelBoundary.ReplaceAllString(id, "$1.$2")), -1) {
+			words[w] = true
+		}
+		switch {
+		case words["kmp"] || words["multiplatform"]:
+			return "kotlin-multiplatform"
+		case words["android"] && (words["app"] || words["application"]):
+			return "android-application"
+		case words["android"] && (words["library"] || words["lib"] || words["feature"] || words["module"]):
+			return "android-library"
+		case words["android"] && words["test"]:
+			return "android-test"
+		}
+	}
+	return ""
+}

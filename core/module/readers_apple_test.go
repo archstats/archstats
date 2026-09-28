@@ -138,3 +138,28 @@ func TestPub(t *testing.T) {
 	assert.Equal(t, "dart-package", m.ByName("openapi").Type)
 	assert.Equal(t, "openapi", m.NameOf("mobile/openapi/lib/api.dart"))
 }
+
+// Signal applies precompiled script plugins; Thunderbird names its plugins
+// through constants. Neither says "android" where the plugin is applied.
+func TestGradle_ConventionPluginTypes(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "settings.gradle.kts", ``)
+	writeFile(t, root, "build-logic/plugins/src/main/java/signal-library.gradle.kts", "plugins {\n  id(\"com.android.library\")\n  id(\"kotlin-android\")\n}\n")
+	writeFile(t, root, "core/util/build.gradle.kts", "plugins {\n  id(\"signal-library\")\n  id(\"kotlin-parcelize\")\n}\n")
+	writeFile(t, root, "app-thunderbird/build.gradle.kts", "plugins {\n    id(ThunderbirdPlugins.App.androidCompose)\n}\n")
+	writeFile(t, root, "feature/mail/build.gradle.kts", "plugins {\n    id(ThunderbirdPlugins.Library.androidCompose)\n}\n")
+	writeFile(t, root, "core/common/build.gradle.kts", "plugins {\n    id(ThunderbirdPlugins.Library.kmp)\n}\n")
+	m := Read(root)
+	typeOf := func(dir string) string {
+		for _, mod := range m.Modules() {
+			if mod.Dir == dir {
+				return mod.Type
+			}
+		}
+		return "(missing)"
+	}
+	assert.Equal(t, "android-library", typeOf("core/util"))
+	assert.Equal(t, "android-application", typeOf("app-thunderbird"))
+	assert.Equal(t, "android-library", typeOf("feature/mail"))
+	assert.Equal(t, "kotlin-multiplatform", typeOf("core/common"))
+}

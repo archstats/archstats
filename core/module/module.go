@@ -149,6 +149,7 @@ func ReadFrom(root string, paths []string) *Map {
 	}
 	m.index()
 	resolveGradleAccessors(m)
+	typeGradleConventions(m, root, paths)
 	return m
 }
 
