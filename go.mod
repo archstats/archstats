@@ -27,7 +27,7 @@ require (
 )
 
 require (
-	github.com/UserNobody14/tree-sitter-dart v0.0.0-20260707040301-be07cf7118d3 // indirect
+	github.com/UserNobody14/tree-sitter-dart v0.0.0-20251003151139-c8e7cbbd1589 // indirect
 	github.com/alex-pinkus/tree-sitter-swift v0.0.0-20260601004120-31d17fe7e818 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

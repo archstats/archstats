@@ -16,6 +16,7 @@ import (
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/archstats/archstats/extensions/rules"
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
+	"github.com/archstats/archstats/extensions/treesitter/dart"
 	"github.com/archstats/archstats/extensions/treesitter/golang"
 	"github.com/archstats/archstats/extensions/treesitter/java"
 	"github.com/archstats/archstats/extensions/treesitter/javascript"
@@ -89,6 +90,11 @@ func Optional() []*config.CLIConfiguredExtension {
 		return ctx.HasFileExtension(".m") || ctx.HasFileExtension(".mm")
 	}
 
+	dartExt := config.CreateEmptyCLIExtension("dart", &dart.Extension{})
+	dartExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".dart")
+	}
+
 	extensions := []*config.CLIConfiguredExtension{
 		gitExt,
 		javaExt,
@@ -101,6 +107,7 @@ func Optional() []*config.CLIConfiguredExtension {
 		phpExt,
 		swiftExt,
 		objcExt,
+		dartExt,
 		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {

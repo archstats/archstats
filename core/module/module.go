@@ -103,6 +103,7 @@ var Readers = []Reader{
 	djangoReader{},
 	swiftpmReader{},
 	xcodeReader{},
+	pubReader{},
 }
 
 // skipDir keeps the walk to a project's own source. Shared with the JS alias
