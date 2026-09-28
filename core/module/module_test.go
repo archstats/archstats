@@ -249,3 +249,61 @@ func writeFile(t *testing.T, root, rel, content string) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
 	require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
 }
+
+// nowinandroid: 36 build scripts, nested two and three deep, depending on each
+// other through type-safe accessors and applying convention plugins. Named by
+// their last directory, its feature modules were all called "impl" and "api";
+// read with `project(":x")` only, not one of its dependencies was declared.
+func TestGradle_ProjectPathsAccessorsAndTypes(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "settings.gradle.kts", `include(":app")`)
+	writeFile(t, root, "build.gradle.kts", `plugins { alias(libs.plugins.android.application) apply false }`)
+	writeFile(t, root, "app/build.gradle.kts", `plugins {
+    alias(libs.plugins.nowinandroid.android.application)
+    alias(libs.plugins.nowinandroid.hilt)
+}
+dependencies {
+    implementation(projects.feature.foryou.impl)
+    implementation(projects.core.designsystem)
+    testImplementation(projects.core.dataTest)
+    androidTestImplementation(libs.androidx.test.core)
+}`)
+	writeFile(t, root, "feature/foryou/impl/build.gradle.kts", `plugins { alias(libs.plugins.nowinandroid.android.feature.impl) }
+dependencies { implementation(projects.core.data) }`)
+	writeFile(t, root, "feature/bookmarks/impl/build.gradle.kts", `plugins { id("nowinandroid.android.feature.impl") }`)
+	writeFile(t, root, "core/data/build.gradle.kts", `plugins { id("nowinandroid.android.library") }`)
+	writeFile(t, root, "core/data-test/build.gradle.kts", `plugins { id("nowinandroid.android.library") }
+dependencies { api(project(":core:data")) }`)
+	writeFile(t, root, "shared/build.gradle.kts", `plugins { kotlin("multiplatform"); id("com.android.library") }`)
+	writeFile(t, root, "legacy/build.gradle", "apply plugin: 'com.android.application'\ndependencies { implementation project(':core:data') }")
+	writeFile(t, root, "build-logic/settings.gradle.kts", `rootProject.name = "build-logic"`)
+	writeFile(t, root, "build-logic/convention/build.gradle.kts", "plugins { `kotlin-dsl` }")
+
+	m := Read(root)
+	byDir := map[string]*Module{}
+	for _, mod := range m.Modules() {
+		byDir[mod.Dir] = mod
+	}
+	name := func(dir string) string {
+		require.Containsf(t, byDir, dir, "%s is missing", dir)
+		return byDir[dir].Name
+	}
+	assert.Equal(t, "app", name("app"))
+	assert.Equal(t, "feature:foryou:impl", name("feature/foryou/impl"), "named by project path, not the last directory")
+	assert.Equal(t, "feature:bookmarks:impl", name("feature/bookmarks/impl"))
+	assert.Equal(t, "core:data-test", name("core/data-test"))
+	assert.Equal(t, "convention", name("build-logic/convention"), "an included build's own settings file is its root")
+
+	assert.ElementsMatch(t, []string{"feature:foryou:impl", "core:designsystem", "core:data-test"}, byDir["app"].DependsOn,
+		"type-safe accessors resolve, camel case back to the kebab-case directory")
+	assert.Equal(t, []string{"core:data"}, byDir["feature/foryou/impl"].DependsOn)
+	assert.Equal(t, []string{"core:data"}, byDir["core/data-test"].DependsOn, "a nested project() path keeps every segment")
+	assert.Equal(t, []string{"core:data"}, byDir["legacy"].DependsOn)
+
+	assert.Equal(t, "android-application", byDir["app"].Type)
+	assert.Equal(t, "android-application", byDir["legacy"].Type)
+	assert.Equal(t, "android-library", byDir["feature/foryou/impl"].Type, "a convention plugin says what it applies")
+	assert.Equal(t, "android-library", byDir["core/data"].Type)
+	assert.Equal(t, "kotlin-multiplatform", byDir["shared"].Type)
+	assert.Equal(t, "build-logic", byDir["build-logic/convention"].Type)
+}

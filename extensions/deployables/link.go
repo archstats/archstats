@@ -278,6 +278,14 @@ func (b *builder) read() {
 				if dirOf(f) == "." {
 					name = ""
 				}
+				// The module map's name is the project path
+				// (`feature:foryou:impl`); a deployable must name its module
+				// the same way or the two never join.
+				if b.in.Modules != nil {
+					if mod := b.in.Modules.Of(f); mod != nil && mod.Dir == dirOf(f) && mod.Kind == "gradle" {
+						name = mod.Name
+					}
+				}
 				if name != "" {
 					b.gradles = append(b.gradles, readGradle(f, content, name))
 				}

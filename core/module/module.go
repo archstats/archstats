@@ -41,6 +41,10 @@ type Module struct {
 	// used. Not every ecosystem records these, and a name here need not
 	// belong to this project.
 	DependsOn []string
+	// What the module builds, where the manifest says: android-application,
+	// android-library, kotlin-multiplatform, build-logic. Empty when the
+	// manifest does not say, which for most ecosystems is always.
+	Type string
 }
 
 // Map answers which module owns a file, and what the project declared.
@@ -123,6 +127,7 @@ func ReadFrom(root string, paths []string) *Map {
 		}
 	}
 	m.index()
+	resolveGradleAccessors(m)
 	return m
 }
 
