@@ -22,6 +22,7 @@ import (
 	"github.com/archstats/archstats/extensions/treesitter/kotlin"
 	"github.com/archstats/archstats/extensions/treesitter/php"
 	"github.com/archstats/archstats/extensions/treesitter/python"
+	"github.com/archstats/archstats/extensions/treesitter/swift"
 	"github.com/archstats/archstats/extensions/treesitter/typescript"
 	"github.com/gobwas/glob"
 )
@@ -75,6 +76,11 @@ func Optional() []*config.CLIConfiguredExtension {
 		return ctx.HasFileExtension(".php")
 	}
 
+	swiftExt := config.CreateEmptyCLIExtension("swift", &swift.Extension{})
+	swiftExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".swift")
+	}
+
 	extensions := []*config.CLIConfiguredExtension{
 		gitExt,
 		javaExt,
@@ -85,6 +91,7 @@ func Optional() []*config.CLIConfiguredExtension {
 		pythonExt,
 		goExt,
 		phpExt,
+		swiftExt,
 		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {
