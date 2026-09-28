@@ -8,6 +8,7 @@ import (
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
+	"path/filepath"
 	"strings"
 )
 
@@ -30,11 +31,22 @@ func TwoTabs() *Extension {
 	}
 }
 
+// Detected reads each file's indentation from the project, then the file.
+func Detected() *Extension {
+	return &Extension{}
+}
+
 //go:embed definitions/**
 var defs embed.FS
 
 type Extension struct {
+	// SpacesInTab is the spaces that make one level in every file. 0 reads it
+	// per file: the project's Prettier config or .editorconfig first, the
+	// file's own indentation after that, tabWidth when neither says.
 	SpacesInTab int
+
+	root    string
+	project *projectSettings
 }
 
 func (i *Extension) typeAssertions() (core.Extension, core.FileAnalyzer) {
@@ -42,6 +54,10 @@ func (i *Extension) typeAssertions() (core.Extension, core.FileAnalyzer) {
 }
 
 func (i *Extension) Init(settings core.Analyzer) error {
+	if root, err := filepath.Abs(settings.RootPath()); err == nil {
+		i.root = root
+	}
+	i.project = newProjectSettings()
 	defs, err := definitions.LoadYamlFiles(defs)
 	if err != nil {
 		return err
@@ -108,6 +124,7 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	var lineCount int
 	var volatility int
 	var lastIndentation int = -1
+	width := i.widthFor(theFile)
 
 	for {
 		line, err := fileReader.ReadBytes('\n')
@@ -115,7 +132,7 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 			trimmed := strings.TrimSpace(string(line))
 			if trimmed != "" {
 				lineCount++
-				indentation := i.getLeadingIndentation(line)
+				indentation := leadingIndentation(line, width)
 				totalIndentation += indentation
 				if indentation > maxIndentations {
 					maxIndentations = indentation
@@ -165,16 +182,37 @@ type indentationStat struct {
 	lines       int
 }
 
-func (i *Extension) getLeadingIndentation(line []byte) int {
-	lineTabs := strings.ReplaceAll(string(line), strings.Repeat(" ", i.SpacesInTab), "\t")
-	indentation := 0
-	for _, char := range lineTabs {
-		if char == '\t' {
-			indentation++
-		} else {
-			break
+// widthFor is the spaces that make one level in theFile. Codebases differ:
+// Go indents with tabs, most TypeScript with two spaces, most Java with four.
+// Read with one fixed width, a two-space file came out half as deep as it is.
+func (i *Extension) widthFor(theFile file.File) int {
+	if i.SpacesInTab > 0 {
+		return i.SpacesInTab
+	}
+	if i.project != nil && i.root != "" && theFile.Path() != "" {
+		if w, ok := i.project.width(filepath.Join(i.root, filepath.FromSlash(theFile.Path()))); ok {
+			return w
 		}
 	}
+	if w, ok := detectWidth(theFile.Content()); ok {
+		return w
+	}
+	return tabWidth
+}
 
-	return indentation
+// leadingIndentation counts a line's levels: one per tab, one per width
+// spaces.
+func leadingIndentation(line []byte, width int) int {
+	tabs, spaces := 0, 0
+	for _, c := range line {
+		switch c {
+		case '\t':
+			tabs++
+		case ' ':
+			spaces++
+		default:
+			return tabs + spaces/width
+		}
+	}
+	return tabs + spaces/width
 }

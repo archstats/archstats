@@ -30,7 +30,7 @@ func TestIndentationLogic(t *testing.T) {
 	ext := FourTabs()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, ext.getLeadingIndentation([]byte(test.in)), test.want)
+			assert.Equal(t, test.want, leadingIndentation([]byte(test.in), ext.SpacesInTab))
 		})
 	}
 }

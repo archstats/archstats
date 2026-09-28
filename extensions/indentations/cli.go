@@ -17,8 +17,8 @@ func CLIExtension() *config.CLIConfiguredExtension {
 		Description: "Indentations extension",
 		Arguments: config.Arguments{
 			IndentationSize: {
-				Default:     4,
-				Description: "Indentation size, 4 or 2.",
+				Default:     0,
+				Description: "Spaces per indentation level. 0 reads it per file: Prettier config or .editorconfig, then the file's own indentation.",
 				Required:    false,
 				Type:        config.Int,
 			},
@@ -32,8 +32,8 @@ func Init(command *cobra.Command) (core.Extension, error) {
 	if err != nil {
 		return nil, err
 	}
-	if indentationSize != 4 && indentationSize != 2 {
-		return nil, fmt.Errorf("indentation size must be '4' or '2'")
+	if indentationSize < 0 || indentationSize > 8 {
+		return nil, fmt.Errorf("indentation size must be between 0 (detect) and 8")
 	}
 	return &Extension{SpacesInTab: indentationSize}, nil
 }
