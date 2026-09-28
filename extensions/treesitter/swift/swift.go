@@ -14,6 +14,7 @@ import (
 	swift "github.com/alex-pinkus/tree-sitter-swift/bindings/go"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/extensions/treesitter/apple"
 	"github.com/archstats/archstats/extensions/treesitter/common"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
@@ -22,7 +23,7 @@ type Extension struct{}
 
 func (e *Extension) Init(settings core.Analyzer) error {
 	settings.RegisterFileAnalyzer(&swiftAnalyzer{lp: createSwiftLanguagePack()})
-	settings.RegisterFileResultsEditor(&linker{root: settings.RootPath()})
+	settings.RegisterFileResultsEditor(&apple.Linker{Root: settings.RootPath()})
 	return nil
 }
 

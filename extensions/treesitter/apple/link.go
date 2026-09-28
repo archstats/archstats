@@ -1,7 +1,6 @@
-package swift
+package apple
 
 import (
-	"sort"
 	"strings"
 
 	"github.com/archstats/archstats/core/file"
@@ -9,9 +8,11 @@ import (
 	"github.com/archstats/archstats/core/unit"
 )
 
-// The linker runs once every file is parsed, and does what no single Swift
-// file can: say which target it is in, and so which declarations its names
-// mean.
+// Linker runs once every file is parsed, and does what no single Swift or
+// Objective-C file can: say which target it is in, and so which declarations
+// its names mean. Both languages share a target's namespace -- Swift sees the
+// Objective-C a bridging header exposes, Objective-C the Swift its -Swift.h
+// generates -- so they are resolved together.
 //
 //   - A file's target is the SwiftPM or Xcode target that owns it. A file no
 //     manifest claims is filed under its top-level folder, which is what an
@@ -26,9 +27,10 @@ import (
 //     component edge comes from.
 //
 // It runs after the component linker, which is registered before any
-// language pack, so the edges it adds are not resolved a second time.
-type linker struct {
-	root string
+// language pack, so the edges it adds are not resolved a second time. Both
+// packs register it; the second run finds nothing left to do.
+type Linker struct {
+	Root string
 }
 
 type declared struct {
@@ -36,37 +38,37 @@ type declared struct {
 	component string
 }
 
-func (l *linker) EditFileResults(all []*file.Results) {
-	var swiftFiles []*file.Results
+func (l *Linker) EditFileResults(all []*file.Results) {
+	var sources []*file.Results
 	var names []string
 	for _, fr := range all {
 		names = append(names, strings.TrimPrefix(fr.Name, "./"))
-		if strings.HasSuffix(fr.Name, ".swift") {
-			swiftFiles = append(swiftFiles, fr)
+		if IsAppleSource(fr.Name) && hasPlaceholder(fr) {
+			sources = append(sources, fr)
 		}
 	}
-	if len(swiftFiles) == 0 {
+	if len(sources) == 0 {
 		return
 	}
-	mods := module.ReadFrom(l.root, names)
+	mods := module.ReadFrom(l.Root, names)
 	targetOf := map[*file.Results]string{}
-	for _, fr := range swiftFiles {
+	for _, fr := range sources {
 		targetOf[fr] = target(mods, fr.Name)
 	}
 
 	// What each target declares, by name: nested types by their full name
 	// (`Outer.Inner`) and by their own.
 	index := map[string]map[string]declared{}
-	for _, fr := range swiftFiles {
+	for _, fr := range sources {
 		t := targetOf[fr]
 		if index[t] == nil {
 			index[t] = map[string]declared{}
 		}
 		for _, u := range fr.Units {
-			if u.Kind != unit.KindType || isExtension(u) {
+			if u.Kind != unit.KindType || IsExtension(u) {
 				continue
 			}
-			full := strings.TrimPrefix(u.ID, placeholder+"#")
+			full := strings.TrimPrefix(u.ID, Placeholder+"#")
 			d := declared{id: t + "#" + full, component: fr.Directory}
 			// A nested type answers only to its full name. isowords declares
 			// 27 types called State, one inside each reducer; by its own name
@@ -76,6 +78,38 @@ func (l *linker) EditFileResults(all []*file.Results) {
 			}
 		}
 	}
+	// Headers by file name, for `#import "X.h"`: Xcode searches a target's
+	// headers by name, whatever folder they are in.
+	headers := map[string][]*file.Results{}
+	for _, fr := range all {
+		if strings.HasSuffix(fr.Name, ".h") {
+			base := fr.Name[strings.LastIndex(fr.Name, "/")+1:]
+			headers[base] = append(headers[base], fr)
+		}
+	}
+	header := func(from *file.Results, written string) string {
+		base := written[strings.LastIndex(written, "/")+1:]
+		var sameTarget, suffix []*file.Results
+		for _, h := range headers[base] {
+			if strings.Contains(written, "/") && !strings.HasSuffix(h.Name, "/"+written) {
+				continue
+			}
+			suffix = append(suffix, h)
+			if targetOf[h] == targetOf[from] {
+				sameTarget = append(sameTarget, h)
+			}
+		}
+		switch {
+		case len(sameTarget) == 1:
+			return sameTarget[0].Directory
+		case len(sameTarget) == 0 && len(suffix) == 1:
+			return suffix[0].Directory
+		}
+		// Two headers of that name and nothing to choose between them: no
+		// edge, rather than a guessed one.
+		return ""
+	}
+
 	lookup := func(fr *file.Results, imports []string, name string) (declared, string, bool) {
 		t := targetOf[fr]
 		if d, ok := index[t][name]; ok {
@@ -89,7 +123,7 @@ func (l *linker) EditFileResults(all []*file.Results) {
 		return declared{}, "", false
 	}
 
-	for _, fr := range swiftFiles {
+	for _, fr := range sources {
 		t := targetOf[fr]
 		var imports []string
 		for _, s := range fr.Snippets {
@@ -98,26 +132,26 @@ func (l *linker) EditFileResults(all []*file.Results) {
 			}
 		}
 		rename := func(id string) string {
-			if strings.HasPrefix(id, placeholder+"#") {
-				return t + "#" + strings.TrimPrefix(id, placeholder+"#")
+			if strings.HasPrefix(id, Placeholder+"#") {
+				return t + "#" + strings.TrimPrefix(id, Placeholder+"#")
 			}
 			return id
 		}
 		var units []*unit.Unit
 		for _, u := range fr.Units {
-			if isExtension(u) {
+			if IsExtension(u) {
 				// More of a type declared in this target: the same unit, so
 				// it takes that type's ID and loses the extension keyword. A
 				// type from elsewhere (View, String) is not this target's to
 				// declare; its extension adds members, which keep it as
 				// their owner.
-				full := strings.TrimPrefix(u.ID, placeholder+"#")
+				full := strings.TrimPrefix(u.ID, Placeholder+"#")
 				if _, ok := index[t][full]; !ok {
 					continue
 				}
 				var markers []unit.Marker
 				for _, m := range u.Markers {
-					if !(m.Source == sourceKeyword && m.Key == "extension") {
+					if !(m.Source == SourceKeyword && m.Key == "extension") {
 						markers = append(markers, m)
 					}
 				}
@@ -127,7 +161,7 @@ func (l *linker) EditFileResults(all []*file.Results) {
 			u.Owner = rename(u.Owner)
 			var refs []unit.Ref
 			for _, r := range u.Refs {
-				if r.Module != placeholder {
+				if r.Module != Placeholder {
 					refs = append(refs, r)
 					continue
 				}
@@ -146,15 +180,23 @@ func (l *linker) EditFileResults(all []*file.Results) {
 		kept := fr.Snippets[:0]
 		var edges []*file.Snippet
 		for _, s := range fr.Snippets {
-			if s.Type != captureRef {
+			var to string
+			switch s.Type {
+			case CaptureRef:
+				if d, _, ok := lookup(fr, imports, s.Value); ok {
+					to = d.component
+				}
+			case CaptureInclude:
+				to = header(fr, s.Value)
+			default:
 				kept = append(kept, s)
 				continue
 			}
-			d, _, ok := lookup(fr, imports, s.Value)
-			if !ok || d.component == fr.Directory || d.component == "" || reached[d.component] {
+			if to == fr.Directory || to == "" || reached[to] {
 				continue
 			}
-			reached[d.component] = true
+			reached[to] = true
+			d := declared{component: to}
 			edges = append(edges, &file.Snippet{
 				File: s.File, Directory: fr.Directory, Component: s.Component,
 				Type: file.ComponentImport, Value: d.component, Begin: s.Begin, End: s.End,
@@ -165,9 +207,9 @@ func (l *linker) EditFileResults(all []*file.Results) {
 	}
 }
 
-func isExtension(u *unit.Unit) bool {
+func IsExtension(u *unit.Unit) bool {
 	for _, m := range u.Markers {
-		if m.Source == sourceKeyword && m.Key == "extension" {
+		if m.Source == SourceKeyword && m.Key == "extension" {
 			return true
 		}
 	}
@@ -188,12 +230,42 @@ func target(mods *module.Map, name string) string {
 	return "."
 }
 
-// sortedKeys is for tests and diagnostics.
-func sortedKeys[V any](m map[string]V) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
+// Placeholder stands for the target in unit IDs and references until the
+// linker knows it.
+const Placeholder = "\x00apple"
+
+// CaptureRef is every capitalised name a file mentions, kept on the file's
+// results for the linker, which turns them into component edges and
+// removes them.
+const CaptureRef = "apple__ref"
+
+// CaptureInclude is an Objective-C `#import "X.h"`, resolved by the linker to
+// the directory holding that header.
+const CaptureInclude = "apple__include"
+
+// SourceKeyword marks what a type was declared as: class, struct, enum,
+// actor, protocol, or extension for a type a file only extends.
+const SourceKeyword = "keyword"
+
+func IsAppleSource(name string) bool {
+	for _, ext := range []string{".swift", ".m", ".mm", ".h"} {
+		if strings.HasSuffix(name, ext) {
+			return true
+		}
 	}
-	sort.Strings(out)
-	return out
+	return false
+}
+
+func hasPlaceholder(fr *file.Results) bool {
+	for _, u := range fr.Units {
+		if strings.HasPrefix(u.ID, Placeholder) {
+			return true
+		}
+	}
+	for _, s := range fr.Snippets {
+		if s.Type == CaptureRef || s.Type == CaptureInclude {
+			return true
+		}
+	}
+	return false
 }

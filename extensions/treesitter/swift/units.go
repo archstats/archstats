@@ -7,6 +7,7 @@ import (
 
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/unit"
+	"github.com/archstats/archstats/extensions/treesitter/apple"
 	"github.com/archstats/archstats/extensions/treesitter/common"
 )
 
@@ -19,9 +20,7 @@ import (
 // file. It is read as more of the type it extends: its methods belong to
 // that type, and its conformances are that type's supertypes.
 
-// placeholder stands for the target in unit IDs and references until the
-// linker knows it.
-const placeholder = "\x00swift"
+const placeholder = apple.Placeholder
 
 const (
 	captureClass     = "swift__class"
@@ -40,9 +39,7 @@ const (
 	// A generic parameter's name: `Content` in `struct Row<Content: View>`
 	// is no type of the codebase's, whatever else is called Content.
 	captureGeneric = "swift__generic"
-	// Every capitalised name a file mentions, kept on the file's results for
-	// the linker, which turns them into component edges and removes them.
-	captureRef = "swift__ref"
+	captureRef     = apple.CaptureRef
 )
 
 var keywordOf = map[string]string{
@@ -285,9 +282,7 @@ func unitsFrom(path string, snippets []*file.Snippet) []*unit.Unit {
 	return out
 }
 
-// sourceKeyword marks what a Swift type was declared as: class, struct,
-// enum, actor, protocol, or extension for a type this file only extends.
-const sourceKeyword = "keyword"
+const sourceKeyword = apple.SourceKeyword
 
 func addMarker(u *unit.Unit, source, key string) {
 	if key == "" {

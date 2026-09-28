@@ -7,6 +7,7 @@ import (
 
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/unit"
+	"github.com/archstats/archstats/extensions/treesitter/apple"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -88,7 +89,7 @@ func analyse(t *testing.T) (map[string]*file.Results, map[string]*unit.Unit) {
 	}
 	// Every walked file has results, the manifest among them.
 	all = append(all, &file.Results{Name: "./Package.swift", Directory: "."})
-	(&linker{root: root}).EditFileResults(all)
+	(&apple.Linker{Root: root}).EditFileResults(all)
 	units := map[string]*unit.Unit{}
 	for _, fr := range all {
 		for _, u := range fr.Units {

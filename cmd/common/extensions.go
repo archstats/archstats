@@ -20,6 +20,7 @@ import (
 	"github.com/archstats/archstats/extensions/treesitter/java"
 	"github.com/archstats/archstats/extensions/treesitter/javascript"
 	"github.com/archstats/archstats/extensions/treesitter/kotlin"
+	"github.com/archstats/archstats/extensions/treesitter/objc"
 	"github.com/archstats/archstats/extensions/treesitter/php"
 	"github.com/archstats/archstats/extensions/treesitter/python"
 	"github.com/archstats/archstats/extensions/treesitter/swift"
@@ -81,6 +82,13 @@ func Optional() []*config.CLIConfiguredExtension {
 		return ctx.HasFileExtension(".swift")
 	}
 
+	// Headers alone are C as often as Objective-C; an implementation file
+	// says which.
+	objcExt := config.CreateEmptyCLIExtension("objc", &objc.Extension{})
+	objcExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".m") || ctx.HasFileExtension(".mm")
+	}
+
 	extensions := []*config.CLIConfiguredExtension{
 		gitExt,
 		javaExt,
@@ -92,6 +100,7 @@ func Optional() []*config.CLIConfiguredExtension {
 		goExt,
 		phpExt,
 		swiftExt,
+		objcExt,
 		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {
