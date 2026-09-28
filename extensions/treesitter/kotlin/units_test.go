@@ -269,3 +269,11 @@ func TestAnnotationsBelongToTheirOwnDeclaration(t *testing.T) {
 
 	assert.Empty(t, byID["org.acme.feature.NiaButtonDefaults"].Markers, "nothing leaks onto the next declaration")
 }
+
+func TestExpectAndActualAreKeywords(t *testing.T) {
+	byID := unitsIn(t, "shared/src/commonMain/kotlin/Platform.kt", "package app\nexpect class Platform()\nexpect fun platformName(): String\n")
+	assert.True(t, byID["app.Platform"].HasMarker("expect"))
+	assert.True(t, byID["app.platformName"].HasMarker("expect"))
+	actual := unitsIn(t, "shared/src/iosMain/kotlin/Platform.ios.kt", "package app\nactual class Platform actual constructor()\n")
+	assert.True(t, actual["app.Platform"].HasMarker("actual"))
+}

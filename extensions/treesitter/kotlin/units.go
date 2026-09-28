@@ -26,10 +26,14 @@ const (
 	captureReceiver   = "kt__function__receiver"
 	captureSupertype  = "kt__supertype"
 	captureAnnotation = "kt__annotation"
-	captureDeclSpan   = "kt__declaration__span"
-	captureTypeSpan   = "kt__type__span"
-	capturePackage    = "kt__package"
-	captureImport     = "kt__import"
+	// `expect` or `actual`: Kotlin Multiplatform's declaration in common code
+	// and its implementation per platform. Both have the same qualified name,
+	// so they fold into one unit whose files span the source sets.
+	capturePlatform = "kt__platform"
+	captureDeclSpan = "kt__declaration__span"
+	captureTypeSpan = "kt__type__span"
+	capturePackage  = "kt__package"
+	captureImport   = "kt__import"
 	// What a declaration mentions, for references to its own package and to
 	// star imports, which no import line names; and the headers whose names
 	// are not uses.
@@ -70,6 +74,9 @@ func unitQueries() []string {
 		`(class_declaration (primary_constructor (modifiers (annotation) @` + captureAnnotation + `)))`,
 		`(object_declaration (modifiers (annotation) @` + captureAnnotation + `))`,
 		`(function_declaration (modifiers (annotation) @` + captureAnnotation + `))`,
+		`(class_declaration (modifiers (platform_modifier) @` + capturePlatform + `))`,
+		`(object_declaration (modifiers (platform_modifier) @` + capturePlatform + `))`,
+		`(function_declaration (modifiers (platform_modifier) @` + capturePlatform + `))`,
 		`(class_declaration) @` + captureTypeSpan,
 		`(object_declaration) @` + captureTypeSpan,
 		`(function_declaration) @` + captureDeclSpan,
@@ -117,7 +124,7 @@ func (a *kotlinAnalyzer) AnalyzeFile(f file.File) *file.Results {
 }
 
 func unitsFrom(path string, res *file.Results) []*unit.Unit {
-	var types, objects, funcs, receivers, supertypes, annotations, imports, typeSpans []*file.Snippet
+	var types, objects, funcs, receivers, supertypes, annotations, platforms, imports, typeSpans []*file.Snippet
 	var declSpans, names, wildcards, skips, typeParams []*file.Snippet
 	pkg := ""
 	for _, s := range res.Snippets {
@@ -134,6 +141,8 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 			supertypes = append(supertypes, s)
 		case captureAnnotation:
 			annotations = append(annotations, s)
+		case capturePlatform:
+			platforms = append(platforms, s)
 		case captureImport:
 			imports = append(imports, s)
 		case captureTypeSpan:
@@ -226,6 +235,15 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 				if key := annotationKey(a.Value); key != "" {
 					out[sp.unit].Markers = append(out[sp.unit].Markers, unit.Marker{Source: unit.SourceAnnotation, Key: key})
 				}
+				break
+			}
+		}
+	}
+
+	for _, p := range platforms {
+		for _, sp := range owned {
+			if p.Begin.Offset >= sp.begin && p.Begin.Offset <= sp.end {
+				out[sp.unit].Markers = append(out[sp.unit].Markers, unit.Marker{Source: "keyword", Key: strings.TrimSpace(p.Value)})
 				break
 			}
 		}

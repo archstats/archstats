@@ -237,8 +237,19 @@ func unitsFrom(path string, snippets []*file.Snippet) []*unit.Unit {
 		}
 	}
 
+	// React Native's bridge macros say a class is a native module, written
+	// as calls inside its @implementation.
 	for _, r := range refs {
-		if !capitalised(r.Value) {
+		switch r.Value {
+		case "RCT_EXPORT_MODULE", "RCT_EXTERN_MODULE", "RCT_EXPORT_METHOD", "RCT_EXPORT_VIEW_PROPERTY":
+			if i := typeAt(r.Begin.Offset); i >= 0 {
+				addMarker(out[i], unit.SourceAnnotation, r.Value)
+			}
+		}
+	}
+
+	for _, r := range refs {
+		if !capitalised(r.Value) || strings.HasPrefix(r.Value, "RCT_") {
 			continue
 		}
 		at := -1

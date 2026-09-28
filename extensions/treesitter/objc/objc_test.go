@@ -118,3 +118,18 @@ func TestObjectiveCEdges(t *testing.T) {
 	}
 	assert.Equal(t, []string{"Foundation"}, imports)
 }
+
+func TestReactNativeBridgeMacros(t *testing.T) {
+	_, units := analyse(t, map[string]string{"ios/RNShare.m": `#import <React/RCTBridgeModule.h>
+@interface RNShare : NSObject <RCTBridgeModule>
+@end
+@implementation RNShare
+RCT_EXPORT_MODULE();
+RCT_EXPORT_METHOD(open:(NSDictionary *)options) {}
+@end
+`})
+	u := units["ios#RNShare"]
+	require.NotNil(t, u)
+	assert.True(t, u.HasMarker("RCT_EXPORT_MODULE"))
+	assert.True(t, u.HasMarker("RCTBridgeModule"))
+}
