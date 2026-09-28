@@ -214,3 +214,58 @@ func TestAnExtensionOnATypeParameterIsAPlainFunction(t *testing.T) {
 	assert.Empty(t, f.Owner)
 	assert.NotContains(t, byID, "org.acme.T.deleteWhere")
 }
+
+const compose = `package org.acme.feature
+
+import androidx.compose.runtime.Composable
+
+@Composable
+fun LoginScreen(viewModel: LoginViewModel) {}
+
+@HiltViewModel
+class LoginViewModel @Inject constructor(private val repo: Repo) : ViewModel() {
+    @VisibleForTesting
+    fun reset() {}
+}
+
+@Preview(showBackground = true)
+@androidx.compose.runtime.Composable
+private fun LoginPreview() {}
+
+@RunWith(AndroidJUnit4::class)
+class LoginTest(@param:Named("x") val x: String) {
+    @Test fun opens() {}
+}
+
+object NiaButtonDefaults
+`
+
+// Compose screens are functions. An annotation used to be handed to the next
+// class in the file, so nowinandroid's 168 composables carried nothing and
+// NiaButtonDefaults, the object after them, carried Composable five times.
+func TestAnnotationsBelongToTheirOwnDeclaration(t *testing.T) {
+	byID := unitsIn(t, "src/feature/Login.kt", compose)
+
+	screen := byID["org.acme.feature.LoginScreen"]
+	require.NotNil(t, screen)
+	assert.True(t, screen.HasMarker("Composable"), "a composable function carries Composable")
+
+	preview := byID["org.acme.feature.LoginPreview"]
+	require.NotNil(t, preview)
+	assert.True(t, preview.HasMarker("Preview"), "arguments are not part of the key")
+	assert.True(t, preview.HasMarker("Composable"), "a qualified annotation is keyed by its simple name")
+
+	vm := byID["org.acme.feature.LoginViewModel"]
+	assert.True(t, vm.HasMarker("HiltViewModel"))
+	assert.True(t, vm.HasMarker("Inject"), "an injected constructor marks its class")
+	assert.False(t, vm.HasMarker("VisibleForTesting"), "a method's annotation is the method's")
+	assert.True(t, byID["org.acme.feature.LoginViewModel.reset"].HasMarker("VisibleForTesting"))
+
+	test := byID["org.acme.feature.LoginTest"]
+	assert.True(t, test.HasMarker("RunWith"))
+	assert.False(t, test.HasMarker("Named"), "a parameter's annotation marks no declaration")
+	assert.False(t, test.HasMarker("param:Named"))
+	assert.True(t, byID["org.acme.feature.LoginTest.opens"].HasMarker("Test"))
+
+	assert.Empty(t, byID["org.acme.feature.NiaButtonDefaults"].Markers, "nothing leaks onto the next declaration")
+}
