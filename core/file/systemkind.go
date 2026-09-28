@@ -25,6 +25,10 @@ const (
 	SystemKindDeploy    = "deploy"    // compose, Kubernetes, Helm, kustomize, Skaffold, SAM
 	SystemKindInfra     = "infra"     // Terraform, CloudFormation, Terragrunt
 	SystemKindConfig    = "config"    // runtime configuration: application.yml, .env, appsettings.json
+	// What an app declares to the platform it installs on: AndroidManifest.xml,
+	// Info.plist, entitlements. Its activities, permissions and URL schemes
+	// are the mobile equivalent of a service's routes.
+	SystemKindAppManifest = "app_manifest"
 )
 
 var lockfileNames = map[string]bool{
@@ -47,10 +51,12 @@ var buildNames = map[string]bool{
 	"directory.build.props": true, "directory.packages.props": true, "global.json": true,
 	".goreleaser.yml": true, ".goreleaser.yaml": true, "earthfile": true, "justfile": true,
 	"taskfile.yml": true, "taskfile.yaml": true,
+	"pubspec.yaml": true, "package.swift": true, "podfile": true, "cartfile": true,
 }
 
 var buildExts = map[string]bool{
 	".csproj": true, ".fsproj": true, ".vbproj": true, ".sln": true, ".slnx": true,
+	".pbxproj": true,
 }
 
 // requirements.txt, requirements-dev.txt, requirements/base.txt
@@ -122,6 +128,9 @@ func SystemKind(filePath string, content []byte) string {
 		return SystemKindInfra
 	case configFile.MatchString(base):
 		return SystemKindConfig
+	case base == "androidmanifest.xml", base == "info.plist", strings.HasSuffix(base, "-info.plist"),
+		ext == ".entitlements", base == "privacyinfo.xcprivacy":
+		return SystemKindAppManifest
 	}
 
 	if ext == ".yaml" || ext == ".yml" || ext == ".json" || ext == ".template" {

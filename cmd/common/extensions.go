@@ -12,6 +12,7 @@ import (
 	"github.com/archstats/archstats/extensions/indentations"
 	"github.com/archstats/archstats/extensions/lines"
 	"github.com/archstats/archstats/extensions/matrix"
+	"github.com/archstats/archstats/extensions/mobile"
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/archstats/archstats/extensions/rules"
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
@@ -126,5 +127,6 @@ func AlwaysEnabled() []*config.CLIConfiguredExtension {
 		matrix.CLIExtension(),
 		config.CreateEmptyCLIExtension("rules", rules.Extension()),
 		config.CreateEmptyCLIExtension("deployables", deployables.Extension()),
+		config.CreateEmptyCLIExtension("mobile", mobile.Extension()),
 	}
 }
