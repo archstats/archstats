@@ -237,6 +237,10 @@ func gradleModuleType(raw string) string {
 		return false
 	}
 	switch {
+	// First: a build-logic project registers the other plugins' ids in its
+	// own gradlePlugin block, nowinandroid.android.application among them.
+	case has("`kotlin.dsl`", "kotlin.dsl", "java.gradle.plugin"):
+		return "build-logic"
 	case has("multiplatform"):
 		return "kotlin-multiplatform"
 	case has("android.application", "android.app\n", "android.app)"):
@@ -247,8 +251,6 @@ func gradleModuleType(raw string) string {
 		return "android-test"
 	case has("android.library", "android.feature", "android.lib"):
 		return "android-library"
-	case has("`kotlin.dsl`", "kotlin.dsl", "java.gradle.plugin"):
-		return "build-logic"
 	case has("application"):
 		return "jvm-application"
 	case has("java.library", "kotlin.jvm", "kotlin(\"jvm", "kotlin.jvm", "`java`", "java\n"):

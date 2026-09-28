@@ -36,7 +36,9 @@ type (
 		Context                    string
 		BaseImage                  string
 		Runtime                    string
-		Files, Components          int
+		// For a mobile app: android, ios, flutter or react-native.
+		Platform          string
+		Files, Components int
 
 		names      []ImageName
 		aliases    []string
@@ -113,6 +115,10 @@ type builder struct {
 	in *Input
 	m  *Model
 
+	// Mobile: version catalogs by file, and Package.resolved pins.
+	catalogs map[string]*catalog
+	pins     map[string]string
+
 	dockerfiles map[string]*Dockerfile
 	composes    []string
 	workloads   []*workload
@@ -178,6 +184,7 @@ func Build(in *Input) *Model {
 	b.functionDeployables()
 	b.contents()
 	b.appDeployables()
+	b.mobileDeployables()
 	b.finishNames()
 	b.moduleExpansion()
 	b.joinWorkloads()
@@ -882,6 +889,12 @@ func (b *builder) moduleExpansion() {
 			for _, mod := range b.in.Modules.Modules() {
 				md := cleanDir(mod.Dir)
 				if md == c.Path || c.Path == "." && md != "." || strings.HasPrefix(md, c.Path+"/") || strings.HasPrefix(c.Path, md+"/") && md != "." {
+					// A mobile app at a repository's root holds its native
+					// projects and its own packages, not every server beside
+					// it: bluesky's app carries no Go web server.
+					if d.Kind == "mobile_app" && !mobilePart(d, mod) {
+						continue
+					}
 					if !have[mod.Name] {
 						have[mod.Name] = true
 						queue = append(queue, mod)

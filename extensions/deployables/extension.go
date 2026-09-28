@@ -181,13 +181,13 @@ func (e *extension) deployablesView(*core.Results) *core.View {
 		rows = append(rows, &core.Row{Data: core.RowData{
 			"id": d.ID, "name": d.Name, "kind": d.Kind, "repository": d.Repository,
 			"file": walkerName(d.File), "line": d.Line, "built_by": d.BuiltBy, "context": d.Context,
-			"base_image": d.BaseImage, "runtime": d.Runtime, "files": d.Files, "components": d.Components,
+			"base_image": d.BaseImage, "runtime": d.Runtime, "platform": d.Platform, "files": d.Files, "components": d.Components,
 		}})
 	}
 	return view([]*core.Column{
 		core.StringColumn("id"), core.StringColumn("name"), core.StringColumn("kind"), core.StringColumn("repository"),
 		core.StringColumn("file"), core.IntColumn("line"), core.StringColumn("built_by"), core.StringColumn("context"),
-		core.StringColumn("base_image"), core.StringColumn("runtime"), core.IntColumn("files"), core.IntColumn("components"),
+		core.StringColumn("base_image"), core.StringColumn("runtime"), core.StringColumn("platform"), core.IntColumn("files"), core.IntColumn("components"),
 	}, rows)
 }
 

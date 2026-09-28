@@ -41,4 +41,13 @@ package core
 //	               too; deployables: what the workspace builds and ships, what
 //	               goes into each, how they are built, where they run, what
 //	               they talk to and what technology they carry.
-const AnalysisRevision = 5
+//	6  2026-09-28  mobile: Swift, Objective-C and Dart read (units, markers,
+//	               edges resolved per target or library); SwiftPM, Xcode and
+//	               pubspec modules; Gradle modules named by project path, with
+//	               type-safe accessors read and a module type; Kotlin
+//	               annotations on the declaration they are written on, keyed
+//	               by simple name, expect/actual as keywords; app_declarations
+//	               from Android manifests, Info.plist and entitlements, with
+//	               manifest markers on the classes they name; mobile apps as
+//	               deployables with platform and stack.
+const AnalysisRevision = 6

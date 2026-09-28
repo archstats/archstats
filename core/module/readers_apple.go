@@ -464,6 +464,10 @@ func stripSwiftComments(s string) string {
 	return b.String()
 }
 
+// ParseOldPlist reads an old-style property list: dictionaries become
+// map[string]any, arrays []any, everything else a string.
+func ParseOldPlist(s string) any { return parseOldPlist(s) }
+
 // parseOldPlist reads the NeXTSTEP property list format Xcode writes
 // project.pbxproj in: dictionaries in braces, arrays in parentheses, strings
 // quoted or bare, and comments.

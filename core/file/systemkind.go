@@ -36,7 +36,7 @@ var lockfileNames = map[string]bool{
 	"pnpm-lock.yaml": true, "bun.lock": true, "go.sum": true, "cargo.lock": true,
 	"composer.lock": true, "poetry.lock": true, "pipfile.lock": true, "uv.lock": true,
 	"packages.lock.json": true, "gradle.lockfile": true, "gemfile.lock": true,
-	"mix.lock": true, "pubspec.lock": true, "podfile.lock": true,
+	"mix.lock": true, "pubspec.lock": true, "podfile.lock": true, "package.resolved": true,
 }
 
 var buildNames = map[string]bool{
