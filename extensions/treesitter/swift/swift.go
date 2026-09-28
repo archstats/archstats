@@ -11,11 +11,11 @@
 package swift
 
 import (
-	swift "github.com/alex-pinkus/tree-sitter-swift/bindings/go"
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/extensions/treesitter/apple"
 	"github.com/archstats/archstats/extensions/treesitter/common"
+	swift "github.com/archstats/archstats/extensions/treesitter/swift/grammar"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
 

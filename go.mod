@@ -5,6 +5,7 @@ go 1.23.0
 toolchain go1.23.4
 
 require (
+	github.com/UserNobody14/tree-sitter-dart v0.0.0-20251003151139-c8e7cbbd1589
 	github.com/fwcd/tree-sitter-kotlin v0.0.0-20260801230305-1852ea17b7f6
 	github.com/gobwas/glob v0.2.3
 	github.com/jmoiron/sqlx v1.3.5
@@ -16,9 +17,12 @@ require (
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.9.0
+	github.com/tree-sitter-grammars/tree-sitter-objc v1.2.1-0.20241216003420-18802acf31d0
 	github.com/tree-sitter/go-tree-sitter v0.24.0
+	github.com/tree-sitter/tree-sitter-go v0.23.4
 	github.com/tree-sitter/tree-sitter-java v0.23.4
 	github.com/tree-sitter/tree-sitter-javascript v0.23.0
+	github.com/tree-sitter/tree-sitter-php v0.23.12
 	github.com/tree-sitter/tree-sitter-python v0.23.0
 	github.com/tree-sitter/tree-sitter-typescript v0.23.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
@@ -27,13 +31,8 @@ require (
 )
 
 require (
-	github.com/UserNobody14/tree-sitter-dart v0.0.0-20251003151139-c8e7cbbd1589 // indirect
-	github.com/alex-pinkus/tree-sitter-swift v0.0.0-20260601004120-31d17fe7e818 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/tree-sitter-grammars/tree-sitter-objc v1.2.1-0.20241216003420-18802acf31d0 // indirect
-	github.com/tree-sitter/tree-sitter-go v0.23.4 // indirect
-	github.com/tree-sitter/tree-sitter-php v0.23.12 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 )
 
