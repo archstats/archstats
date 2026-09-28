@@ -41,4 +41,8 @@ package core
 //	               too; deployables: what the workspace builds and ships, what
 //	               goes into each, how they are built, where they run, what
 //	               they talk to and what technology they carry.
-const AnalysisRevision = 5
+//	6  2026-09-28  indentation read per file: the project's Prettier config
+//	               or .editorconfig, else the file's own indentation. A
+//	               two-space file was read at four spaces a level and came
+//	               out half as deep.
+const AnalysisRevision = 6
