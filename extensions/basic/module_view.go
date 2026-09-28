@@ -34,6 +34,7 @@ func moduleView(results *core.Results) *core.View {
 			Data: core.RowData{
 				"name":                  mod.Name,
 				"kind":                  mod.Kind,
+				"type":                  mod.Type,
 				"directory":             mod.Dir,
 				"manifest":              mod.Manifest,
 				"files":                 len(results.ModuleToFiles[mod.Name]),
@@ -47,6 +48,7 @@ func moduleView(results *core.Results) *core.View {
 		Columns: []*core.Column{
 			core.StringColumn("name"),
 			core.StringColumn("kind"),
+			core.StringColumn("type"),
 			core.StringColumn("directory"),
 			core.StringColumn("manifest"),
 			core.IntColumn("files"),

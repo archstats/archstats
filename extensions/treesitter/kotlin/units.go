@@ -26,10 +26,14 @@ const (
 	captureReceiver   = "kt__function__receiver"
 	captureSupertype  = "kt__supertype"
 	captureAnnotation = "kt__annotation"
-	captureDeclSpan   = "kt__declaration__span"
-	captureTypeSpan   = "kt__type__span"
-	capturePackage    = "kt__package"
-	captureImport     = "kt__import"
+	// `expect` or `actual`: Kotlin Multiplatform's declaration in common code
+	// and its implementation per platform. Both have the same qualified name,
+	// so they fold into one unit whose files span the source sets.
+	capturePlatform = "kt__platform"
+	captureDeclSpan = "kt__declaration__span"
+	captureTypeSpan = "kt__type__span"
+	capturePackage  = "kt__package"
+	captureImport   = "kt__import"
 	// What a declaration mentions, for references to its own package and to
 	// star imports, which no import line names; and the headers whose names
 	// are not uses.
@@ -60,7 +64,19 @@ func unitQueries() []string {
 		`(function_declaration (simple_identifier) @` + captureFunc + `)`,
 		`(function_declaration (type_parameters (type_parameter (type_identifier) @` + captureTypeParam + `)))`,
 
-		`((annotation) @` + captureAnnotation + `)`,
+		// An annotation is read from the modifiers of the declaration it is
+		// written on, and belongs to that declaration. Captured bare, it was
+		// handed to the next class in the file: nowinandroid's composables
+		// carried nothing, and NiaButtonDefaults, the object after five of
+		// them, carried Composable five times. A parameter's annotation
+		// (`@param:Named`) marks no declaration at all.
+		`(class_declaration (modifiers (annotation) @` + captureAnnotation + `))`,
+		`(class_declaration (primary_constructor (modifiers (annotation) @` + captureAnnotation + `)))`,
+		`(object_declaration (modifiers (annotation) @` + captureAnnotation + `))`,
+		`(function_declaration (modifiers (annotation) @` + captureAnnotation + `))`,
+		`(class_declaration (modifiers (platform_modifier) @` + capturePlatform + `))`,
+		`(object_declaration (modifiers (platform_modifier) @` + capturePlatform + `))`,
+		`(function_declaration (modifiers (platform_modifier) @` + capturePlatform + `))`,
 		`(class_declaration) @` + captureTypeSpan,
 		`(object_declaration) @` + captureTypeSpan,
 		`(function_declaration) @` + captureDeclSpan,
@@ -108,7 +124,7 @@ func (a *kotlinAnalyzer) AnalyzeFile(f file.File) *file.Results {
 }
 
 func unitsFrom(path string, res *file.Results) []*unit.Unit {
-	var types, objects, funcs, receivers, supertypes, annotations, imports, typeSpans []*file.Snippet
+	var types, objects, funcs, receivers, supertypes, annotations, platforms, imports, typeSpans []*file.Snippet
 	var declSpans, names, wildcards, skips, typeParams []*file.Snippet
 	pkg := ""
 	for _, s := range res.Snippets {
@@ -125,6 +141,8 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 			supertypes = append(supertypes, s)
 		case captureAnnotation:
 			annotations = append(annotations, s)
+		case capturePlatform:
+			platforms = append(platforms, s)
 		case captureImport:
 			imports = append(imports, s)
 		case captureTypeSpan:
@@ -179,14 +197,6 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 				u.Markers = append(u.Markers, unit.Marker{Source: unit.SourceSupertype, Key: sup.Value})
 			}
 		}
-		for _, a := range annotations {
-			if followingIndex(a, all) == i {
-				u.Markers = append(u.Markers, unit.Marker{
-					Source: unit.SourceAnnotation,
-					Key:    strings.TrimPrefix(strings.Fields(a.Value)[0], "@"),
-				})
-			}
-		}
 		out = append(out, u)
 		declaredBy = append(declaredBy, t)
 	}
@@ -214,6 +224,29 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 			Owner: owner,
 		})
 		declaredBy = append(declaredBy, f)
+	}
+
+	// Each annotation goes to the innermost declaration around it: the one
+	// whose modifiers it was written in.
+	owned := ownedSpans(out, declaredBy, append(append([]*file.Snippet{}, typeSpans...), declSpans...))
+	for _, a := range annotations {
+		for _, sp := range owned {
+			if a.Begin.Offset >= sp.begin && a.Begin.Offset <= sp.end {
+				if key := annotationKey(a.Value); key != "" {
+					out[sp.unit].Markers = append(out[sp.unit].Markers, unit.Marker{Source: unit.SourceAnnotation, Key: key})
+				}
+				break
+			}
+		}
+	}
+
+	for _, p := range platforms {
+		for _, sp := range owned {
+			if p.Begin.Offset >= sp.begin && p.Begin.Offset <= sp.end {
+				out[sp.unit].Markers = append(out[sp.unit].Markers, unit.Marker{Source: "keyword", Key: strings.TrimSpace(p.Value)})
+				break
+			}
+		}
 	}
 
 	moduleRefs := attachKotlinRefs(out, declaredBy, pkg, imports, wildcards, names, skips, append(typeSpans, declSpans...))
@@ -270,25 +303,7 @@ func attachKotlinRefs(units []*unit.Unit, declaredBy []*file.Snippet, pkg string
 		return out
 	}
 
-	type owned struct{ begin, end, unit int }
-	var spansOwned []owned
-	for _, sp := range spans {
-		best, bestOffset := -1, 0
-		for i, d := range declaredBy {
-			if d == nil || i >= len(units) {
-				continue
-			}
-			if off := d.Begin.Offset; off >= sp.Begin.Offset && off <= sp.End.Offset && (best == -1 || off < bestOffset) {
-				best, bestOffset = i, off
-			}
-		}
-		if best >= 0 {
-			spansOwned = append(spansOwned, owned{sp.Begin.Offset, sp.End.Offset, best})
-		}
-	}
-	sort.SliceStable(spansOwned, func(i, j int) bool {
-		return spansOwned[i].end-spansOwned[i].begin < spansOwned[j].end-spansOwned[j].begin
-	})
+	spansOwned := ownedSpans(units, declaredBy, spans)
 
 	var moduleRefs []unit.Ref
 	add := func(list []unit.Ref, r unit.Ref) []unit.Ref {
@@ -333,6 +348,52 @@ func attachKotlinRefs(units []*unit.Unit, declaredBy []*file.Snippet, pkg string
 	return moduleRefs
 }
 
+type ownedSpan struct{ begin, end, unit int }
+
+// ownedSpans pairs each declaration's span with the unit it declares -- the
+// first declared name inside it -- smallest first, so the first span that
+// contains an offset is the innermost declaration around it.
+func ownedSpans(units []*unit.Unit, declaredBy, spans []*file.Snippet) []ownedSpan {
+	var out []ownedSpan
+	for _, sp := range spans {
+		best, bestOffset := -1, 0
+		for i, d := range declaredBy {
+			if d == nil || i >= len(units) {
+				continue
+			}
+			if off := d.Begin.Offset; off >= sp.Begin.Offset && off <= sp.End.Offset && (best == -1 || off < bestOffset) {
+				best, bestOffset = i, off
+			}
+		}
+		if best >= 0 {
+			out = append(out, ownedSpan{sp.Begin.Offset, sp.End.Offset, best})
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].end-out[i].begin < out[j].end-out[j].begin
+	})
+	return out
+}
+
+// annotationKey is an annotation's simple name: `@Preview(showBackground =
+// true)` is Preview, `@androidx.compose.runtime.Composable` is Composable and
+// `@get:JvmName("x")` is JvmName. The arguments used to stay in the key, so
+// Hilt's `@InstallIn(SingletonComponent::class)` never matched InstallIn.
+func annotationKey(v string) string {
+	v = strings.TrimPrefix(strings.TrimSpace(v), "@")
+	if i := strings.IndexAny(v, "(<"); i >= 0 {
+		v = v[:i]
+	}
+	if i := strings.LastIndex(v, ":"); i >= 0 {
+		v = v[i+1:]
+	}
+	v = strings.TrimSpace(v)
+	if i := strings.LastIndex(v, "."); i >= 0 {
+		v = v[i+1:]
+	}
+	return v
+}
+
 func filepathBase(p string) string {
 	if i := strings.LastIndex(p, "/"); i >= 0 {
 		return p[i+1:]
@@ -364,15 +425,6 @@ func precedingIndex(s *file.Snippet, declarations []*file.Snippet) int {
 		}
 	}
 	return last
-}
-
-func followingIndex(s *file.Snippet, declarations []*file.Snippet) int {
-	for i, d := range declarations {
-		if d.Begin.Offset >= s.Begin.Offset {
-			return i
-		}
-	}
-	return -1
 }
 
 // enclosingType is the type whose body contains this function, if any. The

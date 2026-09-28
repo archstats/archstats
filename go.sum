@@ -1,3 +1,9 @@
+github.com/UserNobody14/tree-sitter-dart v0.0.0-20251003151139-c8e7cbbd1589 h1:D34UVSkLCQFWREO3vFHSGCYlfB4V/CrIRtSFAiGChRQ=
+github.com/UserNobody14/tree-sitter-dart v0.0.0-20251003151139-c8e7cbbd1589/go.mod h1:6zSIbyfHyxL/+XWRHElGLw+EUPYbDOyhDqIiAX6svrE=
+github.com/UserNobody14/tree-sitter-dart v0.0.0-20260707040301-be07cf7118d3 h1:KcxwG3OKSjbHS/HNQ5A9z32fcjXw1w3LxxDNGkLe36E=
+github.com/UserNobody14/tree-sitter-dart v0.0.0-20260707040301-be07cf7118d3/go.mod h1:6zSIbyfHyxL/+XWRHElGLw+EUPYbDOyhDqIiAX6svrE=
+github.com/alex-pinkus/tree-sitter-swift v0.0.0-20260601004120-31d17fe7e818 h1:oNZZFKvqDFHCSg+Ard8elsRqDKsstebWlzXNrgrApOM=
+github.com/alex-pinkus/tree-sitter-swift v0.0.0-20260601004120-31d17fe7e818/go.mod h1:nMZLtsEtko+0F2g09G5Tm16uRdDoczLZDE5O207ruYQ=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
@@ -63,6 +69,8 @@ github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/tree-sitter-grammars/tree-sitter-objc v1.2.1-0.20241216003420-18802acf31d0 h1:PEX9OkYmiPZ/o1m4oIjZL2JzI+xx+pAi7n0bxIms8Og=
+github.com/tree-sitter-grammars/tree-sitter-objc v1.2.1-0.20241216003420-18802acf31d0/go.mod h1:3WHVwcdAgzNBRoNnFqo5NFFpX9Im21tMlnwA9mIiDK8=
 github.com/tree-sitter/go-tree-sitter v0.24.0 h1:kRZb6aBNfcI/u0Qh8XEt3zjNVnmxTisDBN+kXK0xRYQ=
 github.com/tree-sitter/go-tree-sitter v0.24.0/go.mod h1:x681iFVoLMEwOSIHA1chaLkXlroXEN7WY+VHGFaoDbk=
 github.com/tree-sitter/go-tree-sitter v0.25.0 h1:sx6kcg8raRFCvc9BnXglke6axya12krCJF5xJ2sftRU=

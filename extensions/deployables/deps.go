@@ -18,6 +18,7 @@ import (
 var frameworks = map[string]string{
 	// npm
 	"react": "react", "next": "next", "vue": "vue", "nuxt": "nuxt", "@angular/core": "angular",
+	"react-native": "react-native", "expo": "expo",
 	"express": "express", "@nestjs/core": "nestjs", "fastify": "fastify", "koa": "koa",
 	"svelte": "svelte", "@sveltejs/kit": "sveltekit", "@remix-run/node": "remix", "hono": "hono",
 	// go
@@ -132,6 +133,9 @@ func (b *builder) dependenciesOf(d *Deployable) {
 		}
 		if !b.isPrimary(d, mod.Name) {
 			b.dep(d, mod.Kind, mod.Name, "", "internal", "manifest", mod.Manifest, 0)
+		}
+		if d.Kind == "mobile_app" {
+			b.mobileStack(d, mod, b.isPrimary(d, mod.Name))
 		}
 		base := strings.ToLower(stdpath.Base(mod.Manifest))
 		content := b.in.Files[mod.Manifest]

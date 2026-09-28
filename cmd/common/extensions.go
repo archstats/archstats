@@ -12,15 +12,19 @@ import (
 	"github.com/archstats/archstats/extensions/indentations"
 	"github.com/archstats/archstats/extensions/lines"
 	"github.com/archstats/archstats/extensions/matrix"
+	"github.com/archstats/archstats/extensions/mobile"
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/archstats/archstats/extensions/rules"
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
+	"github.com/archstats/archstats/extensions/treesitter/dart"
 	"github.com/archstats/archstats/extensions/treesitter/golang"
 	"github.com/archstats/archstats/extensions/treesitter/java"
 	"github.com/archstats/archstats/extensions/treesitter/javascript"
 	"github.com/archstats/archstats/extensions/treesitter/kotlin"
+	"github.com/archstats/archstats/extensions/treesitter/objc"
 	"github.com/archstats/archstats/extensions/treesitter/php"
 	"github.com/archstats/archstats/extensions/treesitter/python"
+	"github.com/archstats/archstats/extensions/treesitter/swift"
 	"github.com/archstats/archstats/extensions/treesitter/typescript"
 	"github.com/gobwas/glob"
 )
@@ -74,6 +78,23 @@ func Optional() []*config.CLIConfiguredExtension {
 		return ctx.HasFileExtension(".php")
 	}
 
+	swiftExt := config.CreateEmptyCLIExtension("swift", &swift.Extension{})
+	swiftExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".swift")
+	}
+
+	// Headers alone are C as often as Objective-C; an implementation file
+	// says which.
+	objcExt := config.CreateEmptyCLIExtension("objc", &objc.Extension{})
+	objcExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".m") || ctx.HasFileExtension(".mm")
+	}
+
+	dartExt := config.CreateEmptyCLIExtension("dart", &dart.Extension{})
+	dartExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+		return ctx.HasFileExtension(".dart")
+	}
+
 	extensions := []*config.CLIConfiguredExtension{
 		gitExt,
 		javaExt,
@@ -84,6 +105,9 @@ func Optional() []*config.CLIConfiguredExtension {
 		pythonExt,
 		goExt,
 		phpExt,
+		swiftExt,
+		objcExt,
+		dartExt,
 		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {
@@ -126,5 +150,6 @@ func AlwaysEnabled() []*config.CLIConfiguredExtension {
 		matrix.CLIExtension(),
 		config.CreateEmptyCLIExtension("rules", rules.Extension()),
 		config.CreateEmptyCLIExtension("deployables", deployables.Extension()),
+		config.CreateEmptyCLIExtension("mobile", mobile.Extension()),
 	}
 }

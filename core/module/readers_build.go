@@ -130,19 +130,25 @@ func (gradleReader) Claims(b string) bool {
 	return b == "build.gradle" || b == "build.gradle.kts"
 }
 
-// `project(":exposed-core")` and `projects.exposedCore` both name a sibling.
-var gradleProjectDep = regexp.MustCompile(`project\(["']:([A-Za-z0-9_.:-]+)["']\)`)
+// `project(":core:data")`, in Kotlin or Groovy, with or without parentheses
+// around the call that holds it.
+var gradleProjectDep = regexp.MustCompile(`project\(\s*(?:path\s*[:=]\s*)?["']:([A-Za-z0-9_.:-]+)["']`)
 
+// `projects.core.dataTest`: a type-safe project accessor, which spells each
+// path segment in camel case. Resolved against the modules once all are read.
+var gradleAccessorDep = regexp.MustCompile(`\bprojects\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)`)
+
+// A Gradle module is named by its project path -- `feature:foryou:impl` --
+// which is the directory under the build's settings file with colons for
+// slashes. Named by its last directory instead, nowinandroid's feature
+// modules were all "impl" and "api".
 func (gradleReader) Read(root, path string) []*Module {
 	raw, ok := readFile(path)
 	if !ok {
 		return nil
 	}
 	dir := relDir(root, path)
-	name := dir
-	if idx := strings.LastIndex(dir, "/"); idx != -1 {
-		name = dir[idx+1:]
-	}
+	name := gradleProjectPath(root, dir)
 	if name == "" {
 		// The root build script of a multi-module build configures the build
 		// itself rather than declaring a module anybody depends on.
@@ -150,16 +156,234 @@ func (gradleReader) Read(root, path string) []*Module {
 	}
 	var deps []string
 	for _, m := range gradleProjectDep.FindAllStringSubmatch(raw, -1) {
-		last := m[1]
-		if idx := strings.LastIndex(last, ":"); idx != -1 {
-			last = last[idx+1:]
+		deps = appendUnique(deps, strings.Trim(m[1], ":"))
+	}
+	for _, m := range gradleAccessorDep.FindAllStringSubmatch(raw, -1) {
+		// `projects.core.data.dependencyProject` and `.path` are properties of
+		// the accessor, not segments of the path.
+		segs := strings.Split(m[1], ".")
+		for len(segs) > 1 && (segs[len(segs)-1] == "path" || segs[len(segs)-1] == "dependencyProject") {
+			segs = segs[:len(segs)-1]
 		}
-		deps = appendUnique(deps, last)
+		deps = appendUnique(deps, gradleAccessorPrefix+strings.Join(segs, ":"))
 	}
 	return []*Module{{
 		Name:      name,
 		Dir:       dir,
 		Manifest:  relFile(root, path),
 		DependsOn: deps,
+		Type:      gradleModuleType(raw),
 	}}
+}
+
+// gradleProjectPath is a module's path within its build: the directory
+// relative to the nearest settings file above it, colon-separated. An
+// included build (build-logic) has its own settings file, so its modules are
+// named within it. With no settings file anywhere, the repo root stands in.
+func gradleProjectPath(root, dir string) string {
+	base := ""
+	for d := dir; d != ""; {
+		idx := strings.LastIndex(d, "/")
+		parent := ""
+		if idx >= 0 {
+			parent = d[:idx]
+		}
+		if parent != "" && hasGradleSettings(filepath.Join(root, filepath.FromSlash(parent))) {
+			base = parent
+			break
+		}
+		d = parent
+	}
+	rel := strings.TrimPrefix(strings.TrimPrefix(dir, base), "/")
+	return strings.ReplaceAll(rel, "/", ":")
+}
+
+func hasGradleSettings(dir string) bool {
+	for _, f := range []string{"settings.gradle.kts", "settings.gradle"} {
+		if _, ok := readFile(filepath.Join(dir, f)); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// Written before resolution so the accessor and a literal path are never
+// confused; stripped by resolveGradleAccessors.
+const gradleAccessorPrefix = "\x00accessor:"
+
+var gradlePluginsBlock = regexp.MustCompile(`(?s)\bplugins\s*\{(.*?)\n\s*\}|\bplugins\s*\{([^\n}]*)\}`)
+var gradleApplyPlugin = regexp.MustCompile(`apply\s*\(?\s*plugin\s*[:=]\s*["']([^"']+)["']`)
+
+// gradleModuleType reads what a module builds from the plugins it applies.
+// Convention plugins carry the platform in their names -- nowinandroid's
+// `nowinandroid.android.feature.impl`, Tivi's `app.tivi.android.application`
+// -- so the ids are matched on their words, not on a list of exact ids.
+func gradleModuleType(raw string) string {
+	var ids []string
+	for _, m := range gradlePluginsBlock.FindAllStringSubmatch(raw, -1) {
+		ids = append(ids, m[1]+m[2])
+	}
+	for _, m := range gradleApplyPlugin.FindAllStringSubmatch(raw, -1) {
+		ids = append(ids, m[1])
+	}
+	text := strings.ToLower(strings.Join(ids, "\n"))
+	text = strings.NewReplacer("-", ".", "_", ".", `("`, ".", `")`, "", " ", "").Replace(text)
+	has := func(words ...string) bool {
+		for _, w := range words {
+			if strings.Contains(text, w) {
+				return true
+			}
+		}
+		return false
+	}
+	switch {
+	// First: a build-logic project registers the other plugins' ids in its
+	// own gradlePlugin block, nowinandroid.android.application among them.
+	case has("`kotlin.dsl`", "kotlin.dsl", "java.gradle.plugin"):
+		return "build-logic"
+	case has("multiplatform"):
+		return "kotlin-multiplatform"
+	case has("android.application", "android.app\n", "android.app)"):
+		return "android-application"
+	case has("dynamic.feature"):
+		return "android-dynamic-feature"
+	case has("com.android.test", "android.test\n", "android.test)"):
+		return "android-test"
+	case has("android.library", "android.feature", "android.lib"):
+		return "android-library"
+	case has("application"):
+		return "jvm-application"
+	case has("java.library", "kotlin.jvm", "kotlin(\"jvm", "kotlin.jvm", "`java`", "java\n"):
+		return "jvm-library"
+	}
+	return ""
+}
+
+// resolveGradleAccessors turns each `projects.core.dataTest` a module declared
+// into the module it means. An accessor spells a path segment in camel case
+// and a directory is often kebab case, so both are compared with the case and
+// the separators taken out; an accessor that matches no module of this build
+// keeps its colon form.
+func resolveGradleAccessors(m *Map) {
+	norm := func(s string) string {
+		return strings.ToLower(strings.NewReplacer("-", "", "_", "", ".", "").Replace(s))
+	}
+	byNorm := map[string]string{}
+	for _, mod := range m.modules {
+		if mod.Kind == "gradle" {
+			if _, taken := byNorm[norm(mod.Name)]; !taken {
+				byNorm[norm(mod.Name)] = mod.Name
+			}
+		}
+	}
+	for _, mod := range m.modules {
+		for i, dep := range mod.DependsOn {
+			if !strings.HasPrefix(dep, gradleAccessorPrefix) {
+				continue
+			}
+			path := strings.TrimPrefix(dep, gradleAccessorPrefix)
+			if name, ok := byNorm[norm(path)]; ok {
+				path = name
+			}
+			mod.DependsOn[i] = path
+		}
+		// An accessor and a project() call can name the same module.
+		var uniq []string
+		for _, d := range mod.DependsOn {
+			uniq = appendUnique(uniq, d)
+		}
+		mod.DependsOn = uniq
+	}
+}
+
+var (
+	gradlePluginID = regexp.MustCompile(`\bid\s*\(?\s*["']([^"']+)["']|\bid\s*\(\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\)|alias\s*\(\s*libs\.plugins\.([A-Za-z0-9_.]+)\s*\)|` + "`" + `([a-z0-9.-]+)` + "`" + `|kotlin\s*\(\s*["']([^"']+)["']`)
+	camelBoundary  = regexp.MustCompile(`([a-z0-9])([A-Z])`)
+	nonWord        = regexp.MustCompile(`[^a-z0-9]+`)
+)
+
+// gradlePluginIDs is every plugin a build script applies, as written:
+// `com.android.library`, `signal-library`, `nowinandroid.android.feature`,
+// or a constant such as `ThunderbirdPlugins.App.androidCompose`.
+func gradlePluginIDs(raw string) []string {
+	var ids []string
+	for _, block := range gradlePluginsBlock.FindAllStringSubmatch(raw, -1) {
+		for _, m := range gradlePluginID.FindAllStringSubmatch(block[1]+block[2], -1) {
+			for _, g := range m[1:] {
+				if g != "" {
+					ids = appendUnique(ids, g)
+				}
+			}
+		}
+	}
+	return ids
+}
+
+// typeGradleConventions types the Gradle modules whose plugins name no
+// platform in so many words. Two conventions account for the rest:
+//
+//   - A precompiled script plugin, `build-logic/.../signal-library.gradle.kts`,
+//     which is itself a build script applying com.android.library. Signal's
+//     modules all apply one; none was typed.
+//   - A constant naming the plugin, `id(ThunderbirdPlugins.App.androidCompose)`,
+//     whose words are the platform's once split at the capitals. Thunderbird
+//     applies its 152 modules' plugins this way.
+func typeGradleConventions(m *Map, root string, paths []string) {
+	scripts := map[string]string{} // plugin id -> script path
+	for _, p := range paths {
+		base := filepath.Base(p)
+		for _, suffix := range []string{".gradle.kts", ".gradle"} {
+			if strings.HasSuffix(base, suffix) && base != "build"+suffix && base != "settings"+suffix {
+				scripts[strings.TrimSuffix(base, suffix)] = p
+			}
+		}
+	}
+	var typeOf func(raw string, depth int) string
+	typeOf = func(raw string, depth int) string {
+		if t := gradleModuleType(raw); t != "" {
+			return t
+		}
+		ids := gradlePluginIDs(raw)
+		if depth < 3 {
+			for _, id := range ids {
+				if script, ok := scripts[id]; ok {
+					if content, ok := readFile(filepath.Join(root, filepath.FromSlash(script))); ok {
+						if t := typeOf(content, depth+1); t != "" {
+							return t
+						}
+					}
+				}
+			}
+		}
+		return typeFromWords(ids)
+	}
+	for _, mod := range m.modules {
+		if mod.Kind != "gradle" || mod.Type != "" {
+			continue
+		}
+		if raw, ok := readFile(filepath.Join(root, filepath.FromSlash(mod.Manifest))); ok {
+			mod.Type = typeOf(raw, 0)
+		}
+	}
+}
+
+// typeFromWords reads a platform from plugin names split into words.
+func typeFromWords(ids []string) string {
+	for _, id := range ids {
+		words := map[string]bool{}
+		for _, w := range nonWord.Split(strings.ToLower(camelBoundary.ReplaceAllString(id, "$1.$2")), -1) {
+			words[w] = true
+		}
+		switch {
+		case words["kmp"] || words["multiplatform"]:
+			return "kotlin-multiplatform"
+		case words["android"] && (words["app"] || words["application"]):
+			return "android-application"
+		case words["android"] && (words["library"] || words["lib"] || words["feature"] || words["module"]):
+			return "android-library"
+		case words["android"] && words["test"]:
+			return "android-test"
+		}
+	}
+	return ""
 }
