@@ -52,6 +52,7 @@ var buildNames = map[string]bool{
 	".goreleaser.yml": true, ".goreleaser.yaml": true, "earthfile": true, "justfile": true,
 	"taskfile.yml": true, "taskfile.yaml": true,
 	"pubspec.yaml": true, "package.swift": true, "podfile": true, "cartfile": true,
+	"wails.json": true, "tauri.conf.json": true,
 }
 
 var buildExts = map[string]bool{

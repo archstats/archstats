@@ -157,6 +157,18 @@ func repositories(root string) func(string) string {
 
 // walkerName restores the walker's form of a path: root-level files are
 // "./x", so a file column joins files.name.
+// walkerNames applies walkerName to each id in a comma list.
+func walkerNames(list string) string {
+	if list == "" {
+		return ""
+	}
+	parts := strings.Split(list, ", ")
+	for i, p := range parts {
+		parts[i] = walkerName(p)
+	}
+	return strings.Join(parts, ", ")
+}
+
 func walkerName(p string) string {
 	if p == "" || strings.Contains(p, "/") || strings.Contains(p, "#") {
 		return p
@@ -250,7 +262,8 @@ func (e *extension) pipelinesView(*core.Results) *core.View {
 	var rows []*core.Row
 	for _, p := range e.m().Pipelines {
 		rows = append(rows, &core.Row{Data: core.RowData{
-			"id": walkerName(p.ID), "name": p.Name, "system": p.System, "file": walkerName(p.File), "repository": p.Repository,
+			"id": walkerName(p.ID), "name": p.Name, "system": p.System, "kind": p.Kind, "file": walkerName(p.File), "repository": p.Repository,
+			"calls":  walkerNames(p.Calls),
 			"parsed": p.Parsed, "triggers": p.Triggers, "paths": p.Paths, "stages": p.Stages, "tools": p.Tools,
 			"delegates_to": p.DelegatesTo, "delegates_ref": p.DelegatesRef, "environments": p.Environments,
 			"deployables": p.Deployables,
@@ -260,7 +273,7 @@ func (e *extension) pipelinesView(*core.Results) *core.View {
 		core.StringColumn("id"), core.StringColumn("name"), core.StringColumn("system"), core.StringColumn("file"),
 		core.StringColumn("repository"), core.StringColumn("parsed"), core.StringColumn("triggers"), core.StringColumn("paths"),
 		core.StringColumn("stages"), core.StringColumn("tools"), core.StringColumn("delegates_to"), core.StringColumn("delegates_ref"),
-		core.StringColumn("environments"), core.IntColumn("deployables"),
+		core.StringColumn("environments"), core.IntColumn("deployables"), core.StringColumn("kind"), core.StringColumn("calls"),
 	}, rows)
 }
 

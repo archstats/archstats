@@ -70,12 +70,14 @@ type (
 		Reason          string
 	}
 	Pipeline struct {
-		ID, Name, System, File, Repository string
-		Parsed                             string
-		Triggers, Paths, Stages, Tools     string
-		DelegatesTo, DelegatesRef          string
-		Environments                       string
-		Deployables                        int
+		ID, Name, System, Kind, File, Repository string
+		// Local workflows and actions it uses, by id, comma separated.
+		Calls                          string
+		Parsed                         string
+		Triggers, Paths, Stages, Tools string
+		DelegatesTo, DelegatesRef      string
+		Environments                   string
+		Deployables                    int
 	}
 	PipelineDeployable struct {
 		Pipeline, Deployable, Action, File string
@@ -127,6 +129,7 @@ type builder struct {
 	configMaps  map[string][]configEntry
 	kustomizes  []*kustomization
 	charts      []*chart
+	desktop     []*desktopApp
 	values      []*valuesFile
 	functions   []*function
 	argo        []*argoApp
@@ -185,6 +188,7 @@ func Build(in *Input) *Model {
 	b.contents()
 	b.appDeployables()
 	b.mobileDeployables()
+	b.desktopDeployables()
 	b.finishNames()
 	b.moduleExpansion()
 	b.joinWorkloads()
@@ -235,7 +239,7 @@ func (b *builder) read() {
 			case "gitlab":
 				b.pipelines = append(b.pipelines, readGitLabCI(f, content))
 			case "github_action":
-				// A composite action is part of the pipelines that use it.
+				b.pipelines = append(b.pipelines, readGitHubAction(f, content))
 			default:
 				b.pipelines = append(b.pipelines, readOtherCI(f, ciSystemOf(f)))
 			}
@@ -296,6 +300,14 @@ func (b *builder) read() {
 				if name != "" {
 					b.gradles = append(b.gradles, readGradle(f, content, name))
 				}
+			case base == "wails.json":
+				if a := readWails(f, content); a != nil {
+					b.desktop = append(b.desktop, a)
+				}
+			case base == "tauri.conf.json":
+				if a := readTauri(f, content); a != nil {
+					b.desktop = append(b.desktop, a)
+				}
 			case strings.HasSuffix(base, ".csproj") || strings.HasSuffix(base, ".fsproj") || strings.HasSuffix(base, ".vbproj"):
 				b.csprojs = append(b.csprojs, readCsproj(f, content))
 			}
@@ -305,6 +317,7 @@ func (b *builder) read() {
 			b.aspire[f] = readAspireHost(f, content)
 		}
 	}
+	foldCalls(b.pipelines)
 	b.poms = readPoms(pomFiles)
 	for _, p := range b.poms {
 		b.builds = append(b.builds, p.Images...)

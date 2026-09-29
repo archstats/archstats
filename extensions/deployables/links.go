@@ -538,7 +538,8 @@ func (b *builder) aspireLinks(link func(*Link), datastore func(vendor, host, db,
 func (b *builder) pipelineRows() {
 	for _, p := range b.pipelines {
 		repo := b.in.RepoOf(p.File)
-		row := &Pipeline{ID: p.ID, Name: p.Name, System: p.System, File: p.File, Repository: repo, Parsed: p.Parsed,
+		row := &Pipeline{ID: p.ID, Name: p.Name, System: p.System, Kind: p.Kind, File: p.File, Repository: repo, Parsed: p.Parsed,
+			Calls:    strings.Join(p.Calls, ", "),
 			Triggers: strings.Join(p.Triggers, ", "), Paths: strings.Join(p.Paths, ", "),
 			Stages: strings.Join(p.Stages(), ","), Tools: strings.Join(p.ToolList(), ", ")}
 		var targets, refs []string
@@ -563,7 +564,11 @@ func (b *builder) pipelineRows() {
 			linked[k] = true
 			b.m.PipelineDeployables = append(b.m.PipelineDeployables, &PipelineDeployable{Pipeline: p.ID, Deployable: id, Action: action, File: p.File, Line: line, Resolution: resolution})
 		}
-		for _, bd := range p.Builds {
+		images := p.Builds
+		for _, u := range p.uses {
+			images = append(images, u.Builds...)
+		}
+		for _, bd := range images {
 			if d := b.buildOf[bd]; d != nil {
 				add(d.ID, "builds", bd.Line, "declared")
 			}
@@ -588,7 +593,10 @@ func (b *builder) pipelineRows() {
 		// repository with several, what its path filter watches.
 		builds := p.BuildTool || contains(p.Stages(), "package")
 		deploys := contains(p.Stages(), "deploy")
-		if (builds || deploys) && !anyAction(linked, "builds") && !anyAction(linked, "deploys") {
+		// An action runs only inside the workflows that use it, which are
+		// credited with what it does.
+		action := strings.HasSuffix(p.Kind, "_action") || p.Kind == "action"
+		if (builds || deploys) && !action && !anyAction(linked, "builds") && !anyAction(linked, "deploys") {
 			var ids []string
 			resolution := "repository"
 			if only := b.onlyDeployableIn(repo); only != "" {

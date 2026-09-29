@@ -275,13 +275,16 @@ func TestGitHubLocalReusableAndComposite(t *testing.T) {
 jobs:
   call:
     uses: ./.github/workflows/build.yml
+  same-repo:
+    uses: $/.github/workflows/build.yml
   steps-job:
     steps:
       - uses: ./.github/actions/setup
       - uses: other/repo/.github/workflows/scan.yml@a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0
 `
 	p := readGitHubWorkflow(".github/workflows/ci.yml", []byte(src))
-	if !reflect.DeepEqual(p.Calls, []string{".github/workflows/build.yml"}) {
+	// The composite action is used as much as the workflow is called.
+	if !reflect.DeepEqual(p.Calls, []string{".github/actions/setup", ".github/workflows/build.yml"}) {
 		t.Errorf("calls = %v", p.Calls)
 	}
 	if len(p.Delegates) != 1 || p.Delegates[0].Ref != "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0" {
@@ -466,5 +469,63 @@ func TestStageOfTemplate(t *testing.T) {
 		if got := stageOfTemplate(in); !reflect.DeepEqual(got, want) {
 			t.Errorf("%s: %v, want %v", in, got, want)
 		}
+	}
+}
+
+func TestGitHubActionKinds(t *testing.T) {
+	composite := readGitHubAction(".github/actions/setup/action.yml", []byte(`name: Set up
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version: "1.23"
+    - run: go test ./...
+      shell: bash
+`))
+	if composite.Kind != "composite_action" || composite.Name != "Set up" || !reflect.DeepEqual(composite.Stages(), []string{"build", "test"}) {
+		t.Errorf("composite = %s %q %v", composite.Kind, composite.Name, composite.Stages())
+	}
+	docker := readGitHubAction("tools/lint/action.yaml", []byte("runs:\n  using: docker\n  image: Dockerfile\n"))
+	if docker.Kind != "docker_action" || docker.Name != "lint" || !docker.Tools["docker"] {
+		t.Errorf("docker = %s %q %v", docker.Kind, docker.Name, docker.Tools)
+	}
+	js := readGitHubAction("action.yml", []byte("name: Greet\nruns:\n  using: node20\n  main: dist/index.js\n"))
+	if js.Kind != "javascript_action" || len(js.Runtimes) != 1 || js.Runtimes[0].Version != "20" {
+		t.Errorf("js = %s %+v", js.Kind, js.Runtimes)
+	}
+	reusable := readGitHubWorkflow(".github/workflows/build.yml", []byte("on:\n  workflow_call:\njobs:\n  b:\n    steps:\n      - run: docker build -t app .\n"))
+	if reusable.Kind != "reusable_workflow" {
+		t.Errorf("reusable = %s", reusable.Kind)
+	}
+}
+
+func TestFoldCallsCreditsTheCaller(t *testing.T) {
+	ci := readGitHubWorkflow(".github/workflows/ci.yml", []byte(`on: push
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+  lint:
+    steps:
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/missing
+`))
+	build := readGitHubWorkflow(".github/workflows/build.yml", []byte("on: workflow_call\njobs:\n  b:\n    steps:\n      - uses: ./.github/actions/setup\n      - run: docker push app\n"))
+	setup := readGitHubAction(".github/actions/setup/action.yml", []byte("runs:\n  using: composite\n  steps:\n    - run: npm test\n      shell: bash\n"))
+	foldCalls([]*pipelineFact{ci, build, setup})
+	if !reflect.DeepEqual(ci.Calls, []string{".github/actions/setup/action.yml", ".github/workflows/build.yml"}) {
+		t.Errorf("calls = %v", ci.Calls)
+	}
+	// build from the called template's name, test from the action, publish
+	// from the called workflow's step.
+	if !reflect.DeepEqual(ci.Stages(), []string{"build", "test", "publish"}) {
+		t.Errorf("stages = %v", ci.Stages())
+	}
+	// The called workflow's own use of the action counts once, at the call.
+	if len(ci.uses) != 2 {
+		t.Errorf("uses = %d", len(ci.uses))
+	}
+	if !reflect.DeepEqual(build.Stages(), []string{"test", "publish"}) {
+		t.Errorf("build stages = %v", build.Stages())
 	}
 }

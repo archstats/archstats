@@ -60,4 +60,10 @@ package core
 //	               its file, and a component named in the template counts as
 //	               used; an import spelling out its extension (`./Panel.vue`,
 //	               `./reader.js`) resolves to the module.
-const AnalysisRevision = 8
+//	9  2026-09-29  GitHub Actions of every kind are pipelines: workflows,
+//	               reusable workflows, and composite, Docker and JavaScript
+//	               actions (pipelines.kind); a workflow is credited with what
+//	               the local workflows and actions it uses do
+//	               (pipelines.calls); GitHub releases count as publishing.
+//	               Wails, Tauri and Electron apps are desktop deployables.
+const AnalysisRevision = 9

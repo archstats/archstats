@@ -21,9 +21,13 @@ import (
 var stageOrder = []string{"build", "test", "scan", "package", "publish", "deploy", "approve"}
 
 type pipelineFact struct {
-	ID       string
-	Name     string
-	System   string // github_actions, gitlab, jenkins, azure_pipelines, circleci, travis, bitbucket, other
+	ID     string
+	Name   string
+	System string // github_actions, gitlab, jenkins, azure_pipelines, circleci, travis, bitbucket, other
+	// What kind of GitHub Actions file it is: a workflow, a reusable
+	// workflow (called by others), or a composite, Docker or JavaScript
+	// action. Every other system writes "pipeline".
+	Kind     string
 	File     string
 	Line     int
 	Parsed   string // full, partial, none
@@ -34,8 +38,10 @@ type pipelineFact struct {
 	// A remote template the work is handed to: a reusable workflow, a
 	// Jenkins shared library, a GitLab include.
 	Delegates []delegation
-	// Local pipelines this one calls.
+	// Local workflows and actions this one uses, by path, and the line of
+	// the first use.
 	Calls        []string
+	callLines    map[string]int
 	Environments []envHit
 	Builds       []*imageBuild
 	Deploys      []deployHit
@@ -44,6 +50,9 @@ type pipelineFact struct {
 	// build whatever module the repository holds.
 	BuildTool     bool
 	BuildToolLine int
+	// The local workflows and actions it uses, resolved: their images count
+	// as built by this pipeline too.
+	uses []*pipelineFact
 }
 
 type delegation struct {
@@ -71,7 +80,15 @@ type runtimeHit struct {
 }
 
 func newPipeline(file, system string) *pipelineFact {
-	return &pipelineFact{ID: file, File: file, Line: 1, System: system, Name: stdpath.Base(file), Parsed: "full", stages: map[string]int{}, Tools: map[string]bool{}}
+	return &pipelineFact{ID: file, File: file, Line: 1, System: system, Kind: "pipeline", Name: stdpath.Base(file), Parsed: "full", stages: map[string]int{}, Tools: map[string]bool{}, callLines: map[string]int{}}
+}
+
+// call records a local workflow or action this pipeline uses.
+func (p *pipelineFact) call(target string, line int) {
+	if _, ok := p.callLines[target]; !ok {
+		p.Calls = append(p.Calls, target)
+		p.callLines[target] = line
+	}
 }
 
 func (p *pipelineFact) hit(stage string, line int) {
@@ -107,9 +124,9 @@ var stageRules = []struct {
 	{"scan", regexp.MustCompile(`(?i)codeql|sonar|trivy|snyk|grype|anchore|checkmarx|fortify|dependency-check|owasp|semgrep|gitleaks|zizmor|scorecard|nexus-?iq|blackduck|\bfoss\b|foss-|mend|whitesource|veracode|\bsast\b|static-analysis|dependency-review|license-check|secret-detection|\baudit\b`)},
 	{"test", regexp.MustCompile(`(?i)\btests?\b|pytest|\bjest\b|vitest|go test|mvnw? .*\bverify\b|gradlew? .*\btest|\bcheck\b|npm (run )?test|yarn test|pnpm test|cypress|playwright|junit|karma|phpunit|rspec|\btox\b|\bnox\b|dotnet test|coverage|\be2e\b|integration-tests?`)},
 	{"package", regexp.MustCompile(`(?i)docker (buildx )?build|buildx|build-push-action|\bjib\b|bootBuildImage|build-image|kaniko|buildah|podman build|pack build|ko build|compose build|goreleaser|helm package|npm pack|sam build|docker/bake|\bbake\b`)},
-	{"publish", regexp.MustCompile(`(?i)docker push|login-action|docker login|\bpublish\b|twine upload|npm publish|mvnw? .*\bdeploy\b|gradlew? .*publish|chart-releaser|push-to-registry|ecr-login|gcr|artifactory|jfrog|nexus-upload`)},
+	{"publish", regexp.MustCompile(`(?i)docker push|login-action|docker login|\bpublish\b|twine upload|npm publish|mvnw? .*\bdeploy\b|gradlew? .*publish|chart-releaser|gh release (create|upload)|action-gh-release|upload-release-asset|push-to-registry|ecr-login|gcr|artifactory|jfrog|nexus-upload`)},
 	{"deploy", regexp.MustCompile(`(?i)helm (upgrade|install|rollback)|kubectl (apply|set image|rollout|create|replace|delete)|kustomize build|argocd|\bflux\b|skaffold (run|deploy)|terraform apply|sam deploy|serverless deploy|sls deploy|gcloud (run|app|functions) deploy|deploy-cloudrun|az (webapp|containerapp|functionapp)|webapps-deploy|k8s-deploy|aws (ecs|lambda|cloudformation)|ecs-deploy|cf push|fly deploy|vercel|netlify deploy|heroku|ansible-playbook|\bdeploy|rollback|release-to|udeploy`)},
-	{"build", regexp.MustCompile(`(?i)\bmvnw?\b|\bgradlew?\b|npm (ci|install|run build)|yarn( install| build|$)|pnpm (install|build|i\b)|go build|dotnet (build|publish|restore)|cargo build|\bmake\b|setup-(java|node|go|python|dotnet)|\bant\b|\bsbt\b|bazel build|\btsc\b|composer install|pip install|poetry install`)},
+	{"build", regexp.MustCompile(`(?i)\bmvnw?\b|\bgradlew?\b|npm (ci|install|run build)|yarn( install| build|$)|pnpm (install|build|i\b)|go build|dotnet (build|publish|restore)|cargo build|\bmake\b|setup-(java|node|go|python|dotnet)|\bant\b|\bsbt\b|bazel build|\btsc\b|composer install|pip install|poetry install|wails build`)},
 	{"approve", regexp.MustCompile(`(?i)manual-approval|\bapproval\b|go-?nogo|change-request|\bapprove\b|input message`)},
 }
 
@@ -132,6 +149,7 @@ var toolRules = map[string]*regexp.Regexp{
 	"az":         regexp.MustCompile(`(?i)\baz (webapp|containerapp|login|aks|acr)|azure/`),
 	"aws":        regexp.MustCompile(`(?i)\baws (ecs|ecr|s3|lambda|cloudformation|eks)|aws-actions/`),
 	"jib":        regexp.MustCompile(`(?i)\bjib\b`),
+	"wails":      regexp.MustCompile(`(?i)\bwails\b`),
 	"codeql":     regexp.MustCompile(`(?i)codeql`),
 	"sonar":      regexp.MustCompile(`(?i)sonar`),
 	"trivy":      regexp.MustCompile(`(?i)\btrivy\b`),
@@ -196,7 +214,7 @@ var (
 	skaffoldCmd     = regexp.MustCompile(`(?m)\bskaffold\s+(run|deploy|build)\b`)
 	samCmd          = regexp.MustCompile(`(?m)\b(sam|serverless|sls)\s+deploy\b`)
 	jibCmd          = regexp.MustCompile(`(?m)\bjib(:build|:dockerBuild|Build|DockerBuild)?\b`)
-	buildToolCmd    = regexp.MustCompile(`(?m)\b(mvnw?|gradlew?|\./mvnw|\./gradlew)\b[^\n]*\b(package|install|verify|build|bootJar|assemble|jib)\b|\bdotnet\s+(publish|build)\b|\bnpm\s+run\s+build\b|\bgo\s+build\b`)
+	buildToolCmd    = regexp.MustCompile(`(?m)\b(mvnw?|gradlew?|\./mvnw|\./gradlew)\b[^\n]*\b(package|install|verify|build|bootJar|assemble|jib)\b|\bdotnet\s+(publish|build)\b|\bnpm\s+run\s+build\b|\bgo\s+build\b|\bwails\s+build\b|\btauri\s+build\b|\belectron-builder\b`)
 )
 
 // joinContinuations turns shell line continuations into one line, keeping
@@ -387,6 +405,7 @@ var (
 
 func readGitHubWorkflow(file string, content []byte) *pipelineFact {
 	p := newPipeline(file, "github_actions")
+	p.Kind = "workflow"
 	docs := yamlDocs(content)
 	if len(docs) == 0 {
 		p.Parsed = "none"
@@ -440,6 +459,11 @@ func readGitHubWorkflow(file string, content []byte) *pipelineFact {
 		if t == "pull_request" || t == "pull_request_target" {
 			isPR = true
 		}
+		// Called by other workflows: a template in its own right, whatever
+		// else starts it.
+		if t == "workflow_call" {
+			p.Kind = "reusable_workflow"
+		}
 	}
 	for _, job := range pairs(get(doc, "jobs")) {
 		j := job.Value
@@ -452,11 +476,11 @@ func readGitHubWorkflow(file string, content []byte) *pipelineFact {
 		}
 		combos := matrixCombos(at(j, "strategy", "matrix"))
 		// A reusable workflow: the job is the call.
-		if uses := str(get(j, "uses")); uses != "" {
+		if uses := localUses(str(get(j, "uses"))); uses != "" {
 			ln := line(get(j, "uses"))
 			target, ref, _ := strings.Cut(uses, "@")
 			if strings.HasPrefix(uses, "./") {
-				p.Calls = append(p.Calls, joinPath(".", strings.TrimPrefix(target, "./")))
+				p.call(joinPath(".", strings.TrimPrefix(target, "./")), ln)
 			} else {
 				p.Delegates = append(p.Delegates, delegation{Target: target, Ref: ref, Line: ln})
 			}
@@ -506,91 +530,222 @@ func readGitHubWorkflow(file string, content []byte) *pipelineFact {
 				p.Environments = append(p.Environments, envHit{Name: name, Kind: "enumerated", Line: ln})
 			}
 		}
-		if len(combos) == 0 {
-			combos = []map[string]interface{}{nil}
-		}
-		workdir := str(at(j, "defaults", "run", "working-directory"))
-		for _, st := range items(get(j, "steps")) {
-			ln := line(st)
-			uses := str(get(st, "uses"))
-			run := str(get(st, "run"))
-			name := str(get(st, "name"))
-			dir := joinPath(".", workdir)
-			if wd := str(get(st, "working-directory")); wd != "" {
-				dir = joinPath(".", wd)
-			}
-			if dir == "" {
-				dir = "."
-			}
-			p.classifyText(uses+"\n"+name, ln)
-			with := get(st, "with")
-			for _, w := range pairs(with) {
-				if versionInput.MatchString(w.Key) && str(w.Value) != "" && !strings.Contains(str(w.Value), "${{") {
-					p.Runtimes = append(p.Runtimes, runtimeHit{Tool: runtimeTool(w.Key + " " + uses), Version: str(w.Value), Line: line(w.KeyN)})
-				}
-			}
-			for _, combo := range combos {
-				if run != "" {
-					p.readShell(expandGH(run, combo, jobEnv), ln, dir)
-				}
-				if strings.HasPrefix(uses, "docker/build-push-action") {
-					b := &imageBuild{BuiltBy: "pipeline", File: file, Line: ln}
-					ctx := expandGH(str(get(with, "context")), combo, jobEnv)
-					if ctx == "" {
-						ctx = "."
-					}
-					if isInterpolated(ctx) {
-						continue
-					}
-					b.Context = joinPath(".", ctx)
-					df := expandGH(str(get(with, "file")), combo, jobEnv)
-					if df == "" {
-						df = stdpath.Join(ctx, "Dockerfile")
-					}
-					b.Dockerfile = joinPath(".", df)
-					b.Target = expandGH(str(get(with, "target")), combo, jobEnv)
-					for _, t := range splitList(expandGH(str(get(with, "tags")), combo, jobEnv)) {
-						b.Names = append(b.Names, NormalizeImage(t))
-					}
-					// Tags from docker/metadata-action name the image in its `images`.
-					for _, other := range items(get(j, "steps")) {
-						if strings.HasPrefix(str(get(other, "uses")), "docker/metadata-action") {
-							for _, im := range splitList(expandGH(str(at(other, "with", "images")), combo, jobEnv)) {
-								b.Names = append(b.Names, NormalizeImage(im))
-							}
-						}
-					}
-					if b.Context != "" {
-						p.Builds = append(p.Builds, b)
-					}
-				}
-				switch {
-				case strings.HasPrefix(uses, "azure/k8s-deploy"):
-					for _, m := range splitList(expandGH(str(get(with, "manifests")), combo, jobEnv)) {
-						p.Deploys = append(p.Deploys, deployHit{Kind: "kubectl", Target: joinPath(".", m), Line: ln})
-					}
-				case strings.HasPrefix(uses, "google-github-actions/deploy-cloudrun"):
-					p.Deploys = append(p.Deploys, deployHit{Kind: "cloud", Target: expandGH(str(get(with, "service"))+str(get(with, "job")), combo, jobEnv), Line: ln})
-				case strings.HasPrefix(uses, "azure/webapps-deploy"), strings.HasPrefix(uses, "azure/functions-action"):
-					p.Deploys = append(p.Deploys, deployHit{Kind: "cloud", Target: expandGH(str(get(with, "app-name")), combo, jobEnv), Line: ln})
-				case strings.HasPrefix(uses, "aws-actions/amazon-ecs-deploy-task-definition"):
-					p.Deploys = append(p.Deploys, deployHit{Kind: "cloud", Target: expandGH(str(get(with, "service")), combo, jobEnv), Line: ln})
-				case strings.HasPrefix(uses, "./") && strings.Contains(uses, ".github/workflows"):
-					p.Calls = append(p.Calls, joinPath(".", strings.TrimPrefix(uses, "./")))
-				case strings.HasPrefix(uses, "./"):
-					// A local composite action: part of this pipeline.
-				case strings.Contains(uses, "/.github/workflows/"):
-					target, ref, _ := strings.Cut(uses, "@")
-					p.Delegates = append(p.Delegates, delegation{Target: target, Ref: ref, Line: ln})
-				}
-			}
-		}
+		p.readSteps(items(get(j, "steps")), combos, jobEnv, str(at(j, "defaults", "run", "working-directory")))
 	}
 	if isPR && len(p.Deploys) > 0 && prNumberRef.MatchString(string(content)) {
 		p.Environments = append(p.Environments, envHit{Name: "per pull request", Kind: "pattern", Line: 1})
 	}
 	p.dedupe()
 	return p
+}
+
+var nodeRuntime = regexp.MustCompile(`^node(\d+)$`)
+
+// readGitHubAction reads an action this workspace defines (action.yml). A
+// composite action is steps like a job's, and what they do counts in every
+// workflow that uses it; a Docker action runs an image; a JavaScript action
+// runs a script on the runner's Node. None of them starts on its own.
+func readGitHubAction(file string, content []byte) *pipelineFact {
+	p := newPipeline(file, "github_actions")
+	p.Kind = "action"
+	if dir := dirOf(file); dir != "." {
+		p.Name = stdpath.Base(dir)
+	}
+	docs := yamlDocs(content)
+	if len(docs) == 0 {
+		p.Parsed = "none"
+		return p
+	}
+	doc := docs[0]
+	if n := str(get(doc, "name")); n != "" {
+		p.Name = n
+	}
+	runs := get(doc, "runs")
+	using := strings.ToLower(str(get(runs, "using")))
+	ln := line(get(runs, "using"))
+	switch {
+	case using == "composite":
+		p.Kind = "composite_action"
+		p.readSteps(items(get(runs, "steps")), nil, map[string]string{}, "")
+	case using == "docker":
+		p.Kind = "docker_action"
+		p.Tools["docker"] = true
+		image := str(get(runs, "image"))
+		p.classifyText(image, line(get(runs, "image")))
+	case nodeRuntime.MatchString(using):
+		p.Kind = "javascript_action"
+		p.Tools["npm"] = true
+		p.Runtimes = append(p.Runtimes, runtimeHit{Tool: "node", Version: nodeRuntime.FindStringSubmatch(using)[1], Line: ln})
+	default:
+		p.Parsed = "partial"
+	}
+	p.dedupe()
+	return p
+}
+
+// foldCalls resolves each pipeline's local uses (`./.github/actions/setup`,
+// `./.github/workflows/build.yml`) to the files read, and credits the caller
+// with what they do: a composite action's steps run inside the job that uses
+// it, and a called workflow runs as the caller's job. Calls that name nothing
+// read here are dropped. Folding is transitive and stops at a loop.
+func foldCalls(pipelines []*pipelineFact) {
+	byID := map[string]*pipelineFact{}
+	for _, p := range pipelines {
+		byID[p.ID] = p
+	}
+	resolve := func(target string) *pipelineFact {
+		for _, id := range []string{target, joinPath(target, "action.yml"), joinPath(target, "action.yaml")} {
+			if p := byID[id]; p != nil {
+				return p
+			}
+		}
+		return nil
+	}
+	for _, p := range pipelines {
+		var calls []string
+		lines := map[string]int{}
+		for _, c := range p.Calls {
+			if q := resolve(c); q != nil && q != p {
+				calls = append(calls, q.ID)
+				lines[q.ID] = p.callLines[c]
+			}
+		}
+		p.Calls, p.callLines = calls, lines
+		sort.Strings(p.Calls)
+	}
+	for _, p := range pipelines {
+		seen := map[*pipelineFact]bool{p: true}
+		var walk func(q *pipelineFact, ln int)
+		walk = func(q *pipelineFact, ln int) {
+			for _, id := range q.Calls {
+				r := byID[id]
+				if seen[r] {
+					continue
+				}
+				seen[r] = true
+				at := ln
+				if q == p {
+					at = p.callLines[id]
+				}
+				for st := range r.stages {
+					p.hit(st, at)
+				}
+				for t := range r.Tools {
+					p.Tools[t] = true
+				}
+				for _, rt := range r.Runtimes {
+					p.Runtimes = append(p.Runtimes, runtimeHit{Tool: rt.Tool, Version: rt.Version, Line: at})
+				}
+				for _, d := range r.Deploys {
+					p.Deploys = append(p.Deploys, deployHit{Kind: d.Kind, Target: d.Target, Line: at})
+				}
+				for _, d := range r.Delegates {
+					p.Delegates = append(p.Delegates, delegation{Target: d.Target, Ref: d.Ref, Line: at, Stage: d.Stage})
+				}
+				if r.BuildTool && !p.BuildTool {
+					p.BuildTool, p.BuildToolLine = true, at
+				}
+				p.uses = append(p.uses, r)
+				walk(r, at)
+			}
+		}
+		walk(p, 0)
+		p.dedupe()
+	}
+}
+
+// readSteps reads the steps of a job or of a composite action: the stages
+// and tools they show, the images they build and what they deploy, once per
+// matrix combination.
+func (p *pipelineFact) readSteps(steps []*yaml.Node, combos []map[string]interface{}, jobEnv map[string]string, workdir string) {
+	if len(combos) == 0 {
+		combos = []map[string]interface{}{nil}
+	}
+	for _, st := range steps {
+		ln := line(st)
+		uses := localUses(str(get(st, "uses")))
+		run := str(get(st, "run"))
+		name := str(get(st, "name"))
+		dir := joinPath(".", workdir)
+		if wd := str(get(st, "working-directory")); wd != "" {
+			dir = joinPath(".", wd)
+		}
+		if dir == "" {
+			dir = "."
+		}
+		p.classifyText(uses+"\n"+name, ln)
+		with := get(st, "with")
+		for _, w := range pairs(with) {
+			if versionInput.MatchString(w.Key) && str(w.Value) != "" && !strings.Contains(str(w.Value), "${{") {
+				p.Runtimes = append(p.Runtimes, runtimeHit{Tool: runtimeTool(w.Key + " " + uses), Version: str(w.Value), Line: line(w.KeyN)})
+			}
+		}
+		for _, combo := range combos {
+			if run != "" {
+				p.readShell(expandGH(run, combo, jobEnv), ln, dir)
+			}
+			if strings.HasPrefix(uses, "docker/build-push-action") {
+				b := &imageBuild{BuiltBy: "pipeline", File: p.File, Line: ln}
+				ctx := expandGH(str(get(with, "context")), combo, jobEnv)
+				if ctx == "" {
+					ctx = "."
+				}
+				if isInterpolated(ctx) {
+					continue
+				}
+				b.Context = joinPath(".", ctx)
+				df := expandGH(str(get(with, "file")), combo, jobEnv)
+				if df == "" {
+					df = stdpath.Join(ctx, "Dockerfile")
+				}
+				b.Dockerfile = joinPath(".", df)
+				b.Target = expandGH(str(get(with, "target")), combo, jobEnv)
+				for _, t := range splitList(expandGH(str(get(with, "tags")), combo, jobEnv)) {
+					b.Names = append(b.Names, NormalizeImage(t))
+				}
+				// Tags from docker/metadata-action name the image in its `images`.
+				for _, other := range steps {
+					if strings.HasPrefix(str(get(other, "uses")), "docker/metadata-action") {
+						for _, im := range splitList(expandGH(str(at(other, "with", "images")), combo, jobEnv)) {
+							b.Names = append(b.Names, NormalizeImage(im))
+						}
+					}
+				}
+				if b.Context != "" {
+					p.Builds = append(p.Builds, b)
+				}
+			}
+			switch {
+			case strings.HasPrefix(uses, "azure/k8s-deploy"):
+				for _, m := range splitList(expandGH(str(get(with, "manifests")), combo, jobEnv)) {
+					p.Deploys = append(p.Deploys, deployHit{Kind: "kubectl", Target: joinPath(".", m), Line: ln})
+				}
+			case strings.HasPrefix(uses, "google-github-actions/deploy-cloudrun"):
+				p.Deploys = append(p.Deploys, deployHit{Kind: "cloud", Target: expandGH(str(get(with, "service"))+str(get(with, "job")), combo, jobEnv), Line: ln})
+			case strings.HasPrefix(uses, "azure/webapps-deploy"), strings.HasPrefix(uses, "azure/functions-action"):
+				p.Deploys = append(p.Deploys, deployHit{Kind: "cloud", Target: expandGH(str(get(with, "app-name")), combo, jobEnv), Line: ln})
+			case strings.HasPrefix(uses, "aws-actions/amazon-ecs-deploy-task-definition"):
+				p.Deploys = append(p.Deploys, deployHit{Kind: "cloud", Target: expandGH(str(get(with, "service")), combo, jobEnv), Line: ln})
+			case strings.HasPrefix(uses, "./"):
+				// A local workflow or action: what it does is folded into
+				// this pipeline once every file is read.
+				target, _, _ := strings.Cut(strings.TrimPrefix(uses, "./"), "@")
+				p.call(joinPath(".", target), ln)
+			case strings.Contains(uses, "/.github/workflows/"):
+				target, ref, _ := strings.Cut(uses, "@")
+				p.Delegates = append(p.Delegates, delegation{Target: target, Ref: ref, Line: ln})
+			}
+		}
+	}
+}
+
+// localUses spells a same-repository reference the one way: `$/.github/...`
+// names this repository as `./.github/...` does.
+func localUses(uses string) string {
+	if strings.HasPrefix(uses, "$/") {
+		return "./" + strings.TrimPrefix(uses, "$/")
+	}
+	return uses
 }
 
 func runtimeTool(s string) string {
