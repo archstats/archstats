@@ -43,7 +43,19 @@ const (
 	// `export default class extends Controller {}`: a class with no name of
 	// its own, which the file's default export names.
 	CaptureJSDefaultClass = "js__class__default"
+	// The factory a constant is made by: `defineStore` in `const useCart =
+	// defineStore(...)`. Such a constant is a unit, the factory its marker.
+	CaptureJSFactory = "js__factory__call"
 )
+
+// jsFactories make the things an architect names that are neither a class nor
+// a function: a Pinia store is `export const useCartStore = defineStore(...)`,
+// a Redux Toolkit slice `const cartSlice = createSlice(...)`. Their actions
+// are methods of an object literal or functions inside the call, and without
+// a unit to hold them they were loose functions of the file, so a store read
+// as its interfaces and nothing else. An allowlist, not every `define…`:
+// Vue's `const props = defineProps()` is a compiler macro, not a unit.
+const jsFactories = `^(defineStore|defineComponent|createSlice|createApi)$`
 
 // JSUnitQueries are the snippet queries for a JavaScript-family grammar.
 //
@@ -62,6 +74,18 @@ func JSUnitQueries(typeIdentifier string, withTypes bool) []string {
 		`(lexical_declaration (variable_declarator
 			name: (identifier) @` + CaptureJSFunction + `
 			value: [(arrow_function) (function_expression)]))`,
+
+		// A constant made by a factory: a store, a slice.
+		`((lexical_declaration (variable_declarator
+			name: (identifier) @` + CaptureJSClass + `
+			value: (call_expression function: (identifier) @` + CaptureJSFactory + `)))
+		  (#match? @` + CaptureJSFactory + ` "` + jsFactories + `"))`,
+		`((lexical_declaration (variable_declarator
+			value: (call_expression function: (identifier) @_factory))) @` + CaptureJSClassSpan + `
+		  (#match? @_factory "` + jsFactories + `"))`,
+		`((lexical_declaration (variable_declarator
+			value: (call_expression function: (identifier) @_factory2))) @` + CaptureJSSpan + `
+		  (#match? @_factory2 "` + jsFactories + `"))`,
 
 		// A method belongs to the class above it, paired up by position.
 		`(method_definition name: (property_identifier) @` + CaptureJSMethod + `)`,
@@ -185,7 +209,7 @@ func ModuleOf(filePath string) string {
 func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit {
 	module := ModuleOf(filePath)
 
-	var classes, interfaces, functions, methods, decorators []*file.Snippet
+	var classes, interfaces, functions, methods, decorators, factories []*file.Snippet
 	var bindings, importSpans, spans, sources, classSpans []*file.Snippet
 	for _, s := range res.Snippets {
 		switch s.Type {
@@ -199,6 +223,8 @@ func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Uni
 			methods = append(methods, s)
 		case CaptureJSDecorator:
 			decorators = append(decorators, s)
+		case CaptureJSFactory:
+			factories = append(factories, s)
 		case CaptureJSBinding:
 			bindings = append(bindings, s)
 		case CaptureJSImportSpan:
@@ -221,6 +247,7 @@ func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Uni
 	byOffset(sources)
 	byOffset(classes)
 	byOffset(methods)
+	byOffset(factories)
 
 	var out []*unit.Unit
 	// The snippet declaring each unit, index for index with out; nil where a
@@ -241,6 +268,14 @@ func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Uni
 		}
 		out = append(out, u)
 		declaredBy = append(declaredBy, c)
+	}
+	// A factory call follows the name it is assigned to.
+	factorySpan := map[int]bool{}
+	for _, f := range factories {
+		if i := precedingIndex(f, classes); i >= 0 {
+			out[i].Markers = append(out[i].Markers, unit.Marker{Source: unit.SourceSupertype, Key: f.Value})
+			factorySpan[i] = true
+		}
 	}
 	for _, i := range interfaces {
 		out = append(out, &unit.Unit{
@@ -293,13 +328,19 @@ func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Uni
 	}
 	for _, f := range functions {
 		// A function declared inside a class body is a method and has
-		// already been recorded as one.
-		out = append(out, &unit.Unit{
+		// already been recorded as one. One declared inside a factory call
+		// -- a setup store's actions -- belongs to what the factory makes.
+		u := &unit.Unit{
 			ID:    module + "#" + f.Value,
 			Kind:  unit.KindFunction,
 			Name:  f.Value,
 			Files: []string{filePath},
-		})
+		}
+		if idx := classAt(f.Begin.Offset); idx >= 0 && factorySpan[idx] {
+			u.Owner = module + "#" + classes[idx].Value
+			u.ID = module + "#" + classes[idx].Value + "." + f.Value
+		}
+		out = append(out, u)
 		declaredBy = append(declaredBy, f)
 	}
 
