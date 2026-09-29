@@ -183,7 +183,7 @@ func TestHelperCapturesAreNotKept(t *testing.T) {
 	assert.NotEmpty(t, res.Units)
 	for _, s := range res.Snippets {
 		switch s.Type {
-		case captureSpan, captureDoc, captureUse, captureCall, captureImportDecl:
+		case captureSpan, captureDoc, captureUse, captureCall, captureImportDecl, captureInterface:
 			t.Fatalf("%s was stored", s.Type)
 		}
 	}

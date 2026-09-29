@@ -24,6 +24,11 @@ const (
 	captureClass     = "py__class__definition"
 	captureFunction  = "py__function__definition"
 	captureDecorator = "py__decorator"
+	// What a class extends, by its last segment: `models.Model` is `Model`.
+	// The filename is Django's evidence; the base class is everyone else's
+	// -- Pydantic's BaseModel, SQLAlchemy's Base, DRF's ModelViewSet -- and
+	// Django's too once models live in a `models/` package.
+	captureSuperclass = "py__superclass"
 	// `from oscar.apps.basket import models` names both the module and what
 	// was taken out of it, which is how a dependency between two units is
 	// recoverable at all: an import that named only the module would say
@@ -43,6 +48,12 @@ func unitQueries() []string {
 			(attribute attribute: (identifier) @` + captureDecorator + `)
 			(call function: (attribute attribute: (identifier) @` + captureDecorator + `))
 		])`,
+		`(class_definition superclasses: (argument_list [
+			(identifier) @` + captureSuperclass + `
+			(attribute attribute: (identifier) @` + captureSuperclass + `)
+			(subscript value: (identifier) @` + captureSuperclass + `)
+			(subscript value: (attribute attribute: (identifier) @` + captureSuperclass + `))
+		]))`,
 
 		`(import_from_statement name: (dotted_name) @` + captureBinding + `)`,
 		`(import_from_statement name: (aliased_import alias: (identifier) @` + captureBinding + `))`,
@@ -51,16 +62,33 @@ func unitQueries() []string {
 
 		`(function_definition) @` + captureDeclSpan,
 		`(class_definition) @` + captureDeclSpan,
+		// The decorator is part of what it decorates. Without this span the
+		// names in `@admin.register(Product)`, `@receiver(post_save,
+		// sender=Product)` and `@router.get("/x", response_model=UserOut)`
+		// sat outside every declaration and were the module's references,
+		// so no route ever reached its schema and no admin its model.
+		`(decorated_definition) @` + captureDeclSpan,
 	}
 }
 
 // The filenames Django gives a meaning. A file called anything else says
 // nothing, and marking it would be noise rather than evidence.
 var roleFilenames = map[string]bool{
-	"models": true, "views": true, "forms": true, "admin": true, "apps": true,
+	"models": true, "views": true, "viewsets": true, "forms": true, "admin": true, "apps": true,
 	"urls": true, "serializers": true, "signals": true, "receivers": true,
 	"managers": true, "tasks": true, "middleware": true, "settings": true,
 	"abstract_models": true,
+}
+
+// The same roles as a package: `models/product.py` is a models file as much
+// as `models.py` is, and a big app splits its models, views and serializers
+// that way. django-oscar has 34 units in `models/` packages that carried no
+// marker at all. `migrations/` is a directory only, and `apps/` is left out
+// because it holds the apps themselves, not their configs.
+var roleDirectories = map[string]bool{
+	"models": true, "views": true, "viewsets": true, "forms": true, "admin": true,
+	"serializers": true, "signals": true, "receivers": true, "managers": true,
+	"tasks": true, "middleware": true, "settings": true, "migrations": true,
 }
 
 type pythonAnalyzer struct {
@@ -78,9 +106,11 @@ func (a *pythonAnalyzer) AnalyzeFile(f file.File) *file.Results {
 
 func unitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit {
 	module := common.ModuleOf(filePath)
-	base := strings.TrimSuffix(path.Base(path.Clean(filePath)), ".py")
+	clean := path.Clean(filePath)
+	base := strings.TrimSuffix(path.Base(clean), ".py")
+	dir := path.Base(path.Dir(clean))
 
-	var classes, functions, decorators []*file.Snippet
+	var classes, functions, decorators, superclasses []*file.Snippet
 	var bindings, importSpans, declSpans, sources []*file.Snippet
 	for _, s := range res.Snippets {
 		switch s.Type {
@@ -90,6 +120,8 @@ func unitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit 
 			functions = append(functions, s)
 		case captureDecorator:
 			decorators = append(decorators, s)
+		case captureSuperclass:
+			superclasses = append(superclasses, s)
 		case captureBinding:
 			bindings = append(bindings, s)
 		case captureImportSpan:
@@ -103,10 +135,14 @@ func unitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit 
 	sortByOffset(classes)
 	sortByOffset(functions)
 
-	// A file whose name Django reads marks everything it declares.
+	// A file whose name Django reads marks everything it declares, and so
+	// does a package whose name it reads.
 	var fileMarkers []unit.Marker
 	if roleFilenames[base] {
 		fileMarkers = append(fileMarkers, unit.Marker{Source: unit.SourceFilename, Key: base})
+	}
+	if roleDirectories[dir] {
+		fileMarkers = append(fileMarkers, unit.Marker{Source: unit.SourcePath, Key: dir})
 	}
 
 	// Which class holds what. A class nested in another -- every Django
@@ -141,7 +177,8 @@ func unitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit 
 	}
 
 	var out []*unit.Unit
-	for i, c := range classes {
+	unitOf := map[*file.Snippet]*unit.Unit{}
+	for _, c := range classes {
 		u := &unit.Unit{
 			ID:      module + "#" + nested[c],
 			Kind:    unit.KindType,
@@ -152,11 +189,7 @@ func unitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit 
 		if outer := innermostClass(c); outer >= 0 {
 			u.Owner = module + "#" + nested[classes[outer]]
 		}
-		for _, d := range decorators {
-			if firstAtOrAfter(d, classes) == i && precedingIndexOf(d, classes) < i {
-				u.Markers = append(u.Markers, unit.Marker{Source: unit.SourceAnnotation, Key: d.Value})
-			}
-		}
+		unitOf[c] = u
 		out = append(out, u)
 	}
 
@@ -175,12 +208,30 @@ func unitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit 
 			Owner:   owner,
 			Markers: append([]unit.Marker(nil), fileMarkers...),
 		}
-		for _, d := range decorators {
-			if between(d, f, functions) {
-				u.Markers = append(u.Markers, unit.Marker{Source: unit.SourceAnnotation, Key: d.Value})
-			}
-		}
+		unitOf[f] = u
 		out = append(out, u)
+	}
+
+	// A base class follows the name of the class it belongs to.
+	for _, s := range superclasses {
+		if idx := precedingIndexOf(s, classes); idx >= 0 {
+			u := unitOf[classes[idx]]
+			u.Markers = append(u.Markers, unit.Marker{Source: unit.SourceSupertype, Key: s.Value})
+		}
+	}
+
+	// A decorator belongs to the declaration directly below it, class or
+	// function alike. Matched against classes and functions separately, a
+	// method's `@property` also landed on the next class in the file -- 209
+	// of oscar's types carried it -- and a route function's `@router.get`
+	// landed on the Pydantic model declared after it.
+	declarations := append(append([]*file.Snippet{}, classes...), functions...)
+	sortByOffset(declarations)
+	for _, d := range decorators {
+		if idx := firstAtOrAfter(d, declarations); idx >= 0 {
+			u := unitOf[declarations[idx]]
+			u.Markers = append(u.Markers, unit.Marker{Source: unit.SourceAnnotation, Key: d.Value})
+		}
 	}
 
 	// Classes then functions, the order out was built in.
@@ -217,20 +268,6 @@ func firstAtOrAfter(s *file.Snippet, declarations []*file.Snippet) int {
 		}
 	}
 	return -1
-}
-
-// between reports whether a decorator belongs to this function: it sits
-// above it, and nothing else is declared in between.
-func between(decorator, fn *file.Snippet, functions []*file.Snippet) bool {
-	if decorator.Begin.Offset >= fn.Begin.Offset {
-		return false
-	}
-	for _, other := range functions {
-		if other.Begin.Offset > decorator.Begin.Offset && other.Begin.Offset < fn.Begin.Offset {
-			return false
-		}
-	}
-	return true
 }
 
 // pathLikeSources rewrites Python's relative module syntax into the path form

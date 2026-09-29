@@ -20,6 +20,9 @@ const (
 	captureUse        = "php__type__use"
 	captureCall       = "php__function__call"
 	captureImportDecl = "php__use__declaration"
+	// Which of the types is an interface, so a consumer can tell a contract
+	// from a class the way every other pack lets it.
+	captureInterface = "php__interface__name"
 )
 
 func unitQueries() []string {
@@ -39,7 +42,13 @@ func unitQueries() []string {
 
 		`(base_clause ` + names + ` @` + captureSupertype + `)`,
 		`(class_interface_clause ` + names + ` @` + captureSupertype + `)`,
-		`(class_declaration attributes: (attribute_list (attribute_group (attribute ` + names + ` @` + captureAttribute + `))))`,
+		// An attribute wherever it sits: on the class, or on a method or
+		// property inside it. Symfony's #[Route] is usually on the action,
+		// and Doctrine's #[ORM\Column] on the property; read at the class
+		// only, a controller whose routes were all on its methods carried
+		// nothing.
+		`(attribute_list (attribute_group (attribute ` + names + ` @` + captureAttribute + `)))`,
+		`(interface_declaration name: (name) @` + captureInterface + `)`,
 		`(comment) @` + captureDoc,
 
 		// Everywhere a class is named rather than declared: extends and
@@ -77,7 +86,7 @@ func (a *phpAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	kept := res.Snippets[:0]
 	for _, sn := range res.Snippets {
 		switch sn.Type {
-		case captureSpan, captureDoc, captureUse, captureCall, captureImportDecl:
+		case captureSpan, captureDoc, captureUse, captureCall, captureImportDecl, captureInterface:
 			continue
 		}
 		kept = append(kept, sn)
@@ -89,6 +98,7 @@ func (a *phpAnalyzer) AnalyzeFile(f file.File) *file.Results {
 func unitsFrom(path string, res *file.Results) []*unit.Unit {
 	namespace := ""
 	var types, functions, spans, supertypes, attributes, docs, uses, calls, imports []*file.Snippet
+	interfaces := map[int]bool{}
 	for _, s := range res.Snippets {
 		switch s.Type {
 		case file.ComponentDeclaration:
@@ -113,6 +123,8 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 			calls = append(calls, s)
 		case captureImportDecl:
 			imports = append(imports, s)
+		case captureInterface:
+			interfaces[s.Begin.Offset] = true
 		}
 	}
 	names := newNames(namespace, imports)
@@ -135,12 +147,16 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 			kind = unit.KindFunction
 		}
 		unitOf[d] = len(out)
-		out = append(out, &unit.Unit{
+		u := &unit.Unit{
 			ID:    qualify(namespace, d.Value),
 			Kind:  kind,
 			Name:  d.Value,
 			Files: []string{path},
-		})
+		}
+		if interfaces[d.Begin.Offset] {
+			u.Markers = append(u.Markers, unit.Marker{Source: unit.SourceSupertype, Key: "interface"})
+		}
+		out = append(out, u)
 	}
 	for _, sp := range spans {
 		for _, d := range declared {
@@ -172,14 +188,22 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 
 	// Markers: what a type extends or implements, its attributes, and the
 	// annotations of the docblock right above it (Doctrine's @ORM\Entity).
+	// Keyed by the name the `use` clause resolves to, so `extends Eloquent`
+	// under `use Illuminate\Database\Eloquent\Model as Eloquent` is a Model.
+	resolved := func(written string) string {
+		if r, ok := names.class(written); ok {
+			return r.Name
+		}
+		return lastSegment(written)
+	}
 	for _, s := range supertypes {
 		if u := ownerAt(s.Begin.Offset); u >= 0 {
-			out[u].Markers = append(out[u].Markers, unit.Marker{Source: unit.SourceSupertype, Key: lastSegment(s.Value)})
+			out[u].Markers = appendMarker(out[u].Markers, unit.Marker{Source: unit.SourceSupertype, Key: resolved(s.Value)})
 		}
 	}
 	for _, s := range attributes {
 		if u := ownerAt(s.Begin.Offset); u >= 0 {
-			out[u].Markers = append(out[u].Markers, unit.Marker{Source: unit.SourceAnnotation, Key: lastSegment(s.Value)})
+			out[u].Markers = appendMarker(out[u].Markers, unit.Marker{Source: unit.SourceAnnotation, Key: resolved(s.Value)})
 		}
 	}
 	for _, t := range types {
@@ -243,6 +267,17 @@ func lastSegment(name string) string {
 		return name[i+1:]
 	}
 	return name
+}
+
+// appendMarker keeps one marker per claim: twenty #[ORM\Column] properties
+// are one fact about the entity.
+func appendMarker(list []unit.Marker, m unit.Marker) []unit.Marker {
+	for _, e := range list {
+		if e == m {
+			return list
+		}
+	}
+	return append(list, m)
 }
 
 func appendRef(list []unit.Ref, r unit.Ref) []unit.Ref {

@@ -209,12 +209,8 @@ func attachGoRefs(units []*unit.Unit, declaredBy []*file.Snippet, pkg string, al
 	// path it renames.
 	pathFor := map[string]string{}
 	for _, p := range importPaths {
-		last := p.Value
-		if i := strings.LastIndex(last, "/"); i != -1 {
-			last = last[i+1:]
-		}
-		if last != "" {
-			pathFor[last] = p.Value
+		for _, name := range packageNames(p.Value) {
+			pathFor[name] = p.Value
 		}
 	}
 	for _, a := range aliases {
@@ -268,7 +264,25 @@ func attachGoRefs(units []*unit.Unit, declaredBy []*file.Snippet, pkg string, al
 	// use of Context inside gin's root package, which is most of gin. They
 	// resolve exactly in this package or not at all: locals, parameters and
 	// builtins name nothing declared at package level and are dropped.
+	//
+	// The name half of `time.Time` is a type_identifier too, but it is not
+	// unqualified: read as a local it claimed this package's own Time, and a
+	// package declaring one got an edge the code never wrote.
+	qualified := map[int]bool{}
+	for _, n := range selNames {
+		qualified[n.Begin.Offset] = true
+	}
+	// Nor is the package half: `redis` in `redis.NewClient` is an import,
+	// not a name this package declares.
+	for _, sel := range selPkgs {
+		if _, known := pathFor[sel.Value]; known {
+			qualified[sel.Begin.Offset] = true
+		}
+	}
 	for _, l := range locals {
+		if qualified[l.Begin.Offset] {
+			continue
+		}
 		for _, sp := range owned {
 			if l.Begin.Offset >= sp.begin && l.Begin.Offset <= sp.end {
 				u := units[sp.unitIdx]
@@ -279,6 +293,32 @@ func attachGoRefs(units []*unit.Unit, declaredBy []*file.Snippet, pkg string, al
 			}
 		}
 	}
+}
+
+// A major-version element is not a package name. `github.com/redis/go-redis/v9`
+// is written `redis.Client` and `gopkg.in/yaml.v3` is `yaml.Unmarshal`; read
+// by their last element, neither ever paired with a selector, so a store
+// holding a redis client used nothing from it.
+var majorVersion = regexp.MustCompile(`^v[0-9]+$`)
+var gopkgVersion = regexp.MustCompile(`\.v[0-9]+$`)
+
+func packageNames(importPath string) []string {
+	parts := strings.Split(importPath, "/")
+	last := parts[len(parts)-1]
+	if majorVersion.MatchString(last) && len(parts) > 1 {
+		last = parts[len(parts)-2]
+	}
+	last = gopkgVersion.ReplaceAllString(last, "")
+	if last == "" {
+		return nil
+	}
+	// `go-redis` is imported as `redis`: a `go-` prefix is the repository's
+	// name, not the package's, and the convention is to drop it. Both are
+	// kept, since a selector can only ever be written one way.
+	if strings.HasPrefix(last, "go-") {
+		return []string{last, strings.TrimPrefix(last, "go-")}
+	}
+	return []string{last}
 }
 
 func appendGoRef(list []unit.Ref, r unit.Ref) []unit.Ref {

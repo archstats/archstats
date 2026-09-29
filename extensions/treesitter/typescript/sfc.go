@@ -181,7 +181,11 @@ func sfcUnits(filePath string, content []byte, res *file.Results, blocks []scrip
 			component.Refs = appendRefs(component.Refs, u.Refs...)
 			continue
 		}
-		if u.Owner == "" && u.Kind == unit.KindFunction {
+		// Everything the script declares is the component's: its functions,
+		// but also its `interface Props` and its local types, which stood
+		// beside it as models of the codebase -- 80 of archstats-ui's 459
+		// interfaces were a component's own props.
+		if u.Owner == "" {
 			u.Owner = component.ID
 		}
 		out = append(out, u)

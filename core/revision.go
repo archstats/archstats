@@ -66,4 +66,19 @@ package core
 //	               the local workflows and actions it uses do
 //	               (pipelines.calls); GitHub releases count as publishing.
 //	               Wails, Tauri and Electron apps are desktop deployables.
-const AnalysisRevision = 9
+//	10 2026-09-29  framework roles read end to end, every pack: a constant
+//	               made by defineStore, createSlice, createApi,
+//	               createAsyncThunk or createSelector is a unit, and a
+//	               forwardRef/memo-wrapped function one; functions nested in
+//	               a function are owned by it; JS/TS heritage, type aliases
+//	               and enums recorded, member decorators kept off the next
+//	               class; Java annotations read qualified and put on the
+//	               innermost type, nested types are units; Kotlin extension
+//	               receivers and class keywords; Python superclasses and
+//	               decorators on their own definition; PHP method attributes
+//	               through use aliases; C# attributes on the type they are
+//	               written in, records and minimal APIs; Go generic receivers
+//	               and versioned import paths; Swift, Objective-C and Dart
+//	               extensions, nested names and part files resolved; Android,
+//	               Kotlin Multiplatform, Xcode and Dart test paths are tests.
+const AnalysisRevision = 10

@@ -1,6 +1,7 @@
 package swift
 
 import (
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -39,8 +40,14 @@ const (
 	// A generic parameter's name: `Content` in `struct Row<Content: View>`
 	// is no type of the codebase's, whatever else is called Content.
 	captureGeneric = "swift__generic"
-	captureRef     = apple.CaptureRef
+	// A dotted name, `CounterFeature.State` as a type or as an expression.
+	// A nested type answers only to its full name, so the bare parts alone
+	// would never reach it.
+	captureQualified = "swift__qualified"
+	captureRef       = apple.CaptureRef
 )
+
+var qualifiedName = regexp.MustCompile(`^[A-Z]\w*(\.[A-Z]\w*)+$`)
 
 var keywordOf = map[string]string{
 	captureClass: "class", captureStruct: "struct", captureEnum: "enum", captureActor: "actor",
@@ -75,6 +82,8 @@ func unitQueries() []string {
 		`(property_declaration (modifiers (attribute (user_type) @` + captureWrapper + `)))`,
 		`(type_identifier) @` + captureRef,
 		`(simple_identifier) @` + captureRef,
+		`(user_type (type_identifier) (type_identifier)) @` + captureQualified,
+		`(navigation_expression target: (simple_identifier) suffix: (navigation_suffix suffix: (simple_identifier))) @` + captureQualified,
 		`(import_declaration) @` + captureSkip,
 		`(type_parameter . (type_identifier) @` + captureGeneric + `)`,
 	}
@@ -99,7 +108,7 @@ func (a *swiftAnalyzer) analyze(path string, content []byte) *file.Results {
 	for _, sn := range res.Snippets {
 		switch sn.Type {
 		case captureClass, captureStruct, captureEnum, captureActor, captureProtocol, captureExtension,
-			captureTypeSpan, captureFunc, captureFuncSpan, captureSuper, captureAttr, captureWrapper, captureSkip, captureGeneric:
+			captureTypeSpan, captureFunc, captureFuncSpan, captureSuper, captureAttr, captureWrapper, captureSkip, captureGeneric, captureQualified:
 			continue
 		case captureRef:
 			if !capitalised(sn.Value) || generic[sn.Value] {
@@ -148,6 +157,14 @@ func unitsFrom(path string, snippets []*file.Snippet) []*unit.Unit {
 	var names, typeSpans, funcs, funcSpans, supers, attrs, wrappers, refs, skips []*file.Snippet
 	for _, s := range snippets {
 		switch s.Type {
+		case captureQualified:
+			// `CounterFeature.State`, as one reference to the nested type,
+			// beside the references its parts make on their own.
+			if v := typeName(s.Value, true); qualifiedName.MatchString(v) {
+				c := *s
+				c.Value = v
+				refs = append(refs, &c)
+			}
 		case captureClass, captureStruct, captureEnum, captureActor, captureProtocol:
 			names = append(names, s)
 		case captureExtension:
@@ -253,6 +270,30 @@ func unitsFrom(path string, snippets []*file.Snippet) []*unit.Unit {
 		}
 	}
 
+	// The types this file declares by their full names, for the names a
+	// declaration uses from inside its own type: `State` inside
+	// CounterFeature means CounterFeature.State, as it does to the compiler.
+	declared := map[string]bool{}
+	for _, n := range names {
+		if n.Type != captureExtension {
+			declared[nested[n]] = true
+		}
+	}
+	inScope := func(from *unit.Unit, name string) string {
+		scope := strings.TrimPrefix(from.ID, id(""))
+		for scope != "" {
+			if declared[scope+"."+name] {
+				return scope + "." + name
+			}
+			if i := strings.LastIndex(scope, "."); i >= 0 {
+				scope = scope[:i]
+			} else {
+				scope = ""
+			}
+		}
+		return name
+	}
+
 	// References: every capitalised name, owned by the innermost declaration
 	// around it. Resolved by the linker, which knows the targets.
 	generic := genericNames(snippets)
@@ -274,7 +315,7 @@ func unitsFrom(path string, snippets []*file.Snippet) []*unit.Unit {
 		if i < 0 || out[i].Name == r.Value {
 			continue
 		}
-		ref := unit.Ref{Module: placeholder, Name: r.Value, Exact: true}
+		ref := unit.Ref{Module: placeholder, Name: inScope(out[i], r.Value), Exact: true}
 		if !hasRef(out[i].Refs, ref) {
 			out[i].Refs = append(out[i].Refs, ref)
 		}

@@ -88,11 +88,22 @@ func createCSharpLanguagePack() *common.LanguagePack {
 			`(struct_declaration) @csharp__declaration__span`,
 			`(interface_declaration) @csharp__declaration__span`,
 			`(record_declaration) @csharp__declaration__span`,
+			`(enum_declaration) @csharp__declaration__span`,
+			// The last segment of a qualified base: `: Mvc.Controller` is a
+			// Controller, and matching every identifier in it made it an
+			// `Mvc` as well.
 			`(base_list [
 				(identifier) @csharp__class__base
 				(generic_name (identifier) @csharp__class__base)
-				(qualified_name (identifier) @csharp__class__base)
+				(qualified_name name: (identifier) @csharp__class__base)
+				(qualified_name name: (generic_name (identifier) @csharp__class__base))
 			])`,
+			// What a type was declared as. Folded into a marker by the
+			// analyzer and not stored.
+			`(record_declaration name: (identifier) @csharp__record__name)`,
+			`(struct_declaration name: (identifier) @csharp__struct__name)`,
+			`(enum_declaration name: (identifier) @csharp__enum__name)`,
+			`(interface_declaration name: (identifier) @csharp__interface__name)`,
 			`
 (using_directive (qualified_name) @modularity__import__raw)
 (using_directive (qualified_name) @modularity__component__imports)

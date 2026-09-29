@@ -118,3 +118,28 @@ const useLocal = defineStore("local", { actions: { ping() {} } })
 	assert.NotNil(t, byID["src/components/Cart#useLocal"])
 	assert.Nil(t, byID["src/components/Cart#props"])
 }
+
+// A Redux thunk's body is the callback inside createAsyncThunk, which is
+// where the client is called; with no unit for the thunk that edge was the
+// file's. The thunk is a function marked by what made it, as is a selector.
+func TestAReduxThunkAndASelectorAreFunctionsMarkedByTheirMaker(t *testing.T) {
+	byID := tsUnits(t, "src/features/users/thunks.ts", `
+import { createAsyncThunk, createSelector } from "@reduxjs/toolkit"
+import { fetchUsers } from "../../lib/api/users"
+import type { RootState } from "../../store"
+
+export const loadUsers = createAsyncThunk("users/load", async (_: void, { rejectWithValue }) => {
+  try { return await fetchUsers() } catch (e) { return rejectWithValue(e) }
+})
+export const selectUsers = createSelector([(s: RootState) => s.users], (users) => users.list)
+`)
+	thunk := byID["src/features/users/thunks#loadUsers"]
+	require.NotNil(t, thunk)
+	assert.Equal(t, unit.KindFunction, thunk.Kind)
+	assert.True(t, thunk.HasMarker("createAsyncThunk"))
+	assert.Contains(t, thunk.Refs, unit.Ref{Module: "../../lib/api/users", Name: "fetchUsers"}, "the client call inside the callback is the thunk's")
+	selector := byID["src/features/users/thunks#selectUsers"]
+	require.NotNil(t, selector)
+	assert.True(t, selector.HasMarker("createSelector"))
+	assert.Nil(t, byID["src/features/users/thunks#"], "nothing is left to the module")
+}

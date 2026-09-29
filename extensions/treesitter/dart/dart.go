@@ -54,7 +54,16 @@ const (
 	captureExport    = "dart__export"
 	capturePart      = "dart__part"
 	captureRef       = "dart__ref"
+	// A provider declared without codegen: `final counterProvider =
+	// StateNotifierProvider<...>(...)`. Riverpod apps before riverpod_generator
+	// are made of these, and a variable is otherwise no unit. The name, the
+	// constructor that made it, and the declaration's span.
+	captureProvider     = "dart__provider"
+	captureProviderKind = "dart__provider_kind"
+	captureProviderSpan = "dart__provider_span"
 )
+
+const providerKinds = `^(Provider|StateProvider|FutureProvider|StreamProvider|StateNotifierProvider|ChangeNotifierProvider|NotifierProvider|AsyncNotifierProvider|StreamNotifierProvider)$`
 
 func createPack() *common.LanguagePack {
 	template := &common.LanguagePackTemplate{
@@ -89,6 +98,9 @@ func createPack() *common.LanguagePack {
 			`(library_import (import_specification (configurable_uri (uri (string_literal) @` + captureImport + `))))`,
 			`(library_export (configurable_uri (uri (string_literal) @` + captureExport + `)))`,
 			`(part_directive (uri (string_literal) @` + capturePart + `))`,
+			`(program (static_final_declaration_list (static_final_declaration . (identifier) @` + captureProvider + ` . (identifier) @` + captureProviderKind + `)
+			  (#match? @` + captureProviderKind + ` "` + providerKinds + `")))`,
+			`(program (static_final_declaration_list) @` + captureProviderSpan + `)`,
 			`(type_identifier) @` + captureRef,
 			`(identifier) @` + captureRef,
 		},
@@ -118,7 +130,8 @@ func (a *analyzer) analyze(path string, content []byte) *file.Results {
 	for _, sn := range res.Snippets {
 		switch sn.Type {
 		case captureClass, captureMixin, captureEnum, captureExtension, captureExtended, captureTypeSpan,
-			captureFunc, captureMethod, captureSuper, captureAnnot, captureTopAnnot:
+			captureFunc, captureMethod, captureSuper, captureAnnot, captureTopAnnot,
+			captureProvider, captureProviderKind, captureProviderSpan:
 			continue
 		case captureRef:
 			if !capitalised(sn.Value) {
@@ -144,8 +157,11 @@ func unquote(s string) string {
 	return strings.Trim(s, `'"`)
 }
 
+// capitalised is what a type name looks like. A private type is written
+// `_HomeScreenState`, and every StatefulWidget has one; Freezed generates
+// `_$Wonder`.
 func capitalised(s string) bool {
-	for _, r := range s {
+	for _, r := range strings.TrimLeft(s, "_$") {
 		return unicode.IsUpper(r)
 	}
 	return false
@@ -153,10 +169,15 @@ func capitalised(s string) bool {
 
 func unitsFrom(path string, snippets []*file.Snippet, content []byte) []*unit.Unit {
 	var types, extended, spans, funcs, methods, supers, annots, topAnnots, refs []*file.Snippet
+	var providerKinds, providerSpans []*file.Snippet
 	for _, s := range snippets {
 		switch s.Type {
-		case captureClass, captureMixin, captureEnum, captureExtension:
+		case captureClass, captureMixin, captureEnum, captureExtension, captureProvider:
 			types = append(types, s)
+		case captureProviderKind:
+			providerKinds = append(providerKinds, s)
+		case captureProviderSpan:
+			providerSpans = append(providerSpans, s)
 		case captureExtended:
 			extended = append(extended, s)
 		case captureTypeSpan:
@@ -175,7 +196,7 @@ func unitsFrom(path string, snippets []*file.Snippet, content []byte) []*unit.Un
 			refs = append(refs, s)
 		}
 	}
-	sortByOffset(types, funcs, methods, spans)
+	sortByOffset(types, funcs, methods, spans, providerKinds)
 	id := func(name string) string { return placeholder + "#" + name }
 
 	var out []*unit.Unit
@@ -183,6 +204,25 @@ func unitsFrom(path string, snippets []*file.Snippet, content []byte) []*unit.Un
 	var typeSpans []owned
 	for _, t := range types {
 		u := &unit.Unit{ID: id(t.Value), Kind: unit.KindType, Name: t.Value, Files: []string{path}}
+		if t.Type == captureProvider {
+			// What made the provider is its supertype, as a Redux slice's
+			// createSlice is; its declaration is the span its references
+			// belong to.
+			for _, k := range providerKinds {
+				if k.Begin.Offset > t.Begin.Offset {
+					u.Markers = append(u.Markers, unit.Marker{Source: unit.SourceSupertype, Key: k.Value})
+					break
+				}
+			}
+			for _, sp := range providerSpans {
+				if t.Begin.Offset >= sp.Begin.Offset && t.Begin.Offset <= sp.End.Offset {
+					typeSpans = append(typeSpans, owned{sp.Begin.Offset, sp.End.Offset, len(out)})
+					break
+				}
+			}
+			out = append(out, u)
+			continue
+		}
 		keyword := map[string]string{captureClass: "class", captureMixin: "mixin", captureEnum: "enum", captureExtension: "extension"}[t.Type]
 		for _, sp := range spans {
 			if t.Begin.Offset < sp.Begin.Offset || t.Begin.Offset > sp.End.Offset {

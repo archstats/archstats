@@ -26,9 +26,11 @@ const (
 	captureReceiver   = "kt__function__receiver"
 	captureSupertype  = "kt__supertype"
 	captureAnnotation = "kt__annotation"
-	// `expect` or `actual`: Kotlin Multiplatform's declaration in common code
-	// and its implementation per platform. Both have the same qualified name,
-	// so they fold into one unit whose files span the source sets.
+	// A keyword on the declaration, kept as a "keyword" marker. `expect` or
+	// `actual`: Kotlin Multiplatform's declaration in common code and its
+	// implementation per platform, which have the same qualified name and
+	// fold into one unit whose files span the source sets. `data`, `sealed`
+	// and the other class modifiers: what kind of class it is.
 	capturePlatform = "kt__platform"
 	captureDeclSpan = "kt__declaration__span"
 	captureTypeSpan = "kt__type__span"
@@ -77,6 +79,10 @@ func unitQueries() []string {
 		`(class_declaration (modifiers (platform_modifier) @` + capturePlatform + `))`,
 		`(object_declaration (modifiers (platform_modifier) @` + capturePlatform + `))`,
 		`(function_declaration (modifiers (platform_modifier) @` + capturePlatform + `))`,
+		// `data`, `sealed`, `enum`, `value`, `annotation`: what kind of class
+		// it is. A data class is the shape Kotlin gives a model, and no
+		// annotation or supertype says so.
+		`(class_declaration (modifiers (class_modifier) @` + capturePlatform + `))`,
 		`(class_declaration) @` + captureTypeSpan,
 		`(object_declaration) @` + captureTypeSpan,
 		`(function_declaration) @` + captureDeclSpan,
@@ -206,9 +212,15 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 		// name. A function declared inside a class body belongs to that
 		// class instead, which is the enclosing declaration.
 		owner, name := "", f.Value
+		var markers []unit.Marker
 		if recv := receiverOf(f, receivers, declSpans, typeParams); recv != "" {
 			owner = qualify(recv)
 			name = recv + "." + f.Value
+			// The receiver is evidence of the function's role the way a
+			// supertype is of a class's: `fun Route.users()` is a Ktor
+			// route and `fun Application.module()` a Ktor module, and
+			// nothing else about either says so.
+			markers = append(markers, unit.Marker{Source: "receiver", Key: recv})
 		} else if enclosing := enclosingType(f, typeSpans, all, nested); enclosing != "" {
 			// Inside the type's body, not merely declared after it. A
 			// top-level function written below a class is not its method,
@@ -217,11 +229,12 @@ func unitsFrom(path string, res *file.Results) []*unit.Unit {
 			name = enclosing + "." + f.Value
 		}
 		out = append(out, &unit.Unit{
-			ID:    qualify(name),
-			Kind:  unit.KindFunction,
-			Name:  f.Value,
-			Files: []string{path},
-			Owner: owner,
+			ID:      qualify(name),
+			Kind:    unit.KindFunction,
+			Name:    f.Value,
+			Files:   []string{path},
+			Owner:   owner,
+			Markers: markers,
 		})
 		declaredBy = append(declaredBy, f)
 	}

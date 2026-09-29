@@ -27,15 +27,15 @@ func analyse(t *testing.T, files map[string]string) (map[string]*file.Results, m
 		byName[p] = res
 	}
 	(&apple.Linker{Root: t.TempDir()}).EditFileResults(all)
-	units := map[string]*unit.Unit{}
+	// Folded across files as the engine folds them: a header's @interface
+	// and its .m's @implementation are one unit.
+	var raw []*unit.Unit
 	for _, fr := range all {
-		for _, u := range fr.Units {
-			if e, ok := units[u.ID]; ok {
-				e.Markers = append(e.Markers, u.Markers...)
-				continue
-			}
-			units[u.ID] = u
-		}
+		raw = append(raw, fr.Units...)
+	}
+	units := map[string]*unit.Unit{}
+	for _, u := range unit.Merge(raw) {
+		units[u.ID] = u
 	}
 	return byName, units
 }

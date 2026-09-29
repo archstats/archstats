@@ -87,7 +87,7 @@ func (l *Linker) EditFileResults(all []*file.Results) {
 			headers[base] = append(headers[base], fr)
 		}
 	}
-	header := func(from *file.Results, written string) string {
+	header := func(from *file.Results, written string) *file.Results {
 		base := written[strings.LastIndex(written, "/")+1:]
 		var sameTarget, suffix []*file.Results
 		for _, h := range headers[base] {
@@ -101,13 +101,13 @@ func (l *Linker) EditFileResults(all []*file.Results) {
 		}
 		switch {
 		case len(sameTarget) == 1:
-			return sameTarget[0].Directory
+			return sameTarget[0]
 		case len(sameTarget) == 0 && len(suffix) == 1:
-			return suffix[0].Directory
+			return suffix[0]
 		}
 		// Two headers of that name and nothing to choose between them: no
 		// edge, rather than a guessed one.
-		return ""
+		return nil
 	}
 
 	lookup := func(fr *file.Results, imports []string, name string) (declared, string, bool) {
@@ -125,28 +125,53 @@ func (l *Linker) EditFileResults(all []*file.Results) {
 
 	for _, fr := range sources {
 		t := targetOf[fr]
+		// What the file can see: the modules it imports, and for Objective-C
+		// the targets whose headers it includes -- a test target's
+		// `#import "StatusStore.h"` is how it reaches the app.
 		var imports []string
 		for _, s := range fr.Snippets {
-			if s.Type == file.ImportRaw {
+			switch s.Type {
+			case file.ImportRaw:
 				imports = append(imports, s.Value)
+			case CaptureInclude:
+				if h := header(fr, s.Value); h != nil && targetOf[h] != "" && targetOf[h] != t {
+					imports = append(imports, targetOf[h])
+				}
+			}
+		}
+		// An extension is more of the type it extends, wherever that type is
+		// declared: in this target, or in one the file imports, as IceCubes
+		// extends its Models in every feature target. The extension and its
+		// members take the declaring target's name, so they fold into the
+		// type. A type from nowhere in the codebase (View, String) is not
+		// declared here; its extension adds members, which keep it as their
+		// owner under this target's name.
+		extendedIn := map[string]string{}
+		for _, u := range fr.Units {
+			if IsExtension(u) {
+				full := strings.TrimPrefix(u.ID, Placeholder+"#")
+				if _, in, ok := lookup(fr, imports, full); ok {
+					extendedIn[full] = in
+				}
 			}
 		}
 		rename := func(id string) string {
-			if strings.HasPrefix(id, Placeholder+"#") {
-				return t + "#" + strings.TrimPrefix(id, Placeholder+"#")
+			if !strings.HasPrefix(id, Placeholder+"#") {
+				return id
 			}
-			return id
+			rest := strings.TrimPrefix(id, Placeholder+"#")
+			for full, in := range extendedIn {
+				if rest == full || strings.HasPrefix(rest, full+".") {
+					return in + "#" + rest
+				}
+			}
+			return t + "#" + rest
 		}
 		var units []*unit.Unit
 		for _, u := range fr.Units {
 			if IsExtension(u) {
-				// More of a type declared in this target: the same unit, so
-				// it takes that type's ID and loses the extension keyword. A
-				// type from elsewhere (View, String) is not this target's to
-				// declare; its extension adds members, which keep it as
-				// their owner.
 				full := strings.TrimPrefix(u.ID, Placeholder+"#")
-				if _, ok := index[t][full]; !ok {
+				if _, ok := extendedIn[full]; !ok {
 					continue
 				}
 				var markers []unit.Marker
@@ -187,7 +212,9 @@ func (l *Linker) EditFileResults(all []*file.Results) {
 					to = d.component
 				}
 			case CaptureInclude:
-				to = header(fr, s.Value)
+				if h := header(fr, s.Value); h != nil {
+					to = h.Directory
+				}
 			default:
 				kept = append(kept, s)
 				continue

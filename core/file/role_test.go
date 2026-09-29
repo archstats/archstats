@@ -23,6 +23,17 @@ func TestRole(t *testing.T) {
 		"client/src/Latest.tsx":                       RoleProduction,
 		"src/contest/Winner.java":                     RoleProduction,
 		"docs/attestation.md":                         RoleNonCode,
+		"app/src/androidTest/java/com/acme/UiTest.kt": RoleTest,
+		"shared/src/commonTest/kotlin/Repo.kt":        RoleTest,
+		"shared/src/commonMain/kotlin/Repo.kt":        RoleProduction,
+		"Wondrous/WondrousTests/StoreTests.swift":     RoleTest,
+		"Wondrous/WondrousUITests/Launch.swift":       RoleTest,
+		"Sources/Model/Store.swift":                   RoleProduction,
+		"App/Latest.swift":                            RoleProduction,
+		"App/LoginViewControllerTests.m":              RoleTest,
+		"lib/contests/Contests.swift":                 RoleProduction,
+		"test/widget_test.dart":                       RoleTest,
+		"lib/data/repo_test.dart":                     RoleTest,
 	}
 	for p, want := range cases {
 		if got := Role(p, false, false); got != want {

@@ -109,11 +109,14 @@ func (l *linker) EditFileResults(all []*file.Results) {
 		}
 		libs[p] = lib
 	}
-	// A part's code is its library's: the two see each other's names.
+	// A part's code is its library's: the two see each other's names, and
+	// the part sees what the library imports, having no imports of its own.
+	libraryOf := map[string]string{}
 	for p, lib := range libs {
 		for _, part := range lib.parts {
 			if pl := libs[part]; pl != nil {
 				pl.parts = append(pl.parts, p)
+				libraryOf[part] = p
 			}
 		}
 	}
@@ -149,6 +152,11 @@ func (l *linker) EditFileResults(all []*file.Results) {
 		exported(p, 0, seen, &visible)
 		for _, imp := range lib.imports {
 			exported(imp, 0, seen, &visible)
+		}
+		if owner := libs[libraryOf[p]]; owner != nil {
+			for _, imp := range owner.imports {
+				exported(imp, 0, seen, &visible)
+			}
 		}
 		lookup := func(name string) (string, bool) {
 			for _, v := range visible {

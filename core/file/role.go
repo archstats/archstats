@@ -43,16 +43,26 @@ func Role(filePath string, thirdParty, generated bool) string {
 
 // Directories that hold tests, by the conventions of each ecosystem: JVM
 // src/test, PHP and Python tests/, spec/, Sylius's Behat/, Go testdata/,
-// JavaScript __tests__/, e2e/ and cypress/.
+// JavaScript __tests__/, e2e/ and cypress/, and the Gradle source sets
+// Android and Kotlin Multiplatform test in (sourceSetTest).
 var testDir = regexp.MustCompile(`(^|/)(src/test|tests?|spec|specs|__tests__|e2e|cypress|testdata|behat)(/|$)`)
 
 // File names that are tests: Java/Kotlin *Test(s).java and *IT.java,
 // PHP *Test.php / *Spec.php, Python test_*.py / *_test.py / conftest.py,
-// Go *_test.go, JavaScript *.test.* / *.spec.*, Gherkin *.feature.
-var testName = regexp.MustCompile(`(Tests?|IT)\.(java|kt|scala|groovy)$|(Test|Spec)\.php$|^test_.*\.py$|_test\.(py|go)$|^conftest\.py$|\.(test|spec)\.[cm]?[jt]sx?$|\.feature$`)
+// Go *_test.go, JavaScript *.test.* / *.spec.*, Gherkin *.feature, Swift and
+// Objective-C *Tests.swift / *Tests.m, Dart *_test.dart.
+var testName = regexp.MustCompile(`(Tests?|IT)\.(java|kt|scala|groovy)$|(Test|Spec)\.php$|^test_.*\.py$|_test\.(py|go|dart)$|^conftest\.py$|\.(test|spec)\.[cm]?[jt]sx?$|\.feature$|(Tests?|Spec)\.(swift|m|mm)$`)
 
 // A .NET test project: Nop.Tests, Foo.UnitTests, Bar.IntegrationTests.
 var dotnetTestProject = regexp.MustCompile(`(^|/)[^/]*\.(Unit|Integration|Functional|Acceptance)?Tests?(/|$)`)
+
+// An Xcode or SwiftPM test target: AppTests, WondrousUITests. Read in the
+// path's own case, so `contests/` is not one.
+var appleTestTarget = regexp.MustCompile(`(^|/)[A-Za-z0-9_]*[a-z0-9](UI)?Tests(/|$)`)
+
+// A Gradle test source set: src/androidTest, src/commonTest,
+// src/androidUnitTest. Also in the path's own case: src/contest is code.
+var sourceSetTest = regexp.MustCompile(`(^|/)src/[a-z]+([A-Z][a-z]*)*Test(/|$)`)
 
 // IsTestPath reports whether a path is test code by its ecosystem's
 // convention. Paths are as the walker names them ("./x" at the root).
@@ -65,7 +75,7 @@ func IsTestPath(filePath string) bool {
 	if testName.MatchString(path.Base(p)) {
 		return true
 	}
-	return dotnetTestProject.MatchString(p)
+	return dotnetTestProject.MatchString(p) || appleTestTarget.MatchString(p) || sourceSetTest.MatchString(p)
 }
 
 // nonCodeExts is text that is not code: data, configuration, documents,

@@ -13,6 +13,7 @@ import (
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	java "github.com/tree-sitter/tree-sitter-java/bindings/go"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -77,43 +78,111 @@ func (ja *javaAnalyzer) AnalyzeFile(f file.File) *file.Results {
 			Value:    javaFullClass,
 		})
 
-		// The same type, as a unit. Java is the reference case: one file,
-		// one public type, so the two agree exactly and the stats above stay
-		// as the compatibility path for snapshots taken before units
-		// existed. Everywhere else the two disagree, which is the point.
-		res.Units = append(res.Units, &unit.Unit{
-			ID:      javaFullClass,
-			Kind:    unit.KindType,
-			Name:    javaClass,
-			Files:   []string{f.Path()},
-			Markers: javaMarkers(res.Snippets),
-			// Java is the one language that imports the type itself, so the
-			// reference needs no resolving beyond splitting the name: an
-			// import of com.acme.Order is a reference to Order in com.acme.
-			// One public type to a file means there is no question which
-			// unit made it, either.
-			Refs: javaRefs(res.Snippets, javaPackage),
-		})
+		// The types, as units. The stats above stay as the compatibility
+		// path for snapshots taken before units existed. Java is the one
+		// language that imports the type itself, so a reference needs no
+		// resolving beyond splitting the name: an import of com.acme.Order
+		// is a reference to Order in com.acme. The file's references go to
+		// its public type, which is the one that made nearly all of them.
+		res.Units = javaUnits(f.Path(), javaClass, javaPackage, res.Snippets)
 	}
 	res.Snippets = withoutReferenceCaptures(res.Snippets)
 	return res
 }
 
-// What the engine already records about every type, as markers: the
-// annotations on it and what it extends or implements. Framework-neutral on
-// purpose -- the engine does not know what Spring is, and a consumer asking
-// "is this a controller" reads a marker rather than a Spring-shaped field.
-func javaMarkers(snippets []*file.Snippet) []unit.Marker {
-	var markers []unit.Marker
+// Every type declared in the file, as a unit: the public one named for the
+// file, any other top-level type beside it, and the nested ones, which
+// belong to the type around them the way a Kotlin nested class does.
+//
+// There used to be one unit per file carrying every annotation and supertype
+// found anywhere in it. fineract writes its JDBC row mappers as nested
+// classes of the service that uses them, so 43 of its @Service classes
+// "implemented RowMapper"; a test class's nested @Configuration made the
+// test a configuration. A marker belongs to the innermost declaration
+// around it, and nothing else.
+func javaUnits(path, primary, pkg string, snippets []*file.Snippet) []*unit.Unit {
+	var names, spans, markers, interfaces []*file.Snippet
 	for _, s := range snippets {
 		switch s.Type {
-		case "java__class__annotation":
-			markers = append(markers, unit.Marker{Source: unit.SourceAnnotation, Key: s.Value})
-		case "java__class__extends", "java__class__implements":
-			markers = append(markers, unit.Marker{Source: unit.SourceSupertype, Key: s.Value})
+		case "java__type__declaration":
+			names = append(names, s)
+		case "java__type__span":
+			spans = append(spans, s)
+		case "java__class__annotation", "java__class__extends", "java__class__implements":
+			markers = append(markers, s)
+		case "java__interface__declaration":
+			interfaces = append(interfaces, s)
 		}
 	}
-	return markers
+	nested := common.NestedNames(names, spans)
+	qualify := func(name string) string {
+		if pkg == "" {
+			return name
+		}
+		return pkg + "." + name
+	}
+
+	// Innermost first, so the first span holding an offset is the
+	// declaration the marker was written on.
+	sort.SliceStable(spans, func(i, j int) bool {
+		return spans[i].End.Offset-spans[i].Begin.Offset < spans[j].End.Offset-spans[j].Begin.Offset
+	})
+	declaredIn := func(sp *file.Snippet) *file.Snippet {
+		var first *file.Snippet
+		for _, n := range names {
+			if n.Begin.Offset >= sp.Begin.Offset && n.Begin.Offset <= sp.End.Offset && (first == nil || n.Begin.Offset < first.Begin.Offset) {
+				first = n
+			}
+		}
+		return first
+	}
+	ownerOf := func(offset int) *file.Snippet {
+		for _, sp := range spans {
+			if offset >= sp.Begin.Offset && offset <= sp.End.Offset {
+				return declaredIn(sp)
+			}
+		}
+		return nil
+	}
+
+	byName := map[*file.Snippet]*unit.Unit{}
+	var out []*unit.Unit
+	for _, n := range names {
+		u := &unit.Unit{ID: qualify(nested[n]), Kind: unit.KindType, Name: n.Value, Files: []string{path}}
+		if i := strings.LastIndex(nested[n], "."); i > 0 {
+			u.Owner = qualify(nested[n][:i])
+		}
+		byName[n] = u
+		out = append(out, u)
+	}
+	for _, s := range markers {
+		owner := ownerOf(s.Begin.Offset)
+		if owner == nil {
+			continue
+		}
+		source := unit.SourceSupertype
+		if s.Type == "java__class__annotation" {
+			source = unit.SourceAnnotation
+		}
+		byName[owner].Markers = append(byName[owner].Markers, unit.Marker{Source: source, Key: s.Value})
+	}
+	// An interface is one, whatever it extends; the other packs say so the
+	// same way, and a consumer deciding whether a type is a data shape
+	// reads it.
+	for _, in := range interfaces {
+		for _, n := range names {
+			if n.Begin.Offset == in.Begin.Offset && n.Value == in.Value {
+				byName[n].Markers = append(byName[n].Markers, unit.Marker{Source: unit.SourceSupertype, Key: "interface"})
+			}
+		}
+	}
+	for _, u := range out {
+		if u.Name == primary && u.Owner == "" {
+			u.Refs = javaRefs(snippets, pkg)
+			break
+		}
+	}
+	return out
 }
 
 // Every type this file uses, as a reference to the unit it names, resolved
@@ -233,7 +302,7 @@ func javaReferenceQueries() []string {
 func withoutReferenceCaptures(snippets []*file.Snippet) []*file.Snippet {
 	out := snippets[:0]
 	for _, s := range snippets {
-		if !strings.HasPrefix(s.Type, "java__ref__") {
+		if !strings.HasPrefix(s.Type, "java__ref__") && s.Type != "java__type__span" {
 			out = append(out, s)
 		}
 	}
@@ -363,26 +432,31 @@ func springQueriesForSnippets() []string {
 // Framework-neutral facts about every type: which annotations sit on it, what
 // it extends and what it implements. The UI maps these to roles per framework
 // (Spring, Jakarta EE, Apache Beam, …) without the engine knowing any of them.
-// The snippet content is the simple name of the annotation or type.
+// The snippet content is the simple name of the annotation or type: a
+// qualified `@org.springframework.stereotype.Service`, written where two
+// frameworks both have a Service, is a Service like the imported one.
 func javaFrameworkFactQueries() []string {
+	annotationName := `[
+	(annotation name: (identifier) @java__class__annotation)
+	(marker_annotation name: (identifier) @java__class__annotation)
+	(annotation name: (scoped_identifier name: (identifier) @java__class__annotation))
+	(marker_annotation name: (scoped_identifier name: (identifier) @java__class__annotation))
+]`
 	return []string{
 		`
-(class_declaration (modifiers [
-	(annotation name: (identifier) @java__class__annotation)
-	(marker_annotation name: (identifier) @java__class__annotation)
-]))
-(interface_declaration (modifiers [
-	(annotation name: (identifier) @java__class__annotation)
-	(marker_annotation name: (identifier) @java__class__annotation)
-]))
-(record_declaration (modifiers [
-	(annotation name: (identifier) @java__class__annotation)
-	(marker_annotation name: (identifier) @java__class__annotation)
-]))
-(enum_declaration (modifiers [
-	(annotation name: (identifier) @java__class__annotation)
-	(marker_annotation name: (identifier) @java__class__annotation)
-]))
+(class_declaration (modifiers ` + annotationName + `))
+(interface_declaration (modifiers ` + annotationName + `))
+(record_declaration (modifiers ` + annotationName + `))
+(enum_declaration (modifiers ` + annotationName + `))
+`,
+		// Whole declarations, so a marker can be given to the declaration it
+		// was written on and a nested type named through the one around it.
+		`
+(class_declaration) @java__type__span
+(interface_declaration) @java__type__span
+(record_declaration) @java__type__span
+(enum_declaration) @java__type__span
+(annotation_type_declaration) @java__type__span
 `,
 		`
 (class_declaration (superclass [
@@ -406,6 +480,10 @@ func javaFrameworkFactQueries() []string {
 	(generic_type (scoped_type_identifier (type_identifier) @java__class__implements))
 ])))
 (record_declaration (super_interfaces (type_list [
+	(type_identifier) @java__class__implements
+	(generic_type (type_identifier) @java__class__implements)
+])))
+(enum_declaration (super_interfaces (type_list [
 	(type_identifier) @java__class__implements
 	(generic_type (type_identifier) @java__class__implements)
 ])))

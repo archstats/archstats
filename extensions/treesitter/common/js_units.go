@@ -46,6 +46,20 @@ const (
 	// The factory a constant is made by: `defineStore` in `const useCart =
 	// defineStore(...)`. Such a constant is a unit, the factory its marker.
 	CaptureJSFactory = "js__factory__call"
+	// What a class extends or implements, by its last name: `Repository` in
+	// `extends Repository<User>`, `Component` in `extends React.Component`.
+	// Every other pack records these, and a profile reads them before
+	// anything else.
+	CaptureJSSupertype = "js__class__supertype"
+	// The shapes TypeScript declares besides an interface. A `type` alias
+	// is at least as common as an interface in a models file, and without
+	// it the models layer of a React or Vue app was mostly missing.
+	CaptureJSTypeAlias = "js__type__alias"
+	CaptureJSEnum      = "js__enum__declaration"
+	// The call a function is written inside of: `forwardRef` in `const Input
+	// = forwardRef((props, ref) => …)`. The function is the unit, the
+	// wrapper its marker.
+	CaptureJSWrapper = "js__wrapper__call"
 )
 
 // jsFactories make the things an architect names that are neither a class nor
@@ -56,6 +70,15 @@ const (
 // as its interfaces and nothing else. An allowlist, not every `define…`:
 // Vue's `const props = defineProps()` is a compiler macro, not a unit.
 const jsFactories = `^(defineStore|defineComponent|createSlice|createApi)$`
+
+// jsWrappers are the calls a function is written inside of and still is that
+// function: `const Input = forwardRef((props, ref) => …)` and `const Row =
+// memo(function Row() {…})` are React components, `observer(() => …)` a MobX
+// one, `createAsyncThunk('users/fetch', async () => …)` a Redux thunk whose
+// body is where the client is called, `createSelector(…, (s) => …)` a
+// selector. An allowlist again: `const doubled = computed(() => …)` is a
+// value.
+const jsWrappers = `^(forwardRef|memo|observer|createAsyncThunk|createSelector)$`
 
 // JSUnitQueries are the snippet queries for a JavaScript-family grammar.
 //
@@ -86,6 +109,20 @@ func JSUnitQueries(typeIdentifier string, withTypes bool) []string {
 		`((lexical_declaration (variable_declarator
 			value: (call_expression function: (identifier) @_factory2))) @` + CaptureJSSpan + `
 		  (#match? @_factory2 "` + jsFactories + `"))`,
+
+		// A function written inside a wrapper call: `forwardRef((p, ref) =>
+		// …)`, `React.memo(function Row() {})`.
+		`((lexical_declaration (variable_declarator
+			name: (identifier) @` + CaptureJSFunction + `
+			value: (call_expression
+				function: [(identifier) @` + CaptureJSWrapper + ` (member_expression property: (property_identifier) @` + CaptureJSWrapper + `)]
+				arguments: (arguments [(arrow_function) (function_expression)]))))
+		  (#match? @` + CaptureJSWrapper + ` "` + jsWrappers + `"))`,
+		`((lexical_declaration (variable_declarator
+			value: (call_expression
+				function: [(identifier) @_wrapper2 (member_expression property: (property_identifier) @_wrapper2)]
+				arguments: (arguments [(arrow_function) (function_expression)])))) @` + CaptureJSSpan + `
+		  (#match? @_wrapper2 "` + jsWrappers + `"))`,
 
 		// A method belongs to the class above it, paired up by position.
 		`(method_definition name: (property_identifier) @` + CaptureJSMethod + `)`,
@@ -145,6 +182,11 @@ func JSUnitQueries(typeIdentifier string, withTypes bool) []string {
 		`(function_declaration) @` + CaptureJSSpan,
 		`(generator_function_declaration) @` + CaptureJSSpan,
 		`(class_declaration) @` + CaptureJSSpan,
+		// The decorators of an exported class hang off the export statement,
+		// not the class, and what they name is the class's own use: a NestJS
+		// `@Module({ providers: [UsersService] })` is the wiring an architect
+		// wants to see from the module, and it used to be the file's.
+		`(export_statement (decorator) declaration: (class_declaration)) @` + CaptureJSSpan,
 		`(class_declaration) @` + CaptureJSClassSpan,
 		`(class) @` + CaptureJSClassSpan,
 		`(export_statement value: (class) @` + CaptureJSDefaultClass + `)`,
@@ -156,7 +198,32 @@ func JSUnitQueries(typeIdentifier string, withTypes bool) []string {
 		queries = append(queries,
 			`(abstract_class_declaration name: (`+typeIdentifier+`) @`+CaptureJSClass+`)`,
 			`(abstract_class_declaration) @`+CaptureJSClassSpan,
+			`(abstract_class_declaration) @`+CaptureJSSpan,
+			`(export_statement (decorator) declaration: (abstract_class_declaration)) @`+CaptureJSSpan,
 			`(interface_declaration name: (`+typeIdentifier+`) @`+CaptureJSInterface+`)`,
+			`(interface_declaration) @`+CaptureJSSpan,
+			`(type_alias_declaration name: (`+typeIdentifier+`) @`+CaptureJSTypeAlias+`)`,
+			`(type_alias_declaration) @`+CaptureJSSpan,
+			`(enum_declaration name: (identifier) @`+CaptureJSEnum+`)`,
+			`(enum_declaration) @`+CaptureJSSpan,
+			// TypeScript spells the heritage out in clauses; `extends
+			// Repository<User>` names Repository, `implements OnInit` OnInit.
+			`(class_heritage (extends_clause value: [
+				(identifier) @`+CaptureJSSupertype+`
+				(member_expression property: (property_identifier) @`+CaptureJSSupertype+`)
+			]))`,
+			`(class_heritage (implements_clause [
+				(type_identifier) @`+CaptureJSSupertype+`
+				(generic_type name: (type_identifier) @`+CaptureJSSupertype+`)
+			]))`,
+		)
+	} else {
+		// JavaScript's heritage is the bare expression after `extends`.
+		queries = append(queries,
+			`(class_heritage [
+				(identifier) @`+CaptureJSSupertype+`
+				(member_expression property: (property_identifier) @`+CaptureJSSupertype+`)
+			])`,
 		)
 	}
 	return queries
@@ -209,14 +276,18 @@ func ModuleOf(filePath string) string {
 func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit {
 	module := ModuleOf(filePath)
 
-	var classes, interfaces, functions, methods, decorators, factories []*file.Snippet
+	var classes, shapes, functions, methods, decorators, factories, supertypes, wrappers []*file.Snippet
 	var bindings, importSpans, spans, sources, classSpans []*file.Snippet
 	for _, s := range res.Snippets {
 		switch s.Type {
 		case CaptureJSClass:
 			classes = append(classes, s)
-		case CaptureJSInterface:
-			interfaces = append(interfaces, s)
+		case CaptureJSInterface, CaptureJSTypeAlias, CaptureJSEnum:
+			shapes = append(shapes, s)
+		case CaptureJSSupertype:
+			supertypes = append(supertypes, s)
+		case CaptureJSWrapper:
+			wrappers = append(wrappers, s)
 		case CaptureJSFunction:
 			functions = append(functions, s)
 		case CaptureJSMethod:
@@ -248,45 +319,11 @@ func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Uni
 	byOffset(classes)
 	byOffset(methods)
 	byOffset(factories)
+	byOffset(functions)
 
 	var out []*unit.Unit
-	// The snippet declaring each unit, index for index with out; nil where a
-	// unit has no span of its own to own (an interface).
+	// The snippet declaring each unit, index for index with out.
 	var declaredBy []*file.Snippet
-	for i, c := range classes {
-		u := &unit.Unit{
-			ID:    module + "#" + c.Value,
-			Kind:  unit.KindType,
-			Name:  c.Value,
-			Files: []string{filePath},
-		}
-		// A decorator sits above the class it is about.
-		for _, d := range decorators {
-			if followingIndex(d, classes) == i {
-				u.Markers = append(u.Markers, unit.Marker{Source: unit.SourceAnnotation, Key: d.Value})
-			}
-		}
-		out = append(out, u)
-		declaredBy = append(declaredBy, c)
-	}
-	// A factory call follows the name it is assigned to.
-	factorySpan := map[int]bool{}
-	for _, f := range factories {
-		if i := precedingIndex(f, classes); i >= 0 {
-			out[i].Markers = append(out[i].Markers, unit.Marker{Source: unit.SourceSupertype, Key: f.Value})
-			factorySpan[i] = true
-		}
-	}
-	for _, i := range interfaces {
-		out = append(out, &unit.Unit{
-			ID:      module + "#" + i.Value,
-			Kind:    unit.KindType,
-			Name:    i.Value,
-			Files:   []string{filePath},
-			Markers: []unit.Marker{{Source: unit.SourceSupertype, Key: "interface"}},
-		})
-		declaredBy = append(declaredBy, nil)
-	}
 	// A method belongs to the innermost class whose body holds it. It used
 	// to belong to the class declared above it, so a method of an anonymous
 	// class, or of an object literal below a class, joined whichever class
@@ -310,6 +347,51 @@ func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Uni
 		}
 		return best
 	}
+	for i, c := range classes {
+		u := &unit.Unit{
+			ID:    module + "#" + c.Value,
+			Kind:  unit.KindType,
+			Name:  c.Value,
+			Files: []string{filePath},
+		}
+		// A decorator sits above the class it is about. One inside a class
+		// body, after the class's own name, is about a member -- `@Get()`
+		// on a NestJS handler, `@IsString()` on a DTO field, `@Input()` on
+		// an Angular property -- and used to land on the next class in the
+		// file, so UpdateUserDto carried CreateUserDto's validators.
+		for _, d := range decorators {
+			if idx := classAt(d.Begin.Offset); idx >= 0 && d.Begin.Offset > classes[idx].Begin.Offset {
+				continue
+			}
+			if followingIndex(d, classes) == i {
+				u.Markers = append(u.Markers, unit.Marker{Source: unit.SourceAnnotation, Key: d.Value})
+			}
+		}
+		out = append(out, u)
+		declaredBy = append(declaredBy, c)
+	}
+	// A factory call follows the name it is assigned to.
+	for _, f := range factories {
+		if i := precedingIndex(f, classes); i >= 0 {
+			out[i].Markers = append(out[i].Markers, unit.Marker{Source: unit.SourceSupertype, Key: f.Value})
+		}
+	}
+	// The heritage sits inside the class that declares it.
+	for _, s := range supertypes {
+		if i := classAt(s.Begin.Offset); i >= 0 {
+			out[i].Markers = append(out[i].Markers, unit.Marker{Source: unit.SourceSupertype, Key: s.Value})
+		}
+	}
+	for _, s := range shapes {
+		out = append(out, &unit.Unit{
+			ID:      module + "#" + s.Value,
+			Kind:    unit.KindType,
+			Name:    s.Value,
+			Files:   []string{filePath},
+			Markers: []unit.Marker{{Source: unit.SourceSupertype, Key: shapeKind(s.Type)}},
+		})
+		declaredBy = append(declaredBy, s)
+	}
 	for _, m := range methods {
 		owner := ""
 		name := m.Value
@@ -326,29 +408,108 @@ func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Uni
 		})
 		declaredBy = append(declaredBy, m)
 	}
-	for _, f := range functions {
-		// A function declared inside a class body is a method and has
-		// already been recorded as one. One declared inside a factory call
-		// -- a setup store's actions -- belongs to what the factory makes.
-		u := &unit.Unit{
-			ID:    module + "#" + f.Value,
-			Kind:  unit.KindFunction,
-			Name:  f.Value,
-			Files: []string{filePath},
+	// A wrapper call follows the name it is assigned to.
+	wrapped := map[int][]unit.Marker{}
+	for _, w := range wrappers {
+		if i := precedingIndex(w, functions); i >= 0 {
+			wrapped[i] = append(wrapped[i], unit.Marker{Source: unit.SourceSupertype, Key: w.Value})
 		}
-		if idx := classAt(f.Begin.Offset); idx >= 0 && factorySpan[idx] {
-			u.Owner = module + "#" + classes[idx].Value
-			u.ID = module + "#" + classes[idx].Value + "." + f.Value
-		}
-		out = append(out, u)
+	}
+	for i, f := range functions {
+		out = append(out, &unit.Unit{
+			ID:      module + "#" + f.Value,
+			Kind:    unit.KindFunction,
+			Name:    f.Value,
+			Files:   []string{filePath},
+			Markers: wrapped[i],
+		})
 		declaredBy = append(declaredBy, f)
 	}
+	ownNested(out, declaredBy, spans)
 
 	moduleRefs := AttachRefs(out, declaredBy, content, bindings, sources, importSpans, spans)
 	if mu := ModuleUnit(module, filePath, moduleRefs); mu != nil {
 		out = append(out, mu)
 	}
 	return out
+}
+
+// shapeKind is the marker a declared shape carries, so a profile can read
+// "interface", "type_alias" or "enum" the way it reads a supertype.
+func shapeKind(captureType string) string {
+	switch captureType {
+	case CaptureJSTypeAlias:
+		return "type_alias"
+	case CaptureJSEnum:
+		return "enum"
+	}
+	return "interface"
+}
+
+// ownNested gives a function declared inside another declaration to the
+// declaration that holds it: a callback inside a React component, a helper
+// inside a method, an action inside a setup store's `defineStore(() => …)`.
+//
+// They used to be loose units of the file, which is what an architect saw:
+// a page's `const onSearch = async () => axios.get(…)` stood beside the page
+// as a unit of its own, and since it was the one that imported axios it was
+// the one the lanes put in data access. Ownership is what the views roll
+// members up by, so the callback's uses become the page's.
+func ownNested(units []*unit.Unit, declaredBy []*file.Snippet, spans []*file.Snippet) {
+	type owned struct {
+		begin, end, unitIdx int
+	}
+	var all []owned
+	for _, sp := range spans {
+		best, bestOffset := -1, 0
+		for i, d := range declaredBy {
+			if d == nil || i >= len(units) {
+				continue
+			}
+			off := d.Begin.Offset
+			if off < sp.Begin.Offset || off > sp.End.Offset {
+				continue
+			}
+			if best == -1 || off < bestOffset {
+				best, bestOffset = i, off
+			}
+		}
+		if best >= 0 {
+			all = append(all, owned{sp.Begin.Offset, sp.End.Offset, best})
+		}
+	}
+	ownerOf := map[int]int{}
+	for i, u := range units {
+		if u.Owner != "" || u.Kind != unit.KindFunction || i >= len(declaredBy) || declaredBy[i] == nil {
+			continue
+		}
+		at := declaredBy[i].Begin.Offset
+		best, bestSize := -1, 0
+		for _, o := range all {
+			if o.unitIdx == i || at < o.begin || at > o.end {
+				continue
+			}
+			if size := o.end - o.begin; best == -1 || size < bestSize {
+				best, bestSize = o.unitIdx, size
+			}
+		}
+		if best >= 0 {
+			ownerOf[i] = best
+		}
+	}
+	// An owner's own id may change first, so ids are settled from the
+	// outside in.
+	var idOf func(i int, depth int) string
+	idOf = func(i int, depth int) string {
+		if owner, nested := ownerOf[i]; nested && depth < 16 {
+			return idOf(owner, depth+1) + "." + units[i].Name
+		}
+		return units[i].ID
+	}
+	for i, owner := range ownerOf {
+		units[i].Owner = idOf(owner, 0)
+		units[i].ID = idOf(i, 0)
+	}
 }
 
 // ModuleUnit is the file itself, as the unit that makes the references its

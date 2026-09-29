@@ -98,11 +98,18 @@ func createGoLanguagePack() *common.LanguagePack {
 			// A method and the type it belongs to. Both captures come from
 			// one match, but each arrives as its own snippet, so the
 			// analyzer pairs them by position.
+			//
+			// A generic type's receiver is written `*Buffer[T]`, a
+			// generic_type around the name. Without that alternative the
+			// whole match failed and every method on a generic type
+			// disappeared from the units.
 			`(method_declaration
 				receiver: (parameter_list (parameter_declaration
 					type: [
 						(type_identifier) @` + captureReceiver + `
 						(pointer_type (type_identifier) @` + captureReceiver + `)
+						(generic_type type: (type_identifier) @` + captureReceiver + `)
+						(pointer_type (generic_type type: (type_identifier) @` + captureReceiver + `))
 					]))
 				name: (field_identifier) @` + captureMethod + `)`,
 
