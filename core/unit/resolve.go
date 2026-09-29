@@ -107,6 +107,26 @@ func withoutAliasPrefix(module string) string {
 	return ""
 }
 
+// withoutSourceExtension drops the file extension an import path spells out,
+// because a module is named for its file without one. `./ChatPanel.vue` is
+// the only way to import a Vue component, and `./reader.js` is how ESM
+// TypeScript must write `./reader`; kept, neither names any module. Only a
+// path is touched: a dotted Python or Java name is not a file. An index file
+// is named by its directory, so `./components/index.js` is `./components`.
+func withoutSourceExtension(module string) string {
+	if !strings.Contains(module, "/") {
+		return module
+	}
+	switch path.Ext(module) {
+	case ".vue", ".svelte", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts":
+		module = strings.TrimSuffix(module, path.Ext(module))
+		if path.Base(module) == "index" {
+			module = path.Dir(module)
+		}
+	}
+	return module
+}
+
 func splitID(id string) (module, name string) {
 	if i := strings.LastIndex(id, "#"); i >= 0 {
 		return id[:i], id[i+1:]
@@ -213,6 +233,7 @@ func (idx *Index) candidateModules(from *Unit, module string) []string {
 	if module == "" {
 		return nil
 	}
+	module = withoutSourceExtension(module)
 	// Relative: resolved against the directory the reference was written in.
 	if strings.HasPrefix(module, ".") {
 		base := idx.moduleOf[from.ID]

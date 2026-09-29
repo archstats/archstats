@@ -30,6 +30,12 @@ func (a *jsAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	return res
 }
 
+// LanguagePack is the JavaScript pack, for a file that carries JavaScript
+// inside another language: the plain `<script>` of a .vue component.
+func LanguagePack() *common.LanguagePack {
+	return createJavaScriptLanguagePack()
+}
+
 func createJavaScriptLanguagePack() *common.LanguagePack {
 	language := tree_sitter.NewLanguage(javascript.Language())
 	template := &common.LanguagePackTemplate{

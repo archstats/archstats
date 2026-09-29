@@ -60,7 +60,10 @@ func Optional() []*config.CLIConfiguredExtension {
 
 	typescriptExt := config.CreateEmptyCLIExtension("typescript", &typescript.Extension{})
 	typescriptExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
-		return ctx.HasFileExtension(".ts") || ctx.HasFileExtension(".tsx") || ctx.HasFileExtension(".mts") || ctx.HasFileExtension(".cts")
+		// A single-file component's script is read by this pack too, and a
+		// Vue or Svelte app written in plain JavaScript may have no .ts file.
+		return ctx.HasFileExtension(".ts") || ctx.HasFileExtension(".tsx") || ctx.HasFileExtension(".mts") || ctx.HasFileExtension(".cts") ||
+			ctx.HasFileExtension(".vue") || ctx.HasFileExtension(".svelte")
 	}
 
 	goExt := config.CreateEmptyCLIExtension("go", &golang.Extension{})

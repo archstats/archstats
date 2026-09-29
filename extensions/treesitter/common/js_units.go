@@ -138,12 +138,20 @@ func JSUnitQueries(typeIdentifier string, withTypes bool) []string {
 	return queries
 }
 
-// defaultExportName is what an anonymous default export is called: its file,
-// which is what an importer of the default almost always names it.
-func defaultExportName(filePath string) string {
+// DefaultExportName is what an anonymous default export is called: its file,
+// which is what an importer of the default almost always names it. The name
+// ends at the first dot, so `Panel.client.vue` is Panel, except inside the
+// brackets of a route parameter: `[...slug].vue` is [...slug], not "[".
+func DefaultExportName(filePath string) string {
 	base := path.Base(filePath)
-	if i := strings.Index(base, "."); i > 0 {
-		base = base[:i]
+	from := 0
+	if strings.HasPrefix(base, "[") {
+		if end := strings.LastIndex(base, "]"); end > 0 {
+			from = end
+		}
+	}
+	if i := strings.Index(base[from:], "."); from+i > 0 && i >= 0 {
+		base = base[:from+i]
 	}
 	return base
 }
@@ -201,7 +209,7 @@ func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Uni
 			// Named for the file, as whoever imports the default writes it.
 			classes = append(classes, &file.Snippet{
 				File: s.File, Type: CaptureJSClass, Component: s.Component,
-				Value: defaultExportName(filePath), Begin: s.Begin, End: s.Begin,
+				Value: DefaultExportName(filePath), Begin: s.Begin, End: s.Begin,
 			})
 		case CaptureJSSpan:
 			spans = append(spans, s)
@@ -378,7 +386,7 @@ func AttachRefs(units []*unit.Unit, declaredBy []*file.Snippet, content []byte, 
 		if source == "" || b.Value == "" {
 			continue
 		}
-		ref := unit.Ref{Module: source, Name: b.Value}
+		ref := ImportedRef(source, b.Value)
 		for _, at := range occurrencesOf(text, b.Value) {
 			if insideAny(at, importSpans) {
 				continue
@@ -397,6 +405,55 @@ func AttachRefs(units []*unit.Unit, declaredBy []*file.Snippet, content []byte, 
 		}
 	}
 	return moduleRefs
+}
+
+// importedName is the unit an import clause takes. A single-file component
+// exports one thing, the component, whatever the importer calls it: `import
+// Panel from "./ChatPanel.vue"` takes ChatPanel, named for its file the way
+// the component's own unit is.
+func importedName(source, binding string) string {
+	if isSingleFileComponent(source) {
+		return DefaultExportName(source)
+	}
+	return binding
+}
+
+// isSingleFileComponent reports whether a path is a Vue or Svelte component,
+// whose code sits in script blocks inside markup.
+func isSingleFileComponent(p string) bool {
+	switch strings.ToLower(path.Ext(p)) {
+	case ".vue", ".svelte":
+		return true
+	}
+	return false
+}
+
+// ImportBindings maps each name the file's import clauses took to the module
+// it came from, as written.
+func ImportBindings(res *file.Results) map[string]string {
+	var bindings, sources, importSpans []*file.Snippet
+	for _, s := range res.Snippets {
+		switch s.Type {
+		case CaptureJSBinding:
+			bindings = append(bindings, s)
+		case file.ImportRaw:
+			sources = append(sources, s)
+		case CaptureJSImportSpan:
+			importSpans = append(importSpans, s)
+		}
+	}
+	out := map[string]string{}
+	for _, b := range bindings {
+		if source := firstSourceAfter(b, sources, importSpans); source != "" && b.Value != "" {
+			out[b.Value] = source
+		}
+	}
+	return out
+}
+
+// ImportedRef is the reference a use of an imported name makes.
+func ImportedRef(source, binding string) unit.Ref {
+	return unit.Ref{Module: source, Name: importedName(source, binding)}
 }
 
 func appendRef(list []unit.Ref, r unit.Ref) []unit.Ref {

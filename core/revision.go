@@ -55,4 +55,9 @@ package core
 //	               Info.plist and entitlements, with manifest markers on the
 //	               classes they name; mobile apps as deployables with
 //	               platform and stack.
-const AnalysisRevision = 7
+//	8  2026-09-29  .vue and .svelte components are read: their script blocks
+//	               give imports and units, the component is a unit named for
+//	               its file, and a component named in the template counts as
+//	               used; an import spelling out its extension (`./Panel.vue`,
+//	               `./reader.js`) resolves to the module.
+const AnalysisRevision = 8

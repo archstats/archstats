@@ -14,6 +14,7 @@ type Extension struct {
 func (e *Extension) Init(settings core.Analyzer) error {
 	settings.RegisterFileAnalyzer(&tsAnalyzer{lp: createTypeScriptLanguagePack(false)}) // regular typescript
 	settings.RegisterFileAnalyzer(&tsAnalyzer{lp: createTypeScriptLanguagePack(true)})  // TSX
+	settings.RegisterFileAnalyzer(newSFCAnalyzer())                                     // .vue and .svelte script blocks
 	return nil
 }
 

@@ -112,10 +112,17 @@ func (lp *LanguagePack) transformSnippets(snippets []*file.Snippet) []*file.Snip
 }
 
 func (lp *LanguagePack) AnalyzeFileContent(path string, content []byte) *file.Results {
-	start := time.Now()
 	if !lp.FileGlob.Match(path) {
 		return nil
 	}
+	return lp.AnalyzeContent(path, content)
+}
+
+// AnalyzeContent reads content as this pack's language whatever the path
+// says, for a file that carries the language inside another: the script
+// blocks of a .vue or .svelte component.
+func (lp *LanguagePack) AnalyzeContent(path string, content []byte) *file.Results {
+	start := time.Now()
 	tree, err := parse(content, lp.Language)
 	if err != nil {
 		log.Warn().Err(err).Msgf("[treesitter] Skipping file %s", path)

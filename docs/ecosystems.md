@@ -39,6 +39,7 @@ annotation, on a type. Nowhere else does that hold.
 | Kotlin | gradle module and naming | the top annotations are `@Suppress`, `@JvmName`, `@OptIn` — none of them roles |
 | Go | package and function signature | no annotations at all; 316 `HandlerFunc` in gin, 150 `form:` struct tags |
 | TypeScript | filename and path | decorators exist only in Angular and NestJS |
+| Vue / Svelte | the file: one component per `.vue` or `.svelte` | archstats-ui: 217 components, their code in `<script setup lang="ts">` and their uses in the template |
 
 For Django, the filename *is* the annotation.
 
@@ -103,6 +104,10 @@ the framework-agnostic domain reaching into the framework glue.
 - **Marker noise.** Sylius has 8,028 PHP attributes and 5,898 of them are
   Behat test steps. Anything that reads markers will need per-ecosystem
   filtering or it will drown.
+- **Framework auto-imports.** Nuxt registers components and composables
+  without an import statement (`.nuxt/components.d.ts`, `imports.d.ts`), so
+  a component used that way draws no edge. Only what a script imports, and
+  a template tag naming an imported component, is read.
 - **Units exist for Java and C# only.** Every other ecosystem renders an
   empty `units` view, and the two that most need it -- Go and TypeScript --
   are among the missing.
