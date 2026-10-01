@@ -2,6 +2,7 @@ package swift
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"testing"
@@ -32,7 +33,7 @@ func analyseApp(t *testing.T, manifest string, files map[string]string) (map[str
 		res := a.analyze(p, []byte(src))
 		require.NotNil(t, res, p)
 		res.Name = p
-		res.Directory = filepath.Dir(p)
+		res.Directory = path.Dir(p) // slash paths, as the analyzer sets them
 		for _, s := range res.Snippets {
 			s.Component = res.Directory
 		}

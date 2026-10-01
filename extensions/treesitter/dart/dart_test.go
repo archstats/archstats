@@ -2,6 +2,7 @@ package dart
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 
@@ -65,7 +66,7 @@ func analyse(t *testing.T) (map[string]*file.Results, map[string]*unit.Unit) {
 			res = &file.Results{}
 		}
 		res.Name = p
-		res.Directory = filepath.Dir(p)
+		res.Directory = path.Dir(p) // slash paths, as the analyzer sets them
 		for _, s := range res.Snippets {
 			s.Component = res.Directory
 		}
