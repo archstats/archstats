@@ -1,13 +1,16 @@
 name: Release Archstats
 
 # Two entry points:
-#   - Publishing a GitHub Release (tag vX.Y.Z) builds every target, smoke-tests
-#     the binaries, and uploads the archives + a SHA-256 checksums.txt to it.
+#   - Pushing a tag vX.Y.Z builds every target, smoke-tests the binaries, and
+#     attaches the archives + a SHA-256 checksums.txt to that tag's release:
+#     a DRAFT it creates, or the release already there. You publish by hand.
+#     (This used to wait for a published release, so a pushed tag alone, like
+#     v0.8.0, got no binaries.)
 #   - workflow_dispatch does the same build + smoke test and only uploads
 #     workflow artifacts — for verifying the pipeline without cutting a release.
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
   workflow_dispatch:
   schedule:
     # Weekly canary: catches runner-image drift before release day.
@@ -53,8 +56,8 @@ jobs:
       - name: Resolve version
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            version="${{ github.event.release.tag_name }}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/}"
           else
             version="dev-${GITHUB_SHA::7}"
           fi
@@ -123,7 +126,7 @@ jobs:
 
   publish:
     name: Upload to release
-    if: github.event_name == 'release'
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -142,5 +145,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" out/* \
-            --repo "${{ github.repository }}" --clobber
+          tag="${GITHUB_REF#refs/tags/}"
+          test "$(ls out | wc -l)" -eq 6   # 5 archives + checksums.txt
+          if gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$tag" out/* --repo "${{ github.repository }}" --clobber
+          else
+            gh release create "$tag" out/* --repo "${{ github.repository }}" \
+              --title "$tag" --generate-notes --draft
+          fi
