@@ -1,0 +1,6 @@
+id: complexity__lines__complex
+name: "Lines in complex functions"
+short_description: "Lines inside functions whose cognitive complexity passes 15."
+long_description: |
+  What code health's complex-code deduction counts. 15 is SonarSource's default threshold for a function's cognitive complexity.
+category: "Code health"

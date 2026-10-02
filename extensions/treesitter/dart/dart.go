@@ -67,8 +67,9 @@ const providerKinds = `^(Provider|StateProvider|FutureProvider|StreamProvider|St
 
 func createPack() *common.LanguagePack {
 	template := &common.LanguagePackTemplate{
-		FileGlob: "**.dart",
-		Language: tree_sitter.NewLanguage(dart.Language()),
+		FileGlob:   "**.dart",
+		Complexity: complexity,
+		Language:   tree_sitter.NewLanguage(dart.Language()),
 		QueriesForStats: []string{
 			`(library_import (import_specification (configurable_uri (uri (string_literal) @` + file.ImportRaw + `))))`,
 			`(class_definition name: (identifier) @` + file.Type + `)`,

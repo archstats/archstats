@@ -6,88 +6,84 @@ import (
 	"testing"
 )
 
-func TestCalculateCodeHealth_PerfectFile(t *testing.T) {
-	m := fileMetrics{lines: 100, maxIndentation: 2, avgIndentation: 1.0}
-	health := calculateCodeHealth(m, ".go")
-	if health != 10.0 {
-		t.Errorf("Expected 10.0, got %f", health)
+func healthFor(t *testing.T, m fileMetrics, path string) healthBreakdown {
+	t.Helper()
+	b, ok := healthOf(m, path)
+	if !ok {
+		t.Fatalf("%s: no health reading", path)
+	}
+	return b
+}
+
+// A small, simple file with few imports loses nothing.
+func TestHealthOfASmallSimpleFile(t *testing.T) {
+	b := healthFor(t, fileMetrics{parsed: true, codeLines: 120, imports: 6}, "a.go")
+	if b.health != 10 {
+		t.Errorf("health %v, want 10", b.health)
 	}
 }
 
-func TestCalculateCodeHealth_GodFile(t *testing.T) {
-	// 800 lines: deduction = (800 - 500) * 0.01 = 3.0 (capped)
-	m := fileMetrics{lines: 800, maxIndentation: 2, avgIndentation: 1.0}
-	health := calculateCodeHealth(m, ".go")
-	if health != 7.0 {
-		t.Errorf("Expected 7.0, got %f", health)
+// Each deduction is a point (coupling a point and a half) per doubling past
+// where it starts, and nothing caps one: a 9,600-line file loses six.
+func TestHealthDeductionsDoublePerPoint(t *testing.T) {
+	cases := []struct {
+		m                           fileMetrics
+		size, coupling, complexCode float64
+	}{
+		{fileMetrics{parsed: true, codeLines: 300}, 1, 0, 0},
+		{fileMetrics{parsed: true, codeLines: 1200}, 3, 0, 0},
+		{fileMetrics{parsed: true, codeLines: 9600}, 6, 0, 0},
+		{fileMetrics{parsed: true, codeLines: 100, imports: 40}, 0, 3, 0},
+		{fileMetrics{parsed: true, codeLines: 100, complexLines: 75}, 0, 0, 2},
+	}
+	for _, c := range cases {
+		b := healthFor(t, c.m, "a.java")
+		if math.Abs(b.size-c.size) > 1e-9 || math.Abs(b.coupling-c.coupling) > 1e-9 || math.Abs(b.complexCode-c.complexCode) > 1e-9 {
+			t.Errorf("%+v: deductions %v %v %v, want %v %v %v", c.m, b.size, b.coupling, b.complexCode, c.size, c.coupling, c.complexCode)
+		}
 	}
 }
 
-func TestCalculateCodeHealth_DeepNesting(t *testing.T) {
-	// max indent 8: deduction = (8 - 4) * 0.5 = 2.0
-	m := fileMetrics{lines: 100, maxIndentation: 8, avgIndentation: 1.0}
-	health := calculateCodeHealth(m, ".go")
-	if health != 8.0 {
-		t.Errorf("Expected 8.0, got %f", health)
+// The worked example of tasks/code-health/DECISION.md: 600 code lines, 20
+// imports and one 75-line complex function make 4.5.
+func TestHealthWorkedExample(t *testing.T) {
+	b := healthFor(t, fileMetrics{parsed: true, codeLines: 600, imports: 20, complexLines: 75}, "OrderService.java")
+	if math.Abs(b.health-4.5) > 1e-9 {
+		t.Errorf("health %v, want 4.5", b.health)
 	}
 }
 
-func TestCalculateCodeHealth_HighAvgNesting(t *testing.T) {
-	// avg indent 3.5: deduction = (3.5 - 1.5) * 1.5 = 3.0 (capped)
-	m := fileMetrics{lines: 100, maxIndentation: 2, avgIndentation: 3.5}
-	health := calculateCodeHealth(m, ".go")
-	if health != 7.0 {
-		t.Errorf("Expected 7.0, got %f", health)
+func TestHealthFloorsAtOne(t *testing.T) {
+	b := healthFor(t, fileMetrics{parsed: true, codeLines: 30000, imports: 200, complexLines: 20000}, "a.ts")
+	if b.health != 1 {
+		t.Errorf("health %v, want 1", b.health)
 	}
 }
 
-func TestCalculateCodeHealth_JavaScriptRelaxation(t *testing.T) {
-	// In JavaScript/TypeScript, max indentation up to 6 and avg up to 2.5 are allowed with 0 deductions.
-	m := fileMetrics{lines: 100, maxIndentation: 6, avgIndentation: 2.5}
-	healthJS := calculateCodeHealth(m, ".js")
-	healthTS := calculateCodeHealth(m, ".tsx")
-	healthGo := calculateCodeHealth(m, ".go")
-
-	if healthJS != 10.0 {
-		t.Errorf("Expected JS health to be 10.0, got %f", healthJS)
-	}
-	if healthTS != 10.0 {
-		t.Errorf("Expected TSX health to be 10.0, got %f", healthTS)
-	}
-	// Go should get nesting deductions:
-	// max: (6-4)*0.5 = 1.0
-	// avg: (2.5-1.5)*1.5 = 1.5
-	// total = 2.5 -> health = 7.5
-	if healthGo != 7.5 {
-		t.Errorf("Expected Go health to be 7.5, got %f", healthGo)
+// Indentation no longer costs a parsed file anything: deep nesting is read
+// from its functions.
+func TestIndentationDoesNotCostAParsedFile(t *testing.T) {
+	b := healthFor(t, fileMetrics{parsed: true, codeLines: 100, maxIndentation: 12, avgIndentation: 4, deepLines: 80}, "a.go")
+	if b.health != 10 {
+		t.Errorf("health %v, want 10", b.health)
 	}
 }
 
-func TestCalculateCodeHealth_AllDeductions(t *testing.T) {
-	// God File: (1000 - 500) * 0.01 = 5.0, capped at 3.0
-	// Max nesting: (8 - 4) * 0.5 = 2.0
-	// Avg nesting: (3.5 - 1.5) * 1.5 = 3.0
-	// Total deductions = 3.0 + 2.0 + 3.0 = 8.0
-	// health = 10.0 - 8.0 = 2.0
-	m := fileMetrics{lines: 100, maxIndentation: 8, avgIndentation: 3.5}
-	// Let's set lines to 1000 to get size deduction
-	m.lines = 1000
-	health := calculateCodeHealth(m, ".go")
-	if health != 2.0 {
-		t.Errorf("Expected 2.0, got %f", health)
+// A language no pack parses is read by its indentation: size from its
+// non-blank lines, deep code from the lines three levels in.
+func TestHealthFallsBackToIndentation(t *testing.T) {
+	b := healthFor(t, fileMetrics{nonBlank: 360, deepLines: 75}, "src/lib.rs")
+	if !b.fallback || math.Abs(b.size-1) > 1e-9 || math.Abs(b.deepCode-2) > 1e-9 || b.coupling != 0 || math.Abs(b.health-7) > 1e-9 {
+		t.Errorf("breakdown %+v", b)
 	}
 }
 
-func TestCalculateCodeHealth_FloorAtOne(t *testing.T) {
-	// Extreme values that would push below 1.0
-	// God file: capped at 3.0
-	// Max indent 100: (100-4)*0.5 = 48.0, capped at 3.0
-	// Avg indent 100.0: (100.0-1.5)*1.5 = 147.75, capped at 3.0
-	// Total = 9.0 → health = 1.0
-	m := fileMetrics{lines: 10000, maxIndentation: 100, avgIndentation: 100.0}
-	health := calculateCodeHealth(m, ".go")
-	if health != 1.0 {
-		t.Errorf("Expected 1.0, got %f", health)
+// Markup, data and scripts with no pack get no reading.
+func TestNoHealthForTextThatIsNotAProgrammingLanguage(t *testing.T) {
+	for _, p := range []string{"index.html", "schema.sql", "deploy.sh", "docs/page.mdx", "pom.xml"} {
+		if _, ok := healthOf(fileMetrics{nonBlank: 900, deepLines: 300}, p); ok {
+			t.Errorf("%s: want no health", p)
+		}
 	}
 }
 
@@ -245,16 +241,14 @@ func TestNonCodeTextGetsNoCodeSmells(t *testing.T) {
 // A stored breakdown always reproduces its score.
 func TestHealthIsTenLessItsDeductions(t *testing.T) {
 	for _, m := range []fileMetrics{
-		{lines: 120, maxIndentation: 3, avgIndentation: 1.2},
-		{lines: 900, maxIndentation: 9, avgIndentation: 2.8},
-		{lines: 4000, maxIndentation: 20, avgIndentation: 6},
+		{parsed: true, codeLines: 120, imports: 3},
+		{parsed: true, codeLines: 900, imports: 25, complexLines: 140},
+		{nonBlank: 4000, deepLines: 900},
 	} {
-		for _, ext := range []string{".go", ".ts", ".java"} {
-			b := healthOf(m, ext)
-			want := math.Max(1, 10-b.sizeDeduction-b.maxDeduction-b.avgDeduction)
-			if math.Abs(b.health-want) > 1e-9 || b.health != calculateCodeHealth(m, ext) {
-				t.Errorf("%+v %s: health %v, deductions give %v", m, ext, b.health, want)
-			}
+		b := healthFor(t, m, map[bool]string{true: "a.go", false: "a.rb"}[m.parsed])
+		want := math.Max(1, 10-b.size-b.coupling-b.complexCode-b.deepCode)
+		if math.Abs(b.health-want) > 1e-9 {
+			t.Errorf("%+v: health %v, deductions give %v", m, b.health, want)
 		}
 	}
 }

@@ -1,0 +1,6 @@
+id: complexity__functions__complex
+name: "Complex functions"
+short_description: "Functions whose cognitive complexity passes 15."
+long_description: |
+  SonarSource's default threshold. The functions view lists them.
+category: "Code health"

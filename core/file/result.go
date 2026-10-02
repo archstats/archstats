@@ -15,6 +15,8 @@ type Results struct {
 	// the same way it fills Stats and Snippets; the engine folds units that
 	// turn out to be the same thing across files.
 	Units []*unit.Unit
+	// The functions declared in this file, measured; see Function.
+	Functions []*Function
 	// Someone else's code carried in the repository; see IsThirdParty.
 	ThirdParty bool
 	// Written by a tool, by its own header's account; see IsGenerated.

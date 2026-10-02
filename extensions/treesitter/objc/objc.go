@@ -44,8 +44,9 @@ const (
 
 func createPack() *common.LanguagePack {
 	template := &common.LanguagePackTemplate{
-		FileGlob: "**.{m,mm,h}",
-		Language: tree_sitter.NewLanguage(objc.Language()),
+		FileGlob:   "**.{m,mm,h}",
+		Complexity: complexity,
+		Language:   tree_sitter.NewLanguage(objc.Language()),
 		QueriesForStats: []string{
 			// `#import <UIKit/UIKit.h>` and `@import UIKit;` name a framework;
 			// kept as the framework's name for detection.

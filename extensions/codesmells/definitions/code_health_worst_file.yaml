@@ -1,0 +1,6 @@
+id: codesmells__code_health__worst_file
+name: "Least healthy file"
+short_description: "The lowest code health among a component's or directory's files."
+long_description: |
+  Shown beside the group's health, which is its files' weighted by code lines and can hide one bad file among many good ones. Not recorded for single files.
+category: "Code health"

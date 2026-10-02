@@ -27,7 +27,8 @@ const usedClass = "php__use__class"
 
 func createPHPLanguagePack() *common.LanguagePack {
 	template := &common.LanguagePackTemplate{
-		FileGlob: "**.php",
+		FileGlob:   "**.php",
+		Complexity: complexity,
 		// The grammar that reads PHP inside HTML as well as pure PHP:
 		// templates carry `<?php ... ?>` islands, and a pure-PHP grammar
 		// reads everything before the first tag as an error.

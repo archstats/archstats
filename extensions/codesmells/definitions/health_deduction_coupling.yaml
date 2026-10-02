@@ -1,0 +1,6 @@
+id: codesmells__health__deduction__coupling
+name: "Coupling deduction"
+short_description: "Points taken off a file's health for its imports: one and a half per doubling past 10."
+long_description: |
+  20 imports cost a point and a half, 40 three. Every import counts, the standard library's and other projects' too: what the file has to know about predicted later fixes, where the files it reaches inside the project did not. Recorded for parsed files only.
+category: "Code health"

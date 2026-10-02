@@ -1,0 +1,6 @@
+id: complexity__lines__nonblank
+name: "Non-blank lines"
+short_description: "Lines with anything on them, comments included."
+long_description: |
+  Counted by the indentation reader for every text file. Code health measures size with it when no language pack parses the file; a parsed file is measured by its code lines instead.
+category: "Size & Indentation Complexity"

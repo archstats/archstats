@@ -1,0 +1,6 @@
+id: complexity__cognitive__max
+name: "Worst cognitive complexity"
+short_description: "The cognitive complexity of the hardest function to follow."
+long_description: |
+  Cognitive complexity, as SonarSource defines it, costs one for each break in the linear flow of a function (an if, a loop, a switch, a catch, a ternary, a run of && or ||) and one more for each level it is nested at. Labelled jumps and recursion are not counted. For a group it is the worst of its files.
+category: "Code health"

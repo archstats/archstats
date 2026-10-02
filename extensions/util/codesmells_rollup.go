@@ -1,13 +1,17 @@
 package util
 
 import (
+	"math"
+
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/stats"
 )
 
 // RollUpCodeSmells replaces the plain-average code-health readings of a group
-// of files with the size-aware ones: health and bumpy road weighted by lines,
-// hotspot as the group's hottest file, static complexity summed.
+// of files with the size-aware ones: health weighted by code lines (lines
+// where no pack measured code lines) beside the group's least healthy file,
+// bumpy road weighted by lines, hotspot as the group's hottest file, static
+// complexity summed.
 //
 // Components always did this and directories did not, so the Hotspots view
 // read "code health" and "hotspot score" as two different aggregations under
@@ -17,6 +21,7 @@ func RollUpCodeSmells(results *core.Results, files []string, groupStats *stats.S
 	// Recalculate codesmells metrics with proper size-weighted logic
 	var totalLines float64
 	var weightedCodeHealthSum float64
+	worstHealth := math.Inf(1)
 	var weightedBumpyRoadSum float64
 	var bumpyLines float64
 	var maxHotspot float64
@@ -47,8 +52,13 @@ func RollUpCodeSmells(results *core.Results, files []string, groupStats *stats.S
 
 		if val, exists := (*fStats)["codesmells__code_health"]; exists {
 			health := toFloat(val)
-			weightedCodeHealthSum += health * lines
-			totalLines += lines
+			weight := lines
+			if code, measured := (*fStats)["complexity__lines__code"]; measured && toFloat(code) > 0 {
+				weight = toFloat(code)
+			}
+			weightedCodeHealthSum += health * weight
+			totalLines += weight
+			worstHealth = math.Min(worstHealth, health)
 			hasCodeHealth = true
 		}
 
@@ -76,6 +86,7 @@ func RollUpCodeSmells(results *core.Results, files []string, groupStats *stats.S
 
 	if hasCodeHealth && totalLines > 0 {
 		(*groupStats)["codesmells__code_health"] = weightedCodeHealthSum / totalLines
+		(*groupStats)["codesmells__code_health__worst_file"] = worstHealth
 	}
 	if hasHotspot {
 		(*groupStats)["codesmells__hotspot_score"] = maxHotspot
@@ -86,12 +97,11 @@ func RollUpCodeSmells(results *core.Results, files []string, groupStats *stats.S
 	if hasStaticComplexity {
 		(*groupStats)["codesmells__static_complexity_score"] = totalStaticComplexity
 	}
-	// Deductions and thresholds explain one file's score; over a group they
-	// are no fact at all, not even for a group of one.
+	// Deductions explain one file's score; over a group they are no fact at
+	// all, not even for a group of one.
 	for _, fileOnly := range []string{
-		"codesmells__health__deduction__size", "codesmells__health__deduction__max_nesting",
-		"codesmells__health__deduction__avg_nesting", "codesmells__health__threshold__max_nesting",
-		"codesmells__health__threshold__avg_nesting",
+		"codesmells__health__deduction__size", "codesmells__health__deduction__coupling",
+		"codesmells__health__deduction__complex_code", "codesmells__health__deduction__deep_code",
 	} {
 		delete(*groupStats, fileOnly)
 	}

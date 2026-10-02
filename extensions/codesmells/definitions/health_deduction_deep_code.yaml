@@ -1,0 +1,6 @@
+id: codesmells__health__deduction__deep_code
+name: "Deep code deduction"
+short_description: "For a file no pack parses: points taken off its health for lines indented three levels or more."
+long_description: |
+  One point per doubling of 1 + those lines ÷ 25. The indentation stand-in for complex code in a language without a pack, scored as if the fifteen tested codebases had no parser: weaker than reading functions, but better than the average or deepest indentation the score used before.
+category: "Code health"

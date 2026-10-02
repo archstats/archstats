@@ -368,6 +368,7 @@ func (e *Extension) createJavaLanguagePack() *common.LanguagePack {
 
 	lp := &common.LanguagePackTemplate{
 		FileGlob:           "**.java",
+		Complexity:         complexity,
 		Language:           language,
 		QueriesForStats:    allQueriesForStats,
 		QueriesForSnippets: allQueriesForSnippets,

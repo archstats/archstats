@@ -18,8 +18,9 @@ func (e *Extension) Init(settings core.Analyzer) error {
 func createPythonLanguagePack() *common.LanguagePack {
 	language := tree_sitter.NewLanguage(python.Language())
 	template := &common.LanguagePackTemplate{
-		FileGlob: "**/*.py",
-		Language: language,
+		FileGlob:   "**/*.py",
+		Complexity: complexity,
+		Language:   language,
 		QueriesForStats: []string{
 			// Imports: capture dotted name or relative import
 			`(import_statement name: (dotted_name) @modularity__component__imports)`,

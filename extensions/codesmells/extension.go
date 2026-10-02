@@ -6,8 +6,9 @@ import (
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
+	"github.com/archstats/archstats/extensions/indentations"
+	"github.com/archstats/archstats/extensions/treesitter/common"
 	"math"
-	"path/filepath"
 	"strings"
 )
 
@@ -17,18 +18,25 @@ const (
 	BumpyRoad             = "codesmells__bumpy_road"
 	StaticComplexityScore = "codesmells__static_complexity_score"
 
-	// The inputs behind a file's health score, so a reader can see why it
-	// scored what it did. File-only: summed over a component they mean
-	// nothing, so components and directories carry none.
-	DeductionSize       = "codesmells__health__deduction__size"
-	DeductionMaxNesting = "codesmells__health__deduction__max_nesting"
-	DeductionAvgNesting = "codesmells__health__deduction__avg_nesting"
-	ThresholdMaxNesting = "codesmells__health__threshold__max_nesting"
-	ThresholdAvgNesting = "codesmells__health__threshold__avg_nesting"
+	// The deductions behind a file's health score, so a reader can see why
+	// it scored what it did. File-only: summed over a component they mean
+	// nothing, so components and directories carry none. A file read by its
+	// indentation has a deep-code deduction instead of complex code and
+	// coupling.
+	DeductionSize        = "codesmells__health__deduction__size"
+	DeductionCoupling    = "codesmells__health__deduction__coupling"
+	DeductionComplexCode = "codesmells__health__deduction__complex_code"
+	DeductionDeepCode    = "codesmells__health__deduction__deep_code"
+	// HealthWorstFile is a group's least healthy file, shown beside its
+	// line-weighted health.
+	HealthWorstFile = "codesmells__code_health__worst_file"
 	// HotspotRaw is log2(commits + 1) × lines before normalising to 0–100
 	// against the hottest file; rolled up as the hottest file's.
 	HotspotRaw = "codesmells__hotspot__raw"
 )
+
+// FileOnlyReadings explain one file's score; a group carries none of them.
+var FileOnlyReadings = []string{DeductionSize, DeductionCoupling, DeductionComplexCode, DeductionDeepCode}
 
 func Extension() core.Extension {
 	return &extension{}
@@ -57,10 +65,13 @@ func (e *extension) Init(settings core.Analyzer) error {
 	settings.RegisterStatAccumulator(HotspotScore, averageAccumulator)
 	settings.RegisterStatAccumulator(BumpyRoad, averageAccumulator)
 	settings.RegisterStatAccumulator(StaticComplexityScore, sumAccumulator)
-	for _, fileOnly := range []string{DeductionSize, DeductionMaxNesting, DeductionAvgNesting, ThresholdMaxNesting, ThresholdAvgNesting} {
+	for _, fileOnly := range FileOnlyReadings {
 		settings.RegisterStatAccumulator(fileOnly, onlyOneAccumulator)
 	}
 	settings.RegisterStatAccumulator(HotspotRaw, maxAccumulator)
+	settings.RegisterStatAccumulator(HealthWorstFile, minAccumulator)
+	settings.RegisterStatAccumulator(common.CognitiveMax, maxAccumulator)
+	settings.RegisterView(&core.ViewFactory{Name: "functions", CreateViewFunc: functionsView})
 
 	return nil
 }
@@ -72,6 +83,15 @@ type fileMetrics struct {
 	maxIndentation int
 	avgIndentation float64
 	volatility     int
+
+	// parsed is whether a language pack measured the file's functions, and
+	// with them its code lines, complex lines and imports.
+	parsed       bool
+	codeLines    int
+	complexLines int
+	imports      int
+	// The indentation reader's, for a file no pack parsed.
+	nonBlank, deepLines int
 }
 
 // calculatedMetrics holds the computed codesmell outputs for a single file.
@@ -115,20 +135,20 @@ func extractFileMetrics(fileStats *stats.Stats) fileMetrics {
 			m.volatility = i
 		}
 	}
+	if val, exists := (*fileStats)[common.CodeLines]; exists {
+		m.parsed = true
+		m.codeLines = intOf(val)
+		m.complexLines = intOf((*fileStats)[common.ComplexLines])
+		m.imports = intOf((*fileStats)[common.Imports])
+	}
+	m.nonBlank = intOf((*fileStats)[indentations.NonBlank])
+	m.deepLines = intOf((*fileStats)[indentations.Deep])
 	return m
 }
 
-// getLanguageThresholds returns relaxed indentation limits for nested languages.
-func getLanguageThresholds(ext string) (maxIndentThreshold int, avgIndentThreshold float64) {
-	ext = strings.ToLower(ext)
-	switch ext {
-	case ".js", ".jsx", ".ts", ".tsx":
-		return 6, 2.5 // higher allowance for JavaScript/TypeScript due to callbacks/nested closures
-	case ".go":
-		return 4, 1.5 // Go standards
-	default:
-		return 4, 1.5 // general default
-	}
+func intOf(v interface{}) int {
+	f, _ := asFloat(v)
+	return int(f)
 }
 
 // isExcludedFromCodeSmells identifies non-code/configuration files to ignore.
@@ -172,47 +192,6 @@ func isExcludedFromCodeSmells(path string) bool {
 	}
 
 	return false
-}
-
-// calculateCodeHealth computes a 1.0–10.0 code health score.
-// healthBreakdown is a health score with the deductions that made it.
-type healthBreakdown struct {
-	health                                    float64
-	sizeDeduction, maxDeduction, avgDeduction float64
-	maxThreshold                              int
-	avgThreshold                              float64
-}
-
-// calculateCodeHealth is 10 less three deductions of up to 3 points each --
-// size over 500 lines, maximum nesting over the language's threshold,
-// average nesting over it -- floored at 1.
-func calculateCodeHealth(m fileMetrics, ext string) float64 {
-	return healthOf(m, ext).health
-}
-
-func healthOf(m fileMetrics, ext string) healthBreakdown {
-	var b healthBreakdown
-	capAt := func(v float64) float64 { return math.Min(v, 3.0) }
-
-	// Size deduction (God File): up to 3 points
-	if m.lines > 500 {
-		b.sizeDeduction = capAt(float64(m.lines-500) * 0.01)
-	}
-
-	b.maxThreshold, b.avgThreshold = getLanguageThresholds(ext)
-
-	// Nesting deduction (Max Indentation): up to 3 points
-	if m.maxIndentation > b.maxThreshold {
-		b.maxDeduction = capAt(float64(m.maxIndentation-b.maxThreshold) * 0.5)
-	}
-
-	// Average Nesting deduction: up to 3 points
-	if m.avgIndentation > b.avgThreshold {
-		b.avgDeduction = capAt((m.avgIndentation - b.avgThreshold) * 1.5)
-	}
-
-	b.health = math.Max(1.0, 10.0-b.sizeDeduction-b.maxDeduction-b.avgDeduction)
-	return b
 }
 
 // calculateBumpyRoad returns the volatility per non-empty line of code.
@@ -270,25 +249,27 @@ func (e *extension) EditResults(results *core.Results) {
 	// Second pass: compute final metrics and append records
 	for file, info := range files {
 		m := info.metrics
-		ext := filepath.Ext(file)
-		breakdown := healthOf(m, ext)
-		health := breakdown.health
-		bumpyRoadVal := calculateBumpyRoad(m)
-		staticComplexity := calculateStaticComplexity(m)
-		hotspotVal := calculateHotspotScore(info.rawHotspot, maxRawHotspot, m.commits > 0)
-
-		results.StatRecordsByFile[file] = append(results.StatRecordsByFile[file],
-			&stats.Record{StatType: CodeHealth, Value: health},
-			&stats.Record{StatType: HotspotScore, Value: hotspotVal},
-			&stats.Record{StatType: BumpyRoad, Value: bumpyRoadVal},
-			&stats.Record{StatType: StaticComplexityScore, Value: staticComplexity},
-			&stats.Record{StatType: DeductionSize, Value: breakdown.sizeDeduction},
-			&stats.Record{StatType: DeductionMaxNesting, Value: breakdown.maxDeduction},
-			&stats.Record{StatType: DeductionAvgNesting, Value: breakdown.avgDeduction},
-			&stats.Record{StatType: ThresholdMaxNesting, Value: breakdown.maxThreshold},
-			&stats.Record{StatType: ThresholdAvgNesting, Value: breakdown.avgThreshold},
-			&stats.Record{StatType: HotspotRaw, Value: info.rawHotspot},
-		)
+		records := []*stats.Record{
+			{StatType: HotspotScore, Value: calculateHotspotScore(info.rawHotspot, maxRawHotspot, m.commits > 0)},
+			{StatType: BumpyRoad, Value: calculateBumpyRoad(m)},
+			{StatType: StaticComplexityScore, Value: calculateStaticComplexity(m)},
+			{StatType: HotspotRaw, Value: info.rawHotspot},
+		}
+		if b, ok := healthOf(m, file); ok {
+			records = append(records,
+				&stats.Record{StatType: CodeHealth, Value: b.health},
+				&stats.Record{StatType: DeductionSize, Value: b.size},
+			)
+			if b.fallback {
+				records = append(records, &stats.Record{StatType: DeductionDeepCode, Value: b.deepCode})
+			} else {
+				records = append(records,
+					&stats.Record{StatType: DeductionCoupling, Value: b.coupling},
+					&stats.Record{StatType: DeductionComplexCode, Value: b.complexCode},
+				)
+			}
+		}
+		results.StatRecordsByFile[file] = append(results.StatRecordsByFile[file], records...)
 	}
 }
 
@@ -348,6 +329,21 @@ func onlyOneAccumulator(values []interface{}) interface{} {
 		return values[0]
 	}
 	return nil
+}
+
+func minAccumulator(values []interface{}) interface{} {
+	var best float64
+	found := false
+	for _, v := range values {
+		f, ok := asFloat(v)
+		if ok && (!found || f < best) {
+			best, found = f, true
+		}
+	}
+	if !found {
+		return nil
+	}
+	return best
 }
 
 func maxAccumulator(values []interface{}) interface{} {

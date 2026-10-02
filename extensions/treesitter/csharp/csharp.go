@@ -17,8 +17,9 @@ func (e *Extension) Init(settings core.Analyzer) error {
 func createCSharpLanguagePack() *common.LanguagePack {
 	language := tree_sitter.NewLanguage(csharp.Language())
 	lp := &common.LanguagePackTemplate{
-		FileGlob: "**.cs",
-		Language: language,
+		FileGlob:   "**.cs",
+		Complexity: complexity,
+		Language:   language,
 		QueriesForStats: []string{
 			// Both ways C# spells a namespace. The file-scoped form —
 			// `namespace Nop.Services.Catalog;` with no block — is a

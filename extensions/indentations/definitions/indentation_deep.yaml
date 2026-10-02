@@ -1,0 +1,6 @@
+id: complexity__indentation__deep
+name: "Deeply indented lines"
+short_description: "Lines indented three levels or more."
+long_description: |
+  The stand-in for complex code in a language no pack parses: code health's fallback deducts for these lines the way it deducts for lines in complex functions elsewhere. Three levels predicted later bug fixes better than four, five or six, and better than the average or the deepest indentation (tasks/code-health/DECISION.md).
+category: "Size & Indentation Complexity"

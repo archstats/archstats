@@ -48,8 +48,9 @@ func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
 	}
 
 	template := &common.LanguagePackTemplate{
-		FileGlob: globPattern,
-		Language: language,
+		FileGlob:   globPattern,
+		Complexity: common.JSComplexity,
+		Language:   language,
 		QueriesForStats: []string{
 			// Imports, split by whether the compiler keeps them.
 			//

@@ -29,8 +29,9 @@ func (e *Extension) Init(settings core.Analyzer) error {
 
 func createSwiftLanguagePack() *common.LanguagePack {
 	template := &common.LanguagePackTemplate{
-		FileGlob: "**.swift",
-		Language: tree_sitter.NewLanguage(swift.Language()),
+		FileGlob:   "**.swift",
+		Complexity: complexity,
+		Language:   tree_sitter.NewLanguage(swift.Language()),
 		QueriesForStats: []string{
 			// The module, as written: SwiftUI, UIKit, ComposableArchitecture,
 			// or one of the codebase's own targets. Framework detection reads

@@ -22,8 +22,9 @@ func (e *Extension) Init(settings core.Analyzer) error {
 func createKotlinLanguagePack() *common.LanguagePack {
 	language := tree_sitter.NewLanguage(kotlin.Language())
 	template := &common.LanguagePackTemplate{
-		FileGlob: "**.kt",
-		Language: language,
+		FileGlob:   "**.kt",
+		Complexity: complexity,
+		Language:   language,
 		QueriesForStats: []string{
 			`(package_header (identifier) @modularity__component__declarations)`,
 			// The whole dotted name, in one capture. Written as a sequence of

@@ -61,8 +61,9 @@ func createGoLanguagePack() *common.LanguagePack {
 	template := &common.LanguagePackTemplate{
 		// `**.go` rather than `**/*.go`: the second needs a separator, and
 		// Java's pattern shows the shape that matches a file wherever it is.
-		FileGlob: "**.go",
-		Language: language,
+		FileGlob:   "**.go",
+		Complexity: complexity,
+		Language:   language,
 		QueriesForStats: []string{
 			// The import path, without its quotes: the content node exists
 			// precisely so nobody has to strip them afterwards.

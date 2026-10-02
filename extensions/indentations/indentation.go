@@ -17,6 +17,16 @@ const (
 	Count      = "complexity__indentation__count"
 	Avg        = "complexity__indentation__avg"
 	Volatility = "complexity__indentation__volatility"
+	// NonBlank counts the lines with anything on them, comments included.
+	NonBlank = "complexity__lines__nonblank"
+	// Deep counts the lines indented DeepLevel levels or more: in a language
+	// no pack parses, the stand-in for code inside complex functions.
+	Deep = "complexity__indentation__deep"
+
+	// DeepLevel is where code health's fallback starts calling a line deep.
+	// Three levels in predicted fixes better than four, five or six, and
+	// better than the average or the deepest line.
+	DeepLevel = 3
 )
 
 func FourTabs() *Extension {
@@ -123,6 +133,7 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 	var totalIndentation int
 	var lineCount int
 	var volatility int
+	var deep int
 	var lastIndentation int = -1
 	width := i.widthFor(theFile)
 
@@ -136,6 +147,9 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 				totalIndentation += indentation
 				if indentation > maxIndentations {
 					maxIndentations = indentation
+				}
+				if indentation >= DeepLevel {
+					deep++
 				}
 				if lastIndentation != -1 {
 					diff := indentation - lastIndentation
@@ -173,6 +187,8 @@ func (i *Extension) AnalyzeFile(theFile file.File) *file.Results {
 				StatType: Volatility,
 				Value:    volatility,
 			},
+			{StatType: NonBlank, Value: lineCount},
+			{StatType: Deep, Value: deep},
 		},
 	}
 }

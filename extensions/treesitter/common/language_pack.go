@@ -21,6 +21,7 @@ type LanguagePack struct {
 	QueriesForCounts    []*sitter.Query
 	ComponentResolution ComponentResolutionFunc
 	SnippetTransformers map[string]func(*file.Snippet) *file.Snippet
+	complexity          *complexityKinds
 }
 
 type LanguagePackTemplate struct {
@@ -35,6 +36,10 @@ type LanguagePackTemplate struct {
 	// java__method_declarations row had a java__method__declaration twin),
 	// so storing both doubled those rows and told a reader nothing.
 	QueriesForCounts []string
+	// Complexity, when set, measures every function on the tree the queries
+	// ran on: code lines, cognitive complexity, the complex code health
+	// counts against. See complexity.go.
+	Complexity *Complexity
 }
 
 func PackFromTemplate(template *LanguagePackTemplate) (*LanguagePack, error) {
@@ -65,6 +70,7 @@ func PackFromTemplate(template *LanguagePackTemplate) (*LanguagePack, error) {
 	lp.QueriesForSnippets = queriesForSnippets
 	lp.QueriesForCounts = queriesForCounts
 	lp.SnippetTransformers = template.SnippetTransformers
+	lp.complexity = template.Complexity.compile()
 	lp.ComponentResolution = GetComponentResolutionFromTemplate(template)
 	return lp, nil
 }
@@ -139,6 +145,11 @@ func (lp *LanguagePack) AnalyzeContent(path string, content []byte) *file.Result
 	results := &file.Results{
 		Snippets: allSnippets,
 		Stats:    file.SnippetsToStats(append(append([]*file.Snippet{}, snippetsForStats...), snippetsForCounts...)),
+	}
+	if lp.complexity != nil {
+		records, functions := lp.complexity.measure(tree.RootNode(), content)
+		results.Stats = append(results.Stats, records...)
+		results.Functions = functions
 	}
 	component := lp.ComponentResolution(results)
 	results.Component = component

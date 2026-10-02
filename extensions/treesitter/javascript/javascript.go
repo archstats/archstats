@@ -39,8 +39,9 @@ func LanguagePack() *common.LanguagePack {
 func createJavaScriptLanguagePack() *common.LanguagePack {
 	language := tree_sitter.NewLanguage(javascript.Language())
 	template := &common.LanguagePackTemplate{
-		FileGlob: "**/*.{js,jsx,mjs,cjs}",
-		Language: language,
+		FileGlob:   "**/*.{js,jsx,mjs,cjs}",
+		Complexity: common.JSComplexity,
+		Language:   language,
 		QueriesForStats: []string{
 			// Imports: capture string inside import/export statements
 			`(import_statement source: (string) @modularity__component__imports)`,

@@ -1,0 +1,6 @@
+id: complexity__lines__code
+name: "Code lines"
+short_description: "Lines that hold code: not blank and not only a comment."
+long_description: |
+  Counted by a language pack from the file's syntax tree, so a comment is known as a comment. Code health measures size with it.
+category: "Code health"

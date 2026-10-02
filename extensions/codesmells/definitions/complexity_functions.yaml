@@ -1,0 +1,6 @@
+id: complexity__functions
+name: "Functions"
+short_description: "Functions, methods, constructors and closures a language pack found; a closure inside a function counts as part of it."
+long_description: |
+  Every one of them is in the functions view with its length and cognitive complexity.
+category: "Code health"

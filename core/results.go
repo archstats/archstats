@@ -73,6 +73,9 @@ type Results struct {
 	UnitsByFile map[string][]*unit.Unit
 	UnitByID    map[string]*unit.Unit
 
+	// Every measured function, by the file it is in. See file.Function.
+	FunctionsByFile map[string][]*file.Function
+
 	// What the project declares it builds and publishes, read from its own
 	// manifests. Empty for a project that declares nothing, which is most
 	// single-package repositories and is not an error. See core/module.
@@ -154,7 +157,11 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	generated := map[string]bool{}
 	roles := map[string]string{}
 	systemKinds := map[string]string{}
+	functionsByFile := map[string][]*file.Function{}
 	for _, fr := range fileResults {
+		if len(fr.Functions) > 0 {
+			functionsByFile[fr.Name] = fr.Functions
+		}
 		if fr.SystemKind != "" {
 			systemKinds[fr.Name] = fr.SystemKind
 		}
@@ -250,6 +257,8 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		UnitsByKind: unitsByKind,
 		UnitsByFile: unitsByFile,
 		UnitByID:    unitByID,
+
+		FunctionsByFile: functionsByFile,
 
 		FileToComponent:  fileToComponent,
 		FileToDirectory:  fileToDirectory,
@@ -386,6 +395,7 @@ func mergeFileResults(results []*file.Results) *file.Results {
 		newResults.Stats = append(newResults.Stats, otherResult.Stats...)
 		newResults.Snippets = append(newResults.Snippets, otherResult.Snippets...)
 		newResults.Units = append(newResults.Units, otherResult.Units...)
+		newResults.Functions = append(newResults.Functions, otherResult.Functions...)
 	}
 	return newResults
 }

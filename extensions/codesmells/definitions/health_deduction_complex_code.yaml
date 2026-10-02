@@ -1,0 +1,6 @@
+id: codesmells__health__deduction__complex_code
+name: "Complex code deduction"
+short_description: "Points taken off a file's health for the lines inside functions whose cognitive complexity passes 15."
+long_description: |
+  One point per doubling of 1 + those lines ÷ 25: 25 lines cost a point, 75 two, 175 three. Edits to long, complex functions were bug fixes about 1.6 times as often as edits to equally long simple ones; long simple functions were no worse than short ones. The functions view names them. Recorded for parsed files only.
+category: "Code health"

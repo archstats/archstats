@@ -1,5 +1,10 @@
 id: codesmells__code_health
 name: Code Health
-short_description: A rating from 1.0 to 10.0 of structural maintainability.
-long_description: Rated on a scale of 1.0 (lowest) to 10.0 (highest). Deducts points for file size (lines > 500), max nesting depth, and average nesting depth. JavaScript/TypeScript files receive a relaxed indentation threshold, while non-code files (JSON/YAML/lockfiles/markdown) are excluded from code health analysis to prevent distortion. Component scores are aggregated using a size-weighted average to avoid masking large God Files.
+short_description: A rating from 1.0 to 10.0 of how costly a file's code is to change, read from the code alone.
+long_description: |
+  10 less three deductions, never below 1. Complex code: a point per doubling of the lines inside functions whose cognitive complexity passes 15, counted as 1 + lines ÷ 25. Coupling: a point and a half per doubling of import statements past 10. Size: a point per doubling of code lines past 150. Each was kept for predicting later bug fixes beyond what size predicts, on fifteen codebases read as they stood two years earlier; indentation was dropped for predicting nothing beyond size.
+
+  A file in a programming language no language pack parses is read by its indentation instead: size from its non-blank lines past 180, and a point per doubling of 1 + lines three levels in ÷ 25. Markup, data, stylesheets, SQL and shell scripts get no reading.
+
+  A component's or directory's health is its files' weighted by code lines, with its least healthy file beside it.
 category: "Code health"

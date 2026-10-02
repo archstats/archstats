@@ -1,0 +1,6 @@
+id: modularity__imports__count
+name: "Imports"
+short_description: "Import statements in the file, the standard library's and other projects' included."
+long_description: |
+  One per module imported; CommonJS require() counts as one. Code health's coupling deduction reads it.
+category: "Code health"

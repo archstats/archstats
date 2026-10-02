@@ -81,4 +81,10 @@ package core
 //	               and versioned import paths; Swift, Objective-C and Dart
 //	               extensions, nested names and part files resolved; Android,
 //	               Kotlin Multiplatform, Xcode and Dart test paths are tests.
-const AnalysisRevision = 10
+//	11 2026-10-02  code health read from functions: complex code (lines in
+//	               functions over cognitive 15), coupling (imports) and size
+//	               (code lines); indentation deductions gone, kept only for
+//	               languages no pack parses; markup, data and scripts get no
+//	               health; components weigh files by code lines and name
+//	               their least healthy file; a functions view.
+const AnalysisRevision = 11
