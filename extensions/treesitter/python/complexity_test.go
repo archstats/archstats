@@ -1,6 +1,7 @@
 package python
 
 import (
+	"strings"
 	"testing"
 
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
@@ -28,6 +29,13 @@ class C:
 `)
 	if f := fns["C.f"]; f == nil || f.Cognitive != 7 || f.Params != 2 {
 		t.Errorf("C.f: %+v", f)
+	}
+	var constructs []string
+	for _, i := range fns["C.f"].Increments {
+		constructs = append(constructs, i.Construct)
+	}
+	if got := strings.Join(constructs, " "); got != "if for elif else or and" {
+		t.Errorf("C.f constructs: %s", got)
 	}
 	if stats["modularity__imports__count"] != 2 || stats["complexity__lines__code"] != 15 {
 		t.Errorf("stats %v", stats)

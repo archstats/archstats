@@ -15,6 +15,22 @@ type Function struct {
 	// Nesting is the deepest the function's control flow goes.
 	Nesting int
 	Params  int
+	// Increments are what the cognitive complexity is made of, in the order
+	// the function reads.
+	Increments []Increment
+}
+
+// Increment is one step of a function's cognitive complexity: the construct
+// on a line, and what it cost there.
+type Increment struct {
+	Line int
+	// Points is 1 for a branch, plus the nesting it sits at for an if, loop,
+	// switch, catch or ternary.
+	Points int
+	// Construct is the keyword the code spells it with: if, else if, for,
+	// while, catch, when, guard, ?, &&, ||.
+	Construct string
+	Nesting   int
 }
 
 // Lines is the function's length, its first and last line included.

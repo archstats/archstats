@@ -1,6 +1,7 @@
 package swift
 
 import (
+	"strings"
 	"testing"
 
 	swift "github.com/archstats/archstats/extensions/treesitter/swift/grammar"
@@ -30,6 +31,13 @@ class Cart {
 	}
 	if f := fns["Cart.init"]; f == nil || f.Params != 1 {
 		t.Errorf("Cart.init: %+v", f)
+	}
+	var constructs []string
+	for _, i := range fns["Cart.total"].Increments {
+		constructs = append(constructs, i.Construct)
+	}
+	if got := strings.Join(constructs, " "); got != "if && for else if else while guard switch catch if ?" {
+		t.Errorf("Cart.total constructs: %s", got)
 	}
 	if stats["modularity__imports__count"] != 1 || stats["complexity__functions"] != 2 {
 		t.Errorf("stats %v", stats)

@@ -98,6 +98,8 @@ extensions.
 | `units` | declared thing: type, function or module | `id`, `kind` (`type`, `function`, `module`), `name`, `component`, `module`, `owner`, `file`, `files`, `markers` |
 | `unit_markers` | fact about a unit | `unit`, `kind`, `source` (`annotation`, `supertype`, `keyword` for what a Swift, Objective-C, Dart or Kotlin declaration was declared as — `struct`, `protocol`, `mixin`, `sealed`, `expect`, `actual`…, `manifest` for what an app manifest declares the class as — `activity`, `service`, `receiver`, `provider`, `application`, `launcher`, `exported`, `deep_link`; …), `key`, `value` |
 | `snippets` | recognised fragment of source | `content`, `file`, `component`, `snippet_type` (e.g. `component:import`, `function`), `begin_position`, `end_position` (`line:char`) |
+| `functions` | function, method or closure a language pack measured (revision 11; vendored and generated files left out) | `file`, `component`, `name` (under its types: `OrderService.place`; empty when anonymous), `begin_line`, `end_line`, `lines`, `cognitive` (SonarSource's cognitive complexity), `nesting`, `params`. Code health's complex-code deduction counts the lines of functions with `cognitive` over 15. |
+| `complexity_increments` | step of a complex function's cognitive complexity (revision 12; functions over 15 only) | `file`, `function`, `function_begin` (joins to `functions.begin_line`), `line`, `points` (1, plus the nesting for an if, loop, switch, catch or ternary), `construct` (the keyword the code spells it with: `if`, `else if`, `for`, `catch`, `when`, `guard`, `?`, `&&`…), `nesting` |
 
 Java files also carry `java_class` / `java_full_class`.
 

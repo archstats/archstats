@@ -87,4 +87,6 @@ package core
 //	               languages no pack parses; markup, data and scripts get no
 //	               health; components weigh files by code lines and name
 //	               their least healthy file; a functions view.
-const AnalysisRevision = 11
+//	12 2026-10-02  what each complex function's cognitive complexity is made
+//	               of, construct by construct, in complexity_increments.
+const AnalysisRevision = 12

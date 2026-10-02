@@ -183,15 +183,15 @@ func (w *complexityWalker) visit(n *sitter.Node, nesting int) int {
 	case k.ifs[kind]:
 		return w.visitIf(n, nesting, false)
 	case k.structures[kind]:
-		w.current.Cognitive += 1 + nesting
+		w.add(n, 1+nesting, w.keyword(n), nesting)
 		return w.children(n, nesting+1)
 	case k.logical[kind]:
 		if op := n.ChildByFieldName("operator"); op != nil && logicalOperators[op.Kind()] && !continuesRun(n, op.Kind()) {
-			w.current.Cognitive++
+			w.add(op, 1, op.Kind(), nesting)
 		}
 	case k.logicalRuns[kind]:
 		if p := n.Parent(); p == nil || p.Kind() != kind {
-			w.current.Cognitive++
+			w.add(n, 1, runOperator(n), nesting)
 		}
 	}
 	return w.children(n, nesting)
@@ -217,9 +217,9 @@ func continuesRun(n *sitter.Node, operator string) bool {
 func (w *complexityWalker) visitIf(n *sitter.Node, nesting int, elseIf bool) int {
 	k := w.kinds
 	if elseIf {
-		w.current.Cognitive++
+		w.add(n, 1, "else if", nesting)
 	} else {
-		w.current.Cognitive += 1 + nesting
+		w.add(n, 1+nesting, w.keyword(n), nesting)
 	}
 	deepest := nesting + 1
 	afterElse := false
@@ -230,7 +230,7 @@ func (w *complexityWalker) visitIf(n *sitter.Node, nesting int, elseIf bool) int
 			// Swift: `else` then either the else-if's if or the else block.
 			afterElse = true
 			if next := c.NextSibling(); next == nil || !k.ifs[next.Kind()] {
-				w.current.Cognitive++
+				w.add(c, 1, "else", nesting)
 			}
 		case afterElse && k.ifs[c.Kind()]:
 			deepest = max(deepest, w.visitIf(c, nesting, true))
@@ -265,11 +265,68 @@ func (w *complexityWalker) visitElse(n *sitter.Node, nesting int) int {
 			}
 		}
 	case k.elseIfs[kind]:
-		w.current.Cognitive++
+		w.add(n, 1, w.keyword(n), nesting)
 		return w.children(n, nesting+1)
 	}
-	w.current.Cognitive++ // a plain else
+	// A plain else, counted where its keyword is.
+	at := n
+	if p := n.PrevSibling(); p != nil && p.Kind() == "else" {
+		at = p
+	}
+	w.add(at, 1, "else", nesting)
 	return w.visit(n, nesting+1)
+}
+
+// add costs the current function points for the construct at n, and
+// records where, so a reader can see what the score is made of.
+func (w *complexityWalker) add(n *sitter.Node, points int, construct string, nesting int) {
+	w.current.Cognitive += points
+	w.current.Increments = append(w.current.Increments, file.Increment{
+		Line: int(n.StartPosition().Row) + 1, Points: points, Construct: construct, Nesting: nesting,
+	})
+}
+
+// keyword is the word the code spells a construct with -- for, while, catch,
+// when, guard, ? -- read from the tree, so no grammar needs a table of them:
+// the first word token among its children, or a named *_keyword node (Swift's
+// catch_keyword).
+func (w *complexityWalker) keyword(n *sitter.Node) string {
+	for i := uint(0); i < n.ChildCount(); i++ {
+		c := n.Child(i)
+		if !c.IsNamed() && (c.Kind() == "?" || isWord(c.Kind())) {
+			return c.Kind()
+		}
+		if c.IsNamed() && strings.HasSuffix(c.Kind(), "_keyword") {
+			return c.Utf8Text(w.src)
+		}
+	}
+	return strings.ReplaceAll(strings.TrimSuffix(strings.TrimSuffix(n.Kind(), "_statement"), "_expression"), "_", " ")
+}
+
+func isWord(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && r != '@' {
+			return false
+		}
+	}
+	return true
+}
+
+// runOperator is the operator of a grammar that makes && and || node kinds
+// of their own (Kotlin, Swift, Dart).
+func runOperator(n *sitter.Node) string {
+	for i := uint(0); i < n.ChildCount(); i++ {
+		if c := n.Child(i); logicalOperators[c.Kind()] {
+			return c.Kind()
+		}
+	}
+	if kind := n.Kind(); strings.Contains(kind, "and") || strings.Contains(kind, "conjunction") {
+		return "&&"
+	}
+	return "||"
 }
 
 func onlyNamedChild(n *sitter.Node) *sitter.Node {

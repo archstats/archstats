@@ -72,6 +72,7 @@ func (e *extension) Init(settings core.Analyzer) error {
 	settings.RegisterStatAccumulator(HealthWorstFile, minAccumulator)
 	settings.RegisterStatAccumulator(common.CognitiveMax, maxAccumulator)
 	settings.RegisterView(&core.ViewFactory{Name: "functions", CreateViewFunc: functionsView})
+	settings.RegisterView(&core.ViewFactory{Name: "complexity_increments", CreateViewFunc: complexityIncrementsView})
 
 	return nil
 }

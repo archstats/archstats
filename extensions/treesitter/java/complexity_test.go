@@ -1,6 +1,8 @@
 package java
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/archstats/archstats/core/file"
@@ -73,6 +75,10 @@ class A {
 	if len(fns) != 4 {
 		t.Errorf("functions %d, want 4 (the lambda is part of later)", len(fns))
 	}
+	// What A.sum's 9 is made of, line by line, as a reader sees it.
+	if got := steps(fns["A.sum"]); got != "L9 +1 if, L10 +2 for, L11 +3 if, L11 +1 &&, L13 +1 else if, L15 +1 else" {
+		t.Errorf("A.sum steps: %s", got)
+	}
 	// 45 lines: 4 blank, 2 comment-only; a trailing comment leaves its line code.
 	if stats["complexity__lines__code"] != 39 || stats["modularity__imports__count"] != 2 {
 		t.Errorf("code lines %v", stats["complexity__lines__code"])
@@ -95,4 +101,13 @@ func TestJavaComplexLines(t *testing.T) {
 	if stats["complexity__functions__complex"] != 1 || stats["complexity__lines__complex"] != fns["B.deep"].Lines() {
 		t.Errorf("stats %v, function lines %d", stats, fns["B.deep"].Lines())
 	}
+}
+
+// steps writes a function's increments the way the source view shows them.
+func steps(f *file.Function) string {
+	var out []string
+	for _, i := range f.Increments {
+		out = append(out, fmt.Sprintf("L%d +%d %s", i.Line, i.Points, i.Construct))
+	}
+	return strings.Join(out, ", ")
 }
