@@ -121,8 +121,8 @@ func TestResolve_PackageWithUnbuiltEntryPointLandsOnSource(t *testing.T) {
 		"packages/data-provider/src/index.ts":             "packages/data-provider/src",
 		"packages/data-provider/src/react-query/index.ts": "packages/data-provider/src/react-query",
 	}
-	assert.Equal(t, "packages/data-provider/src", m.resolve("librechat-data-provider", fileDirs))
-	assert.Equal(t, "packages/data-provider/src/react-query", m.resolve("librechat-data-provider/react-query", fileDirs))
+	assert.Equal(t, "packages/data-provider/src", m.resolve("librechat-data-provider", newDirIndex(fileDirs)))
+	assert.Equal(t, "packages/data-provider/src/react-query", m.resolve("librechat-data-provider/react-query", newDirIndex(fileDirs)))
 	// A subpath naming a file still lands on the directory holding it.
-	assert.Equal(t, "packages/data-provider/src", m.resolve("librechat-data-provider/config", fileDirs))
+	assert.Equal(t, "packages/data-provider/src", m.resolve("librechat-data-provider/config", newDirIndex(fileDirs)))
 }

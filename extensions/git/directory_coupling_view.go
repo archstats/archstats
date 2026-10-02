@@ -13,7 +13,7 @@ func (e *extension) directoryCouplingViewFactory(results *core.Results) *core.Vi
 	directory := lo.Keys(results.DirectoryToFiles)
 
 	sharedCommits := commits.PairsToCommitsInCommon(directory, e.couplingCommits.DirectoryToCommitHashes())
-	dayBucketSharedCommitCounts := map[int]map[string]commits.CommitHashes{}
+	dayBucketSharedCommitCounts := map[int]map[commits.Pair]commits.CommitHashes{}
 
 	for days, split := range e.couplingCommits.DayBuckets() {
 		dayBucketSharedCommitCounts[days] = commits.PairsToCommitsInCommon(directory, split.DirectoryToCommitHashes())
@@ -22,7 +22,7 @@ func (e *extension) directoryCouplingViewFactory(results *core.Results) *core.Vi
 	mappedDayBuckets := lo.MapValues(e.couplingCommits.DayBuckets(), func(splitted *commits.Splitted, _ int) map[string]commits.CommitHashes {
 		return splitted.DirectoryToCommitHashes()
 	})
-	rows := sharedCommitsToRows(directory, sharedCommits, dayBucketSharedCommitCounts, e.couplingCommits.DirectoryToCommitHashes(), mappedDayBuckets)
+	rows := sharedCommitsToRows(sharedCommits, dayBucketSharedCommitCounts, e.couplingCommits.DirectoryToCommitHashes(), mappedDayBuckets)
 	// Directory pairs that shared one commit are most of the table and say
 	// little: kept from two shared commits up.
 	kept := rows[:0]

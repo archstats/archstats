@@ -196,7 +196,7 @@ func (m *aliasMap) readTSConfig(root, configPath string) {
 // resolve turns an import written in the project's own vocabulary into the
 // directory it names, or "" when no alias claims it — which is the common and
 // correct answer for a third-party package.
-func (m *aliasMap) resolve(importValue string, fileDirs map[string]string) string {
+func (m *aliasMap) resolve(importValue string, dirs *dirIndex) string {
 	for _, entry := range m.entries {
 		var rest string
 		if entry.exact {
@@ -211,7 +211,7 @@ func (m *aliasMap) resolve(importValue string, fileDirs map[string]string) strin
 		}
 		for _, dir := range entry.dirs {
 			candidate := joinRel(dir, rest)
-			if isKnownDir(candidate, fileDirs) {
+			if isKnownDir(candidate, dirs) {
 				return candidate
 			}
 			// The import named a file; its component is the directory holding it.
@@ -222,7 +222,7 @@ func (m *aliasMap) resolve(importValue string, fileDirs map[string]string) strin
 			if rest == "" {
 				continue
 			}
-			if parent := path.Dir(candidate); isKnownDir(parent, fileDirs) {
+			if parent := path.Dir(candidate); isKnownDir(parent, dirs) {
 				return parent
 			}
 		}
@@ -230,16 +230,8 @@ func (m *aliasMap) resolve(importValue string, fileDirs map[string]string) strin
 	return ""
 }
 
-func isKnownDir(candidate string, fileDirs map[string]string) bool {
-	if candidate == "" || candidate == "." {
-		return false
-	}
-	for _, dir := range fileDirs {
-		if dir == candidate {
-			return true
-		}
-	}
-	return false
+func isKnownDir(candidate string, dirs *dirIndex) bool {
+	return candidate != "" && candidate != "." && dirs.has(candidate)
 }
 
 func relDir(root, dir string) string {

@@ -37,17 +37,17 @@ func TestSharedCommits_Files(t *testing.T) {
 
 	assert.Len(t, sharedCommits, 4)
 
-	assert.Len(t, sharedCommits["a:b"], 3)
-	assert.ElementsMatch(t, sharedCommits["a:b"], []string{"1", "3", "7"})
+	assert.Len(t, sharedCommits[Pair{"a", "b"}], 3)
+	assert.ElementsMatch(t, sharedCommits[Pair{"a", "b"}], []string{"1", "3", "7"})
 
-	assert.Len(t, sharedCommits["a:c"], 2)
-	assert.ElementsMatch(t, sharedCommits["a:c"], []string{"1", "8"})
+	assert.Len(t, sharedCommits[Pair{"a", "c"}], 2)
+	assert.ElementsMatch(t, sharedCommits[Pair{"a", "c"}], []string{"1", "8"})
 
-	assert.Len(t, sharedCommits["b:c"], 3)
-	assert.ElementsMatch(t, sharedCommits["b:c"], []string{"1", "2", "4"})
+	assert.Len(t, sharedCommits[Pair{"b", "c"}], 3)
+	assert.ElementsMatch(t, sharedCommits[Pair{"b", "c"}], []string{"1", "2", "4"})
 
-	assert.Len(t, sharedCommits["b:d"], 1)
-	assert.ElementsMatch(t, sharedCommits["b:d"], []string{"9"})
+	assert.Len(t, sharedCommits[Pair{"b", "d"}], 1)
+	assert.ElementsMatch(t, sharedCommits[Pair{"b", "d"}], []string{"9"})
 
 }
 
@@ -82,17 +82,17 @@ func TestSharedCommits_Components(t *testing.T) {
 
 	assert.Len(t, sharedCommits, 4)
 
-	assert.Len(t, sharedCommits["a:b"], 3)
-	assert.ElementsMatch(t, sharedCommits["a:b"], []string{"1", "3", "7"})
+	assert.Len(t, sharedCommits[Pair{"a", "b"}], 3)
+	assert.ElementsMatch(t, sharedCommits[Pair{"a", "b"}], []string{"1", "3", "7"})
 
-	assert.Len(t, sharedCommits["a:c"], 2)
-	assert.ElementsMatch(t, sharedCommits["a:c"], []string{"1", "8"})
+	assert.Len(t, sharedCommits[Pair{"a", "c"}], 2)
+	assert.ElementsMatch(t, sharedCommits[Pair{"a", "c"}], []string{"1", "8"})
 
-	assert.Len(t, sharedCommits["b:c"], 3)
-	assert.ElementsMatch(t, sharedCommits["b:c"], []string{"1", "2", "4"})
+	assert.Len(t, sharedCommits[Pair{"b", "c"}], 3)
+	assert.ElementsMatch(t, sharedCommits[Pair{"b", "c"}], []string{"1", "2", "4"})
 
-	assert.Len(t, sharedCommits["b:d"], 1)
-	assert.ElementsMatch(t, sharedCommits["b:d"], []string{"9"})
+	assert.Len(t, sharedCommits[Pair{"b", "d"}], 1)
+	assert.ElementsMatch(t, sharedCommits[Pair{"b", "d"}], []string{"9"})
 
 }
 

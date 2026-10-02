@@ -2,34 +2,39 @@ package commits
 
 import (
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
-	"strings"
+	"slices"
 )
 
-// PairsToCommitsInCommon Puts components or files into pairs and counts the number of commits that they share.
-// Returns a map of the pair to the number of shared commits.
+// Pair is two components or files, A sorting before B.
+type Pair struct{ A, B string }
+
+// PairsToCommitsInCommon returns, for every pair of the given components or
+// files that changed in the same commit, the commits they share. Pairs that
+// share none are absent.
 //
-// The structure of the map is: file1:file2 -> []string{CommitHashes...}
-// The resulting map will contain pairs of components or files that have at least 1 shared commit.
-func PairsToCommitsInCommon(filesOrComponents []string, componentOrFileToCommits map[string]CommitHashes) map[string]CommitHashes {
-	pairs := uniquePairs(filesOrComponents)
+// It walks each commit's members instead of every pair: 6,453 directories are
+// 20.8 million pairs, and building them all held 12 GB on Sakai, though only
+// the pairs that co-changed can share anything.
+func PairsToCommitsInCommon(filesOrComponents []string, componentOrFileToCommits map[string]CommitHashes) map[Pair]CommitHashes {
+	members := slices.Clone(filesOrComponents)
+	slices.Sort(members)
+	members = slices.Compact(members)
 
-	toReturn := map[string]CommitHashes{}
-
-	seen := map[string]bool{}
-	for _, pair := range pairs {
-		slices.Sort(pair)
-		key := strings.Join(pair, ":")
-
-		if _, ok := seen[key]; ok {
-			continue
-		}
-
-		seen[key] = true
-		shared := SharedCommitsForGroup(pair, componentOrFileToCommits)
-
-		if len(shared) > 0 {
-			toReturn[key] = shared
+	toReturn := map[Pair]CommitHashes{}
+	// The members seen so far in each commit, in sorted order, so a pair's
+	// commits come out in the order its second member lists them.
+	touched := map[string][]string{}
+	for _, b := range members {
+		for _, commit := range componentOrFileToCommits[b] {
+			earlier := touched[commit]
+			if len(earlier) > 0 && earlier[len(earlier)-1] == b {
+				continue
+			}
+			for _, a := range earlier {
+				pair := Pair{a, b}
+				toReturn[pair] = append(toReturn[pair], commit)
+			}
+			touched[commit] = append(earlier, b)
 		}
 	}
 	return toReturn
@@ -54,14 +59,4 @@ func SharedCommitsForGroup(group []string, componentOrFileToCommits map[string]C
 		return CommitHashes{}
 	}
 	return intersection
-}
-
-func uniquePairs(elems []string) [][]string {
-	var pairs [][]string
-	for i, elem1 := range elems {
-		for _, elem2 := range elems[i+1:] {
-			pairs = append(pairs, []string{elem1, elem2})
-		}
-	}
-	return pairs
 }

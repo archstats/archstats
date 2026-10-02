@@ -31,6 +31,8 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 		fileDirs[fr.Name] = fr.Directory
 		names = append(names, fr.Name)
 	}
+	dirs := newDirIndex(fileDirs)
+
 	if c.aliases == nil {
 		c.aliases = readAliasesFrom(c.root, names)
 	}
@@ -109,13 +111,13 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 				// The project's own vocabulary first. Only when nothing claims
 				// the name is it worth guessing from the shape of the tree.
 				if c.aliases != nil {
-					if resolved := c.aliases.resolve(snippet.Value, fileDirs); resolved != "" {
+					if resolved := c.aliases.resolve(snippet.Value, dirs); resolved != "" {
 						snippet.Value = resolved
 						continue
 					}
 				}
 				original := snippet.Value
-				snippet.Value = resolveImport(fileDirs[snippet.File], snippet.Value, fileDirs, declaredComponents)
+				snippet.Value = resolveImport(fileDirs[snippet.File], snippet.Value, dirs, declaredComponents)
 
 				// A dynamic lookup may name a thing rather than a path.
 				// Django's `get_model("catalogue", "Product")` takes an app
@@ -131,7 +133,7 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 				// os, and is not, because it never reaches here.
 				if snippet.Type == file.ComponentImportDynamic {
 					if !actualComponents[snippet.Value] && !strings.ContainsAny(snippet.Value, "./\\") {
-						if best := shortestDirEndingIn(snippet.Value, fileDirs); best != "" {
+						if best := dirs.shortestEndingIn(snippet.Value); best != "" {
 							snippet.Value = best
 						}
 					}
@@ -149,28 +151,56 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 	}
 }
 
-// shortestDirEndingIn finds the directory a path names, wherever the import
+// dirIndex holds the scan's directories so that resolving an import is a
+// lookup, not a pass over every file: on hibernate-orm those passes took 20
+// seconds, one import at a time.
+type dirIndex struct {
+	dirs map[string]bool
+	// bySuffix maps every whole-segment tail of a directory, the directory
+	// itself included, to the shortest directory ending in it.
+	bySuffix map[string]string
+}
+
+func newDirIndex(fileDirs map[string]string) *dirIndex {
+	x := &dirIndex{dirs: map[string]bool{}, bySuffix: map[string]string{}}
+	for _, dir := range fileDirs {
+		if x.dirs[dir] {
+			continue
+		}
+		x.dirs[dir] = true
+		tail := dir
+		for {
+			if best, ok := x.bySuffix[tail]; !ok || len(dir) < len(best) || (len(dir) == len(best) && dir < best) {
+				x.bySuffix[tail] = dir
+			}
+			i := strings.IndexByte(tail, '/')
+			if i < 0 {
+				break
+			}
+			tail = tail[i+1:]
+		}
+	}
+	return x
+}
+
+func (x *dirIndex) has(dir string) bool {
+	return x.dirs[dir]
+}
+
+// shortestEndingIn finds the directory a path names, wherever the import
 // root happens to sit in the tree. The shortest wins: between `src/acme/db`
 // and `vendor/other/src/acme/db`, the first is the one the code means. Two
 // of the same length (django-oscar's `catalogue/reviews` and
 // `dashboard/reviews` for the label `reviews`) are settled by name, so the
 // same code resolves the same way on every scan; map order used to decide.
-func shortestDirEndingIn(path string, fileDirs map[string]string) string {
+func (x *dirIndex) shortestEndingIn(path string) string {
 	if path == "" || path == "." || path == "/" {
 		return ""
 	}
-	best := ""
-	for _, dir := range fileDirs {
-		if dir == path || strings.HasSuffix(dir, "/"+path) {
-			if best == "" || len(dir) < len(best) || (len(dir) == len(best) && dir < best) {
-				best = dir
-			}
-		}
-	}
-	return best
+	return x.bySuffix[path]
 }
 
-func resolveImport(importingFileDir, importValue string, fileDirs map[string]string, declaredComponents map[string]bool) string {
+func resolveImport(importingFileDir, importValue string, dirs *dirIndex, declaredComponents map[string]bool) string {
 	// 0. If it matches a declared component, keep it as is
 	if declaredComponents[importValue] {
 		return importValue
@@ -206,20 +236,16 @@ func resolveImport(importingFileDir, importValue string, fileDirs map[string]str
 		resolved := filepath.Join(baseDir, restSlashed)
 		resolved = strings.ReplaceAll(resolved, "\\", "/")
 
-		// If the resolved directory itself exists in fileDirs, return it
-		for _, dir := range fileDirs {
-			if resolved == dir {
-				return resolved
-			}
+		// If the resolved directory itself exists, return it
+		if dirs.has(resolved) {
+			return resolved
 		}
 
 		// If it's a file inside a known directory, resolve to its containing directory
 		parentDir := filepath.Dir(resolved)
 		parentDir = strings.ReplaceAll(parentDir, "\\", "/")
-		for _, dir := range fileDirs {
-			if parentDir == dir {
-				return parentDir
-			}
+		if dirs.has(parentDir) {
+			return parentDir
 		}
 		return resolved
 	}
@@ -229,21 +255,17 @@ func resolveImport(importingFileDir, importValue string, fileDirs map[string]str
 		resolved := filepath.Clean(filepath.Join(importingFileDir, importValue))
 		resolved = strings.ReplaceAll(resolved, "\\", "/")
 
-		// If the resolved directory itself exists in fileDirs, return it
-		for _, dir := range fileDirs {
-			if resolved == dir {
-				return resolved
-			}
+		// If the resolved directory itself exists, return it
+		if dirs.has(resolved) {
+			return resolved
 		}
 
 		// If it's a file inside a known directory, resolved points to a file,
 		// resolve to its containing directory
 		parentDir := filepath.Dir(resolved)
 		parentDir = strings.ReplaceAll(parentDir, "\\", "/")
-		for _, dir := range fileDirs {
-			if parentDir == dir {
-				return parentDir
-			}
+		if dirs.has(parentDir) {
+			return parentDir
 		}
 		return resolved
 	}
@@ -259,14 +281,7 @@ func resolveImport(importingFileDir, importValue string, fileDirs map[string]str
 		}
 
 		// Check if cleaned path itself is a suffix of any known directory
-		var bestMatch string
-		for _, dir := range fileDirs {
-			if dir == cleaned || strings.HasSuffix(dir, "/"+cleaned) {
-				if bestMatch == "" || len(dir) < len(bestMatch) {
-					bestMatch = dir
-				}
-			}
-		}
+		bestMatch := dirs.shortestEndingIn(cleaned)
 		if bestMatch != "" {
 			return bestMatch
 		}
@@ -275,13 +290,7 @@ func resolveImport(importingFileDir, importValue string, fileDirs map[string]str
 		parent := filepath.Dir(cleaned)
 		parent = strings.ReplaceAll(parent, "\\", "/")
 		if parent != "." && parent != "/" {
-			for _, dir := range fileDirs {
-				if dir == parent || strings.HasSuffix(dir, "/"+parent) {
-					if bestMatch == "" || len(dir) < len(bestMatch) {
-						bestMatch = dir
-					}
-				}
-			}
+			bestMatch = dirs.shortestEndingIn(parent)
 		}
 		if bestMatch != "" {
 			return bestMatch
@@ -300,7 +309,7 @@ func resolveImport(importingFileDir, importValue string, fileDirs map[string]str
 		cleaned := strings.Trim(strings.ReplaceAll(importValue, "\\", "/"), "/")
 		segments := strings.Split(cleaned, "/")
 		for start := 0; start < len(segments); start++ {
-			if best := shortestDirEndingIn(strings.Join(segments[start:], "/"), fileDirs); best != "" {
+			if best := dirs.shortestEndingIn(strings.Join(segments[start:], "/")); best != "" {
 				return best
 			}
 		}
@@ -318,20 +327,18 @@ func resolveImport(importingFileDir, importValue string, fileDirs map[string]str
 		// absolute intra-package import in a modern Python project was lost.
 		// The shortest match wins, so a vendored copy deeper in the tree
 		// cannot outrank the real one.
-		if best := shortestDirEndingIn(slashed, fileDirs); best != "" {
+		if best := dirs.shortestEndingIn(slashed); best != "" {
 			return best
 		}
 
 		parentDir := filepath.Dir(slashed)
 		parentDir = strings.ReplaceAll(parentDir, "\\", "/")
-		if best := shortestDirEndingIn(parentDir, fileDirs); best != "" {
+		if best := dirs.shortestEndingIn(parentDir); best != "" {
 			return best
 		}
 
-		for _, dir := range fileDirs {
-			if parentDir == dir {
-				return parentDir
-			}
+		if dirs.has(parentDir) {
+			return parentDir
 		}
 		return slashed
 	}

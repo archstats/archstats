@@ -348,7 +348,7 @@ func TestShortestDirEndingInIsDeterministic(t *testing.T) {
 		"c.py": "vendor/x/src/oscar/apps/catalogue/reviews",
 	}
 	for i := 0; i < 50; i++ {
-		if got := shortestDirEndingIn("reviews", dirs); got != "src/oscar/apps/catalogue/reviews" {
+		if got := newDirIndex(dirs).shortestEndingIn("reviews"); got != "src/oscar/apps/catalogue/reviews" {
 			t.Fatalf("got %q", got)
 		}
 	}

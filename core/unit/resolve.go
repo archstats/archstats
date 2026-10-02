@@ -34,6 +34,11 @@ type Index struct {
 	byName map[string][]string
 	// every module, longest first, for suffix matching
 	modules []string
+	// module -> its place in modules
+	rank map[string]int
+	// tail -> the places of the modules ending in "/"+tail, so a suffix
+	// match is a lookup and not a pass over every module per reference
+	endingIn map[string][]int
 	// unit id -> the module part of its id
 	moduleOf map[string]string
 	fileOf   map[string]string
@@ -83,6 +88,16 @@ func NewIndex(units []*Unit) *Index {
 	sort.SliceStable(idx.modules, func(i, j int) bool {
 		return len(idx.modules[i]) > len(idx.modules[j])
 	})
+	idx.rank = make(map[string]int, len(idx.modules))
+	idx.endingIn = map[string][]int{}
+	for i, m := range idx.modules {
+		idx.rank[m] = i
+		for k := 0; k < len(m); k++ {
+			if m[k] == '/' {
+				idx.endingIn[m[k+1:]] = append(idx.endingIn[m[k+1:]], i)
+			}
+		}
+	}
 	return idx
 }
 
@@ -281,17 +296,26 @@ func (idx *Index) candidateModules(from *Unit, module string) []string {
 	// the import said ends with the known module. Longest first, so a module
 	// whose name happens to be the tail of some unrelated path cannot win
 	// over the real one.
-	for _, known := range idx.modules {
-		if known == module || known == slashed {
+	var found []int
+	for _, said := range []string{module, slashed} {
+		found = append(found, idx.endingIn[said]...)
+		for k := 0; k < len(said); k++ {
+			if said[k] != '/' {
+				continue
+			}
+			if i, ok := idx.rank[said[k+1:]]; ok {
+				found = append(found, i)
+			}
+		}
+	}
+	// In the order of idx.modules, longest first, each once.
+	sort.Ints(found)
+	for i, place := range found {
+		known := idx.modules[place]
+		if (i > 0 && place == found[i-1]) || known == module || known == slashed {
 			continue
 		}
-		if strings.HasSuffix(known, "/"+module) || strings.HasSuffix(known, "/"+slashed) {
-			candidates = append(candidates, known)
-			continue
-		}
-		if strings.HasSuffix(module, "/"+known) || strings.HasSuffix(slashed, "/"+known) {
-			candidates = append(candidates, known)
-		}
+		candidates = append(candidates, known)
 	}
 	return candidates
 }

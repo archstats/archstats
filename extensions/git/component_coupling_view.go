@@ -11,7 +11,7 @@ func (e *extension) componentCouplingViewFactory(results *core.Results) *core.Vi
 
 	componentToCommits := e.couplingCommits.ComponentToCommitHashes()
 	sharedCommits := commits.PairsToCommitsInCommon(components, componentToCommits)
-	dayBucketSharedCommitCounts := map[int]map[string]commits.CommitHashes{}
+	dayBucketSharedCommitCounts := map[int]map[commits.Pair]commits.CommitHashes{}
 
 	for days, split := range e.couplingCommits.DayBuckets() {
 		dayBucketSharedCommitCounts[days] = commits.PairsToCommitsInCommon(components, split.ComponentToCommitHashes())
@@ -20,7 +20,7 @@ func (e *extension) componentCouplingViewFactory(results *core.Results) *core.Vi
 	mappedDayBuckets := lo.MapValues(e.couplingCommits.DayBuckets(), func(splitted *commits.Splitted, _ int) map[string]commits.CommitHashes {
 		return splitted.ComponentToCommitHashes()
 	})
-	rows := sharedCommitsToRows(components, sharedCommits, dayBucketSharedCommitCounts, componentToCommits, mappedDayBuckets)
+	rows := sharedCommitsToRows(sharedCommits, dayBucketSharedCommitCounts, componentToCommits, mappedDayBuckets)
 
 	return &core.View{
 		Columns: sharedCommitColumns(e.DayBuckets),

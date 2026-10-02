@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	filepath "path/filepath"
+	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -172,31 +174,24 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 
 	// core.quotepath=off keeps non-ASCII paths as written instead of
 	// C-quoting them, which no file in the scan would ever match.
-	argsRaw := []string{"-C", filepath.Clean(path), "-c", "core.quotepath=off", "log"}
+	base := []string{"-C", filepath.Clean(path), "-c", "core.quotepath=off"}
 	// Only the history of what is checked out. `--all` read every branch
 	// and ref: commits that never reached the analysed code, and the same
 	// change counted once per branch it was cherry-picked onto.
-	argsRaw = append(argsRaw, "HEAD")
-	// --since and --after are options of `log`, not of git itself; placed
-	// before the subcommand they made git refuse to run.
+	revArgs := append(append([]string{}, base...), "rev-list", "HEAD")
+	// --since and --after are options of the walk, not of git itself;
+	// placed before the subcommand they made git refuse to run.
 	if e.GitSince != "" {
-		argsRaw = append(argsRaw, "--since", e.GitSince)
+		revArgs = append(revArgs, "--since", e.GitSince)
 	}
 	if e.GitAfter != "" {
-		argsRaw = append(argsRaw, "--after", e.GitAfter)
+		revArgs = append(revArgs, "--after", e.GitAfter)
 	}
 	// %aN and %aE honour .mailmap, so a project's own record of who is who
 	// is used before any guessing.
 	// -M follows a moved file: a move is a rename row, not a deletion and
 	// an unrelated new file, so the file keeps its commits, age and authors.
-	argsRaw = append(argsRaw, "--numstat", "-M", "--pretty=format:"+gitLogFormat)
-
-	commitArgs := append(append([]string{}, argsRaw...), "--no-merges")
-	output, err := exec.Command("git", commitArgs...).Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to run git log command: %s", err)
-	}
-	commits := parseGitLogString(path, string(output))
+	logArgs := append(append([]string{}, base...), "log", "--no-walk=unsorted", "--stdin", "--numstat", "-M", "--pretty=format:"+gitLogFormat)
 
 	// A merge changes a file when it differs from every parent: what was
 	// written while resolving it. Those are the only files a merge reports
@@ -207,12 +202,28 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 	// --numstat on a merge diffs it against its first parent, which would
 	// count a branch's work a second time; --cc --raw lists the files that
 	// differ from every parent, and only those rows are kept.
-	mergeArgs := append(append([]string{}, argsRaw...), "--merges", "--cc", "--raw")
-	mergeOutput, err := exec.Command("git", mergeArgs...).Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to run git log for merges: %s", err)
+	// Clipped, so the two appends below cannot write into one shared array.
+	revArgs, logArgs = slices.Clip(revArgs), slices.Clip(logArgs)
+	var commits, merges []*rawCommit
+	var commitErr, mergeErr error
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		commits, commitErr = logInParallel(path, append(revArgs, "--no-merges"), logArgs)
+	}()
+	go func() {
+		defer wg.Done()
+		merges, mergeErr = logInParallel(path, append(revArgs, "--merges"), append(logArgs, "--cc", "--raw"))
+	}()
+	wg.Wait()
+	if commitErr != nil {
+		return nil, fmt.Errorf("failed to run git log command: %s", commitErr)
 	}
-	for _, merge := range parseGitLogString(path, string(mergeOutput)) {
+	if mergeErr != nil {
+		return nil, fmt.Errorf("failed to run git log for merges: %s", mergeErr)
+	}
+	for _, merge := range merges {
 		// A clean merge lists no such files, and its numstat rows are all
 		// branch work already counted.
 		if merge.combined && len(merge.Files) > 0 {
@@ -220,6 +231,57 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 		}
 	}
 	followRenames(commits)
+	return commits, nil
+}
+
+// logInParallel lists the commits revArgs walks, then has several `git log`
+// processes diff them in chunks, one per core. Diffing every commit is what
+// makes a long history slow and git does it on one core: Sakai's 52,692
+// commits took 26 seconds in one process and under 5 in twelve. The chunks
+// keep rev-list's order, so the commits come back exactly as one `git log`
+// would print them.
+// minPerChunk keeps a short history in one process, where starting more
+// would cost more than it saves.
+var minPerChunk = 500
+
+func logInParallel(repo string, revArgs, logArgs []string) ([]*rawCommit, error) {
+	listed, err := exec.Command("git", revArgs...).Output()
+	if err != nil {
+		return nil, err
+	}
+	hashes := strings.Fields(string(listed))
+	if len(hashes) == 0 {
+		return nil, nil
+	}
+	workers := min(runtime.NumCPU(), (len(hashes)+minPerChunk-1)/minPerChunk)
+	size := (len(hashes) + workers - 1) / workers
+
+	chunks := make([][]*rawCommit, workers)
+	errs := make([]error, workers)
+	var wg sync.WaitGroup
+	for i := range workers {
+		part := hashes[i*size : min((i+1)*size, len(hashes))]
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			cmd := exec.Command("git", logArgs...)
+			cmd.Stdin = strings.NewReader(strings.Join(part, "\n") + "\n")
+			out, err := cmd.Output()
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			chunks[i] = parseGitLogString(repo, string(out))
+		}()
+	}
+	wg.Wait()
+	var commits []*rawCommit
+	for i, chunk := range chunks {
+		if errs[i] != nil {
+			return nil, errs[i]
+		}
+		commits = append(commits, chunk...)
+	}
 	return commits, nil
 }
 

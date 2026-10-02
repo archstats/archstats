@@ -474,46 +474,39 @@ func sharedCommitColumns(dayBuckets []int) []*core.Column {
 }
 
 // Takes total shared commit counts and shared commit counts per day bucket and returns rows.
+// sharedCommitsToRows writes each pair that shares a commit twice, once from
+// each side, in a fixed order.
 func sharedCommitsToRows(
-	componentsOrFiles []string,
-	pairToCommitsInCommon map[string]commits.CommitHashes,
-	pairToCommitsInCommonPerDayBucket map[int]map[string]commits.CommitHashes,
+	pairToCommitsInCommon map[commits.Pair]commits.CommitHashes,
+	pairToCommitsInCommonPerDayBucket map[int]map[commits.Pair]commits.CommitHashes,
 	componentOrFileToAllCommits map[string]commits.CommitHashes,
 	componentOrFileToAllCommitsPerDayBucket map[int]map[string]commits.CommitHashes,
 ) []*core.Row {
-	var rows []*core.Row
-
-	for _, component1 := range componentsOrFiles {
-		for _, component2 := range componentsOrFiles {
-			if component1 == component2 {
-				continue
-			}
-
-			combined := []string{component1, component2}
-			slices.Sort(combined)
-			key := strings.Join(combined, ":")
-			// Filter out pairs that don't have shared commits
-			if _, hasKey := pairToCommitsInCommon[key]; !hasKey {
-				continue
-			}
-
-			// The two branches were the wrong way round: a bucket that HAD
-			// shared commits for this pair returned an empty set, and one
-			// that did not returned the missing value. Every
-			// __LAST_30_DAYS / __LAST_90_DAYS / __LAST_180_DAYS shared-commit
-			// column came out zero on every repository, however recent the
-			// work -- 100,572 rows of Sylius, all zero.
-			pairsPerDayBucketMapped := lo.MapValues(pairToCommitsInCommonPerDayBucket, func(sharedCommitCount map[string]commits.CommitHashes, _ int) commits.CommitHashes {
-				if shared, hasKey := sharedCommitCount[key]; hasKey {
-					return shared
-				}
-				return commits.CommitHashes{}
-			})
-
-			row1 := toRow(component1, component2, pairToCommitsInCommon[key], pairsPerDayBucketMapped, componentOrFileToAllCommits, componentOrFileToAllCommitsPerDayBucket)
-			// Only add rows that have shared commits
-			rows = append(rows, row1)
+	pairs := lo.Keys(pairToCommitsInCommon)
+	slices.SortFunc(pairs, func(x, y commits.Pair) int {
+		if c := strings.Compare(x.A, y.A); c != 0 {
+			return c
 		}
+		return strings.Compare(x.B, y.B)
+	})
+	rows := make([]*core.Row, 0, 2*len(pairs))
+	for _, pair := range pairs {
+		// The two branches were the wrong way round: a bucket that HAD
+		// shared commits for this pair returned an empty set, and one
+		// that did not returned the missing value. Every
+		// __LAST_30_DAYS / __LAST_90_DAYS / __LAST_180_DAYS shared-commit
+		// column came out zero on every repository, however recent the
+		// work -- 100,572 rows of Sylius, all zero.
+		pairsPerDayBucketMapped := lo.MapValues(pairToCommitsInCommonPerDayBucket, func(sharedCommitCount map[commits.Pair]commits.CommitHashes, _ int) commits.CommitHashes {
+			if shared, hasKey := sharedCommitCount[pair]; hasKey {
+				return shared
+			}
+			return commits.CommitHashes{}
+		})
+		shared := pairToCommitsInCommon[pair]
+		rows = append(rows,
+			toRow(pair.A, pair.B, shared, pairsPerDayBucketMapped, componentOrFileToAllCommits, componentOrFileToAllCommitsPerDayBucket),
+			toRow(pair.B, pair.A, shared, pairsPerDayBucketMapped, componentOrFileToAllCommits, componentOrFileToAllCommitsPerDayBucket))
 	}
 	return rows
 }
