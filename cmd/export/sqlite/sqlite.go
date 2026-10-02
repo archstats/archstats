@@ -591,6 +591,17 @@ func createIndexes(db *sql.DB, views []*core.View) error {
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_unit_markers_unit ON `unit_markers` (unit)")
 		case "unit_uses":
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_unit_uses_unit ON `unit_uses` (unit)")
+		case "entry_points":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_entry_points_unit ON `entry_points` (unit)")
+		case "data_access":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_data_access_entity ON `data_access` (entity)")
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_data_access_unit ON `data_access` (unit)")
+		case "unit_supertypes":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_unit_supertypes_supertype ON `unit_supertypes` (supertype)")
+		case "bindings":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_bindings_interface ON `bindings` (interface_unit)")
+		case "doc_links":
+			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_doc_links_component ON `doc_links` (component)")
 		case "git_file_shared_commits":
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_gfsc_file1 ON `git_file_shared_commits` (file_1)")
 			_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_gfsc_file2 ON `git_file_shared_commits` (file_2)")

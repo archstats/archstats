@@ -161,10 +161,11 @@ func (w *complexityWalker) visit(n *sitter.Node, nesting int) int {
 				declaration = n.PrevNamedSibling()
 			}
 			f := &file.Function{
-				Name:   w.nameOf(declaration),
-				Begin:  int(declaration.StartPosition().Row) + 1,
-				End:    int(n.EndPosition().Row) + 1,
-				Params: w.params(declaration),
+				Name:      w.nameOf(declaration),
+				Begin:     int(declaration.StartPosition().Row) + 1,
+				End:       int(n.EndPosition().Row) + 1,
+				Params:    w.params(declaration),
+				Signature: w.signature(declaration, n),
 			}
 			w.current = f
 			f.Nesting = w.children(n, 0)
@@ -447,6 +448,74 @@ func (w *complexityWalker) nameOf(n *sitter.Node) string {
 		}
 	}
 	return owners + name
+}
+
+// signature is the declaration up to its body, on one line and at most 200
+// characters, starting after the annotations, attributes and decorators
+// written on it. A closure assigned to a name is read from the assignment, so
+// `const total = (items) =>` keeps its name.
+func (w *complexityWalker) signature(declaration, n *sitter.Node) string {
+	start, end := headerStart(declaration), n.EndByte()
+	if body := n.ChildByFieldName("body"); body != nil && body.StartByte() > start {
+		end = body.StartByte()
+	} else if declaration.Id() != n.Id() {
+		end = n.StartByte()
+	}
+	if p := declaration.Parent(); p != nil && declaration.Id() == n.Id() {
+		switch p.Kind() {
+		case "variable_declarator", "assignment_expression", "pair", "public_field_definition", "field_definition", "assignment":
+			start = p.StartByte()
+		}
+	}
+	if end <= start || int(end) > len(w.src) {
+		return ""
+	}
+	return oneLine(string(w.src[start:end]))
+}
+
+// isMarkerNode is an annotation, attribute or decorator: what a declaration
+// is marked with, not what it is.
+func isMarkerNode(kind string) bool {
+	return strings.Contains(kind, "annotation") || strings.Contains(kind, "decorator") || strings.HasPrefix(kind, "attribute") || kind == "comment" || kind == "line_comment" || kind == "block_comment"
+}
+
+// headerStart is where a declaration's own text begins: past the markers in
+// front of it, including those inside a modifiers list (`@Override public`).
+func headerStart(declaration *sitter.Node) uint {
+	for i := uint(0); i < declaration.ChildCount(); i++ {
+		c := declaration.Child(i)
+		if isMarkerNode(c.Kind()) {
+			continue
+		}
+		if strings.HasSuffix(c.Kind(), "modifiers") || c.Kind() == "modifier_list" {
+			for j := uint(0); j < c.ChildCount(); j++ {
+				if m := c.Child(j); !isMarkerNode(m.Kind()) {
+					return m.StartByte()
+				}
+			}
+			continue
+		}
+		return c.StartByte()
+	}
+	return declaration.StartByte()
+}
+
+// oneLine collapses a declaration to a line: comment lines dropped,
+// whitespace runs squeezed, a trailing `{` left off.
+func oneLine(text string) string {
+	var kept []string
+	for _, line := range strings.Split(text, "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "//") || strings.HasPrefix(t, "/*") || strings.HasPrefix(t, "*") {
+			continue
+		}
+		kept = append(kept, t)
+	}
+	out := strings.TrimSpace(strings.TrimSuffix(strings.Join(strings.Fields(strings.Join(kept, " ")), " "), "{"))
+	if r := []rune(out); len(r) > 200 {
+		out = string(r[:199]) + "…"
+	}
+	return out
 }
 
 // declaredName is a declaration's name field, or its first child of a

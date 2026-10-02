@@ -89,7 +89,20 @@ type Results struct {
 	views         map[string]*ViewFactory
 	definitions   map[string]*definitions2.Definition
 	renderedViews map[string]*View
+
+	unitConnections     []*unit.Connection
+	unitConnectionsOnce sync.Once
 }
+
+// UnitConnections is the resolved unit graph, worked out once for every
+// reader: resolving each reference against the whole codebase is the
+// expensive part, and the units table, the edges table and the navigation
+// facts all read the same graph.
+func (r *Results) UnitConnections() []*unit.Connection {
+	r.unitConnectionsOnce.Do(func() { r.unitConnections = unit.Connections(r.Units) })
+	return r.unitConnections
+}
+
 type groupedSnippets struct {
 	all         []*file.Snippet
 	byDirectory file.SnippetGroup

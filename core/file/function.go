@@ -15,6 +15,10 @@ type Function struct {
 	// Nesting is the deepest the function's control flow goes.
 	Nesting int
 	Params  int
+	// Signature is the declaration as written up to its body, on one line:
+	// `public Order place(Cart cart, Customer customer)`. Annotations and
+	// decorators are left off; they are markers, not the signature.
+	Signature string
 	// Increments are what the cognitive complexity is made of, in the order
 	// the function reads.
 	Increments []Increment

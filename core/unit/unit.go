@@ -111,6 +111,13 @@ type Unit struct {
 
 	Markers []Marker `json:"markers"`
 
+	// Line is where the unit is declared in its first file, and Signature
+	// the declaration as written up to its body, on one line. Filled in by
+	// the engine from the measured functions and the type declarations it
+	// reads; zero and empty where neither says.
+	Line      int    `json:"line,omitempty"`
+	Signature string `json:"signature,omitempty"`
+
 	// What this unit uses, unresolved. Empty for a language pack that cannot
 	// tell which unit used what, which is an honest answer and not a gap to
 	// be filled with a guess.

@@ -2,7 +2,6 @@ package basic
 
 import (
 	"github.com/archstats/archstats/core"
-	"github.com/archstats/archstats/core/unit"
 )
 
 // One unit using another.
@@ -19,7 +18,7 @@ import (
 // units that do not exist.
 func unitConnectionsView(results *core.Results) *core.View {
 	var rows []*core.Row
-	for _, c := range unit.Connections(results.Units) {
+	for _, c := range results.UnitConnections() {
 		from, to := results.UnitByID[c.From], results.UnitByID[c.To]
 		row := core.RowData{
 			"from": c.From,

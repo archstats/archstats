@@ -89,4 +89,12 @@ package core
 //	               their least healthy file; a functions view.
 //	12 2026-10-02  what each complex function's cognitive complexity is made
 //	               of, construct by construct, in complexity_increments.
-const AnalysisRevision = 12
+//	13 2026-10-02  what an architect navigates by: entry_points (routes,
+//	               pages, consumers, schedules, commands, mains), data_entities
+//	               and data_access (what is stored and who reads or writes
+//	               it), unit_supertypes and bindings (what implements what,
+//	               and where a container wires it), docs and doc_links (the
+//	               written intent and the code it is about); units carry
+//	               their line, signature, page rank and users; functions
+//	               their signature.
+const AnalysisRevision = 13

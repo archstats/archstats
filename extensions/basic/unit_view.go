@@ -17,18 +17,31 @@ import (
 // files rather than a file.
 func unitView(results *core.Results) *core.View {
 	var rows []*core.Row
+	importance := unit.Rank(results.Units, results.UnitConnections(), func(u *unit.Unit) bool {
+		switch results.FileRoles[firstFile(u)] {
+		case "test", "generated", "third_party":
+			return false
+		}
+		return true
+	})
 	for _, u := range results.Units {
+		imp := importance[u.ID]
 		rows = append(rows, &core.Row{
 			Data: core.RowData{
-				"id":        u.ID,
-				"kind":      u.Kind,
-				"name":      u.Name,
-				"component": u.Component,
-				"module":    u.Module,
-				"owner":     u.Owner,
-				"file":      firstFile(u),
-				"files":     len(u.Files),
-				"markers":   markerSummary(u),
+				"id":                 u.ID,
+				"kind":               u.Kind,
+				"name":               u.Name,
+				"component":          u.Component,
+				"module":             u.Module,
+				"owner":              u.Owner,
+				"file":               firstFile(u),
+				"files":              len(u.Files),
+				"markers":            markerSummary(u),
+				"line":               u.Line,
+				"signature":          u.Signature,
+				"page_rank":          imp.Rank,
+				"used_by":            imp.UsedBy,
+				"used_by_components": imp.UsedByComponents,
 			},
 		})
 	}
@@ -43,6 +56,11 @@ func unitView(results *core.Results) *core.View {
 			core.StringColumn("file"),
 			core.IntColumn("files"),
 			core.StringColumn("markers"),
+			core.IntColumn("line"),
+			core.StringColumn("signature"),
+			core.FloatColumn("page_rank"),
+			core.IntColumn("used_by"),
+			core.IntColumn("used_by_components"),
 		},
 		Rows: rows,
 	}

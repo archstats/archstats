@@ -26,6 +26,7 @@ func functionsView(results *core.Results) *core.View {
 				"cognitive":  fn.Cognitive,
 				"nesting":    fn.Nesting,
 				"params":     fn.Params,
+				"signature":  fn.Signature,
 			}})
 		}
 	}
@@ -40,6 +41,7 @@ func functionsView(results *core.Results) *core.View {
 			core.IntColumn("cognitive"),
 			core.IntColumn("nesting"),
 			core.IntColumn("params"),
+			core.StringColumn("signature"),
 		},
 		Rows: rows,
 	}
