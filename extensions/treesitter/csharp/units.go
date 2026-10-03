@@ -38,6 +38,8 @@ const (
 // and Kotlin packs.
 const sourceKeyword = "keyword"
 
+func (a *csharpAnalyzer) ClaimsFile(path string) bool { return a.lp.ClaimsFile(path) }
+
 func (a *csharpAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	res := a.lp.AnalyzeFile(f)
 	if res == nil {

@@ -25,6 +25,8 @@ type tsAnalyzer struct {
 	lp *common.LanguagePack
 }
 
+func (a *tsAnalyzer) ClaimsFile(path string) bool { return a.lp.ClaimsFile(path) }
+
 func (a *tsAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	res := a.lp.AnalyzeFile(f)
 	if res == nil {

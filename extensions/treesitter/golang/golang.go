@@ -172,6 +172,8 @@ type goAnalyzer struct {
 	lp *common.LanguagePack
 }
 
+func (a *goAnalyzer) ClaimsFile(path string) bool { return a.lp.ClaimsFile(path) }
+
 func (a *goAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	res := a.lp.AnalyzeFile(f)
 	if res == nil {

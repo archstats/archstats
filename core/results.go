@@ -50,6 +50,10 @@ type Results struct {
 	// table. Extensions add to it with SetSnapshotInfo.
 	SnapshotInfo map[string]string
 
+	// SkippedFiles is every path the walker left out and why: ignored,
+	// binary, unreadable, or failed in analysis. See walker.Skipped.
+	SkippedFiles []walker.Skipped
+
 	// FileRoles is each file's role; see file.Role.
 	FileRoles map[string]string
 	// FileSystemKinds holds the files that describe building, shipping or
@@ -343,11 +347,11 @@ func (r *Results) GetDefinition(str string) *definitions2.Definition {
 	return r.definitions[str]
 }
 
-func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer, opts walker.Options) ([]*file.Results, *walker.Ignored, error) {
+func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer, opts walker.Options) ([]*file.Results, *walker.Report, error) {
 	var allFileResults []*file.Results
 
 	lock := sync.Mutex{}
-	ignored, err := walker.WalkAndReport(rootPath, func(theFile file.File) {
+	report, err := walker.WalkAndReport(rootPath, func(theFile file.File) {
 		var currentFileResultsToMerge []*file.Results
 		for _, provider := range fileAnalyzers {
 			analyzeFile := provider.AnalyzeFile(theFile)
@@ -396,7 +400,7 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer, opts walke
 	if err != nil {
 		return nil, nil, err
 	}
-	return allFileResults, ignored, nil
+	return allFileResults, report, nil
 }
 
 func mergeFileResults(results []*file.Results) *file.Results {

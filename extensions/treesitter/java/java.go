@@ -38,6 +38,8 @@ type javaAnalyzer struct {
 	lp *common.LanguagePack
 }
 
+func (a *javaAnalyzer) ClaimsFile(path string) bool { return a.lp.ClaimsFile(path) }
+
 func (ja *javaAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	res := ja.lp.AnalyzeFile(f)
 	if res == nil {

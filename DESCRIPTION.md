@@ -60,8 +60,8 @@ Archstats maps classic package and graph topology metrics to assess architectura
 
 ## 💾 The SQLite Data Model
 
-`archstats export sqlite` writes one table per registered view, plus three
-bookkeeping tables. Every view table carries `report_id` (the report name;
+`archstats export sqlite` writes one table per registered view, plus the
+bookkeeping tables below. Every view table carries `report_id` (the report name;
 several reports can share one file) and `timestamp` (when it was written).
 A table created by an export holds these two as column defaults rather than
 on every row; they read back the same, and a report appended later writes its
@@ -84,6 +84,7 @@ extensions.
 | `_metric_definitions` | metric id | `id`, `name`, `short_description`, `long_description`, `category` (the family it belongs to, e.g. `Code health`; empty in older snapshots) |
 | `definitions` | metric id | the same as `_metric_definitions`, as a view (kept for older readers) |
 | `file_contents` | file (*opt-in*: `--store-content`) | `file`, `content` |
+| `skipped_files` | path the walker left out | `path` (relative to the root; a directory ends in `/` and stands for everything under it, so `node_modules/` is one row), `reason`, `detail`. Reasons: `ignored` — an ignore file, a scan-level pattern or version-control metadata excluded it; `binary` — read and not text (`detail` says why: the offset of a NUL byte, or the share of non-text bytes for a file a loaded language reads as source, which a NUL alone does not exclude); `unreadable` — could not be read (`detail` is the error); `failed` — read, but analysing it failed. Absent from snapshots before revision 15. |
 
 ### Units of analysis
 

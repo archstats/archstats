@@ -75,6 +75,8 @@ type phpAnalyzer struct {
 	lp *common.LanguagePack
 }
 
+func (a *phpAnalyzer) ClaimsFile(path string) bool { return a.lp.ClaimsFile(path) }
+
 func (a *phpAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	res := a.lp.AnalyzeFile(f)
 	if res == nil {

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/walker"
 	"github.com/stretchr/testify/assert"
 	"path/filepath"
 	"strings"
@@ -122,4 +123,38 @@ func TestSnapshotIsKeyedByReport(t *testing.T) {
 	if legacy != 1 || reports != 2 {
 		t.Fatalf("legacy rows %d, reports %d", legacy, reports)
 	}
+}
+
+// Every path the walker left out is listed with its reason, and a re-export
+// of the same report replaces its rows rather than adding to them.
+func TestSkippedFilesAreRecorded(t *testing.T) {
+	db, err := sql.Open("sqlite3", filepath.Join(t.TempDir(), "snap.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	results := &core.Results{SkippedFiles: []walker.Skipped{
+		{Path: "dist/", Reason: walker.SkipIgnored},
+		{Path: "logo.png", Reason: walker.SkipBinary, Detail: "NUL byte at offset 8"},
+	}}
+	opts := &SqlOptions{ReportId: "shop", ScanTime: time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC)}
+	for i := 0; i < 2; i++ {
+		if err := saveSkippedFiles(db, results, opts); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows, err := db.Query(`SELECT path, reason, detail FROM skipped_files WHERE report_id = 'shop' ORDER BY path`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var got []walker.Skipped
+	for rows.Next() {
+		var s walker.Skipped
+		if err := rows.Scan(&s.Path, &s.Reason, &s.Detail); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, s)
+	}
+	assert.Equal(t, results.SkippedFiles, got)
 }

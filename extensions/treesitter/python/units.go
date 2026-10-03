@@ -95,6 +95,8 @@ type pythonAnalyzer struct {
 	lp *common.LanguagePack
 }
 
+func (a *pythonAnalyzer) ClaimsFile(path string) bool { return a.lp.ClaimsFile(path) }
+
 func (a *pythonAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	res := a.lp.AnalyzeFile(f)
 	if res == nil {

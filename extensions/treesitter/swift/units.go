@@ -93,6 +93,8 @@ type swiftAnalyzer struct {
 	lp *common.LanguagePack
 }
 
+func (a *swiftAnalyzer) ClaimsFile(path string) bool { return a.lp.ClaimsFile(path) }
+
 func (a *swiftAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	return a.analyze(f.Path(), f.Content())
 }

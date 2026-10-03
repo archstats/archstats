@@ -89,6 +89,8 @@ type analyzer struct {
 	lp *common.LanguagePack
 }
 
+func (a *analyzer) ClaimsFile(path string) bool { return a.lp.ClaimsFile(path) }
+
 func (a *analyzer) AnalyzeFile(f file.File) *file.Results {
 	return a.analyze(f.Path(), f.Content())
 }

@@ -101,4 +101,11 @@ package core
 //	               a third-party package no longer lands on a local directory
 //	               whose name ends the import path, and a Go import only ever
 //	               resolves to a directory of Go source.
-const AnalysisRevision = 14
+//	15 2026-10-03  a file a loaded language reads as source is no longer
+//	               dropped as binary for holding a NUL byte (TypeScript that
+//	               joins keys with "\x00"); only a large share of non-text
+//	               bytes excludes it. skipped_files lists every path the
+//	               walker left out: ignored, binary, unreadable or failed. A
+//	               directory an ignore rule excludes itself (node_modules) is
+//	               never entered, whatever negations the file has.
+const AnalysisRevision = 15

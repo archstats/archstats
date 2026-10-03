@@ -38,6 +38,9 @@ func newSFCAnalyzer() *sfcAnalyzer {
 	}
 }
 
+// ClaimsFile: a component file is source, whatever bytes its template holds.
+func (a *sfcAnalyzer) ClaimsFile(path string) bool { return a.glob.Match(path) }
+
 func (a *sfcAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	return a.analyze(f.Path(), f.Content())
 }

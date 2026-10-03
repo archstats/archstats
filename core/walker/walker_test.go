@@ -2,6 +2,8 @@ package walker
 
 import (
 	"bytes"
+	"fmt"
+	"math/rand"
 	"path/filepath"
 	"sort"
 
@@ -247,4 +249,246 @@ func TestScanReportsWhatItIgnored(t *testing.T) {
 	if !strings.Contains(joined, "node_modules/") || strings.Contains(joined, "react/index.js") {
 		t.Fatalf("top = %v", ig.Top)
 	}
+}
+
+// cycles.ts in archstats-ui joins keys with a literal NUL. The walker took it
+// for binary and dropped it, so its tests looked like they imported a file
+// that did not exist.
+const tsWithNUL = "import { Edge } from \"./graph\";\n" +
+	"const SEP = \"\x00\";\n" +
+	"export function key(a: string, b: string): string { return a + SEP + b; }\n"
+
+func claimsTS(path string) bool { return strings.HasSuffix(path, ".ts") }
+
+func walkAndCollect(t *testing.T, dir string, opts ...Options) (map[string]string, *Report) {
+	t.Helper()
+	walked := map[string]string{}
+	lock := sync.Mutex{}
+	report, err := WalkAndReport(dir, func(f file.File) {
+		lock.Lock()
+		walked[strings.TrimPrefix(f.Path(), "./")] = string(f.Content())
+		lock.Unlock()
+	}, opts...)
+	require.NoError(t, err)
+	return walked, report
+}
+
+func TestClaimedSourceWithNULIsWalked(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "frontend", "src", "utils"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "frontend", "src", "utils", "cycles.ts"), []byte(tsWithNUL), 0o644))
+
+	walked, report := walkAndCollect(t, dir, Options{Claims: claimsTS})
+
+	assert.Equal(t, tsWithNUL, walked["frontend/src/utils/cycles.ts"], "the whole file, NUL included, reaches the analyzers")
+	assert.Empty(t, report.Skipped)
+}
+
+func TestUnclaimedFileWithNULIsSkippedAndRecorded(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "src"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "src", "cycles.ts"), []byte(tsWithNUL), 0o644))
+
+	// No language pack loaded that reads .ts: the NUL test applies.
+	walked, report := walkAndCollect(t, dir)
+
+	assert.Empty(t, walked)
+	require.Len(t, report.Skipped, 1)
+	assert.Equal(t, "src/cycles.ts", report.Skipped[0].Path)
+	assert.Equal(t, SkipBinary, report.Skipped[0].Reason)
+	assert.Equal(t, fmt.Sprintf("NUL byte at offset %d", strings.IndexByte(tsWithNUL, 0)), report.Skipped[0].Detail)
+}
+
+// .ts is also an MPEG transport stream. A claim is not a licence to feed
+// video to a parser.
+func TestClaimedFileThatIsNotTextIsSkipped(t *testing.T) {
+	dir := t.TempDir()
+	video := make([]byte, 188*40)
+	rand.New(rand.NewSource(1)).Read(video)
+	for i := 0; i < len(video); i += 188 {
+		video[i] = 0x47 // sync byte
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "clip.ts"), video, 0o644))
+
+	walked, report := walkAndCollect(t, dir, Options{Claims: claimsTS})
+
+	assert.Empty(t, walked)
+	require.Len(t, report.Skipped, 1)
+	assert.Equal(t, "clip.ts", report.Skipped[0].Path)
+	assert.Equal(t, SkipBinary, report.Skipped[0].Reason)
+	assert.Contains(t, report.Skipped[0].Detail, "are not text")
+}
+
+func TestSkippedFilesRecordEveryReason(t *testing.T) {
+	dir := t.TempDir()
+	write := func(rel, content string) {
+		p := filepath.Join(dir, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o644))
+	}
+	write(".gitignore", "dist/\n*.log\n")
+	write("dist/bundle.js", "minified")
+	write("debug.log", "noise")
+	write(".git/HEAD", "ref: refs/heads/main")
+	write("logo.png", "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+	write("src/cycles.ts", tsWithNUL)
+	write("src/panics.txt", "an extension blows up here")
+	write("src/ok.txt", "fine")
+
+	checkUnreadable := runtime.GOOS != "windows" && os.Geteuid() != 0
+	if checkUnreadable {
+		write("secret.txt", "locked")
+		require.NoError(t, os.Chmod(filepath.Join(dir, "secret.txt"), 0o000))
+		t.Cleanup(func() { _ = os.Chmod(filepath.Join(dir, "secret.txt"), 0o644) })
+	}
+
+	walked := map[string]bool{}
+	lock := sync.Mutex{}
+	report, err := WalkAndReport(dir, func(f file.File) {
+		if strings.Contains(f.Path(), "panics") {
+			panic("extension blew up")
+		}
+		lock.Lock()
+		walked[strings.TrimPrefix(f.Path(), "./")] = true
+		lock.Unlock()
+	}, Options{Claims: claimsTS})
+	require.NoError(t, err)
+
+	assert.True(t, walked["src/cycles.ts"])
+	assert.True(t, walked["src/ok.txt"])
+
+	got := map[string]string{}
+	for _, s := range report.Skipped {
+		got[s.Path] = s.Reason
+		if s.Reason != SkipIgnored {
+			assert.NotEmpty(t, s.Detail, "%s should say why", s.Path)
+		}
+	}
+	want := map[string]string{
+		".git/":          SkipIgnored,
+		".gitignore":     SkipIgnored, // ignore files are never analysed
+		"dist/":          SkipIgnored,
+		"debug.log":      SkipIgnored,
+		"logo.png":       SkipBinary,
+		"src/panics.txt": SkipFailed,
+	}
+	if checkUnreadable {
+		want["secret.txt"] = SkipUnreadable
+	}
+	assert.Equal(t, want, got)
+	assert.True(t, sort.SliceIsSorted(report.Skipped, func(i, j int) bool {
+		return report.Skipped[i].Path < report.Skipped[j].Path
+	}), "skipped paths are sorted")
+}
+
+func TestSkippedRecordsUnreadableDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod semantics differ on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses permission checks")
+	}
+	dir := t.TempDir()
+	locked := filepath.Join(dir, "sub", "locked")
+	require.NoError(t, os.MkdirAll(locked, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(locked, "a.txt"), []byte("a"), 0o644))
+	require.NoError(t, os.Chmod(locked, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+
+	_, report := walkAndCollect(t, dir)
+
+	require.Len(t, report.Skipped, 1)
+	assert.Equal(t, "sub/locked/", report.Skipped[0].Path)
+	assert.Equal(t, SkipUnreadable, report.Skipped[0].Reason)
+}
+
+func TestBinaryReason(t *testing.T) {
+	random := make([]byte, 4000)
+	rand.New(rand.NewSource(2)).Read(random)
+	tests := []struct {
+		name    string
+		content []byte
+		claimed bool
+		binary  bool
+	}{
+		{"claimed text with a NUL", []byte(tsWithNUL), true, false},
+		{"unclaimed text with a NUL", []byte(tsWithNUL), false, true},
+		{"claimed plain text", []byte("export const a = 1;\n"), true, false},
+		{"claimed UTF-8 text", []byte("const naïve = \"日本語\"; // ✓\n"), true, false},
+		{"claimed Latin-1 comment", []byte("// caf\xe9\n" + strings.Repeat("let x = 1;\n", 20)), true, false},
+		{"claimed text with ANSI escapes", []byte("const red = \"\x1b[31m\";\n"), true, false},
+		{"claimed random bytes", random, true, true},
+		{"claimed UTF-16", []byte("i\x00m\x00p\x00o\x00r\x00t\x00 \x00x\x00;\x00"), true, true},
+		{"claimed empty", nil, true, false},
+		{"multi-byte character cut at the sniff limit", append(bytes.Repeat([]byte("a"), sniffLen-1), "é"...), true, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			why := binaryReason(test.content, test.claimed)
+			assert.Equal(t, test.binary, why != "", why)
+		})
+	}
+}
+
+// archstats-ui's .gitignore has `node_modules` and `!.env.example`. The
+// negation can match at any depth, so every ignored directory used to be
+// walked file by file in case it held one: 31,495 node_modules rows in
+// skipped_files. Git never re-includes a file whose directory is excluded.
+func TestExcludedDirectoryIsPrunedDespiteNegations(t *testing.T) {
+	root := t.TempDir()
+	for _, p := range []string{"frontend/node_modules/react/index.js", "frontend/node_modules/.env.example", "frontend/.nuxt/app.js", "frontend/src/app.ts", ".env.example", ".env"} {
+		full := filepath.Join(root, filepath.FromSlash(p))
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
+		require.NoError(t, os.WriteFile(full, []byte("x"), 0o644))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".gitignore"), []byte("node_modules\n.nuxt/\n.env\n.env.*\n!.env.example\n"), 0o644))
+
+	walked, report := walkAndCollect(t, root)
+
+	assert.Contains(t, walked, ".env.example", "the negation still brings back a file whose directory is kept")
+	assert.Contains(t, walked, "frontend/src/app.ts")
+	var skipped []string
+	for _, s := range report.Skipped {
+		skipped = append(skipped, s.Path)
+	}
+	assert.ElementsMatch(t, []string{".env", ".gitignore", "frontend/.nuxt/", "frontend/node_modules/"}, skipped)
+}
+
+// `dir/**` excludes what is inside dir, like `dir/*`, so a negation still
+// reaches into it.
+func TestNegationReachesIntoContentOnlyExclusion(t *testing.T) {
+	root := t.TempDir()
+	for _, p := range []string{"dist/keep.txt", "dist/bundle.js"} {
+		full := filepath.Join(root, filepath.FromSlash(p))
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
+		require.NoError(t, os.WriteFile(full, []byte("x"), 0o644))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".gitignore"), []byte("dist/**\n!dist/keep.txt\n"), 0o644))
+
+	walked, _ := walkAndCollect(t, root)
+
+	assert.Equal(t, map[string]string{"dist/keep.txt": "x"}, walked)
+}
+
+// A directory whose contents are ignored (`dist/*`) is walked in case a
+// negation keeps something. When nothing is kept it is reported as one
+// directory; when something is, each ignored file is listed.
+func TestIgnoredContentsRollUpToTheirDirectory(t *testing.T) {
+	root := t.TempDir()
+	for _, p := range []string{"frontend/dist/index.html", "frontend/dist/_nuxt/a.js", "frontend/dist/_nuxt/b.js", "build/out.js", "build/.gitkeep"} {
+		full := filepath.Join(root, filepath.FromSlash(p))
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
+		require.NoError(t, os.WriteFile(full, []byte("x"), 0o644))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".gitignore"),
+		[]byte("frontend/dist/*\n!frontend/dist/.gitkeep\nbuild/*\n!build/.gitkeep\n"), 0o644))
+
+	walked, report := walkAndCollect(t, root)
+
+	assert.Equal(t, map[string]string{"build/.gitkeep": "x"}, walked)
+	var skipped []string
+	for _, s := range report.Skipped {
+		skipped = append(skipped, s.Path)
+	}
+	assert.Equal(t, []string{".gitignore", "build/out.js", "frontend/dist/"}, skipped)
 }

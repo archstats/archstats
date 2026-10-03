@@ -23,6 +23,14 @@ type Extension interface {
 type FileAnalyzer interface {
 	AnalyzeFile(file.File) *file.Results
 }
+
+// SourceClaimer is a FileAnalyzer that reads some files as source code, a
+// language pack. The walker trusts its claim over the NUL-byte test for
+// binary files: a claimed file is skipped only when a large share of it is
+// not text.
+type SourceClaimer interface {
+	ClaimsFile(path string) bool
+}
 type FileResultsEditor interface {
 	EditFileResults(all []*file.Results)
 }

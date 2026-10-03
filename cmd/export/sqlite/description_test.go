@@ -33,6 +33,11 @@ func TestSchemaIsDocumented(t *testing.T) {
 			t.Errorf("view %q is exported but not described in DESCRIPTION.md", name)
 		}
 	}
+	for _, table := range []string{"_snapshot", "_metric_definitions", "file_contents", "skipped_files"} {
+		if !strings.Contains(documented, "`"+table+"`") {
+			t.Errorf("bookkeeping table %q is written but not described in DESCRIPTION.md", table)
+		}
+	}
 	for _, key := range core.KnownSnapshotKeys {
 		if !strings.Contains(documented, "`"+key+"`") {
 			t.Errorf("_snapshot key %q is written but not described in DESCRIPTION.md", key)

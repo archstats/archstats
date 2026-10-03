@@ -20,6 +20,8 @@ type jsAnalyzer struct {
 	lp *common.LanguagePack
 }
 
+func (a *jsAnalyzer) ClaimsFile(path string) bool { return a.lp.ClaimsFile(path) }
+
 func (a *jsAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	res := a.lp.AnalyzeFile(f)
 	if res == nil {

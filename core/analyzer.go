@@ -94,7 +94,10 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 	}
 
 	// Get Snippets and Stats from the files
-	fileResults, ignored, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers, walker.Options{IgnorePatterns: analyzer.ignorePatterns})
+	fileResults, report, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers, walker.Options{
+		IgnorePatterns: analyzer.ignorePatterns,
+		Claims:         claimsOf(analyzer.fileAnalyzers),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +117,9 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 	if patterns := normalizedPatterns(analyzer.ignorePatterns); patterns != "" {
 		results.SetSnapshotInfo("ignore_globs", patterns)
 	}
-	if ignored != nil {
+	if report != nil {
+		results.SkippedFiles = report.Skipped
+		ignored := report.Ignored
 		results.SetSnapshotInfo("walker_ignored_files", strconv.Itoa(ignored.Files))
 		results.SetSnapshotInfo("walker_ignored_dirs", strconv.Itoa(ignored.Dirs))
 		if top, err := json.Marshal(ignored.Top); err == nil {
@@ -131,6 +136,28 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 	log.Debug().Msgf("Finished editing results")
 
 	return results, nil
+}
+
+// claimsOf reports whether any language pack among the analyzers reads a
+// path as source.
+func claimsOf(analyzers []FileAnalyzer) func(path string) bool {
+	var claimers []SourceClaimer
+	for _, a := range analyzers {
+		if c, ok := a.(SourceClaimer); ok {
+			claimers = append(claimers, c)
+		}
+	}
+	if len(claimers) == 0 {
+		return nil
+	}
+	return func(path string) bool {
+		for _, c := range claimers {
+			if c.ClaimsFile(path) {
+				return true
+			}
+		}
+		return false
+	}
 }
 
 // normalizedPatterns is the patterns as a snapshot records them: trimmed,

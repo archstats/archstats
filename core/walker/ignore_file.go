@@ -29,8 +29,27 @@ type ignoreContext struct {
 type ignoreLayer struct {
 	base string
 	gi   *ignore.GitIgnore
+	// self is gi without the patterns that exclude only a directory's
+	// contents (`dir/*`, `dir/**`): what matches here excludes the
+	// directory itself, and git never looks inside it again.
+	self *ignore.GitIgnore
 	// The layer's negated patterns ("!keep.me"), without the "!".
 	negations []string
+}
+
+func newLayer(base string, lines []string) ignoreLayer {
+	var negations, self []string
+	for _, l := range lines {
+		t := strings.TrimSpace(l)
+		if strings.HasPrefix(t, "!") {
+			negations = append(negations, strings.TrimPrefix(t, "!"))
+		}
+		if !strings.HasPrefix(t, "!") && (strings.HasSuffix(t, "/*") || strings.HasSuffix(t, "/**")) {
+			continue
+		}
+		self = append(self, l)
+	}
+	return ignoreLayer{base: base, gi: ignore.CompileIgnoreLines(lines...), self: ignore.CompileIgnoreLines(self...), negations: negations}
 }
 
 // rootContext starts a walk with the caller's patterns as a layer at the root.
@@ -44,13 +63,7 @@ func rootContext(patterns []string) ignoreContext {
 	if len(lines) == 0 {
 		return ignoreContext{}
 	}
-	var negations []string
-	for _, l := range lines {
-		if strings.HasPrefix(l, "!") {
-			negations = append(negations, strings.TrimPrefix(l, "!"))
-		}
-	}
-	return ignoreContext{layers: []ignoreLayer{{base: ".", gi: ignore.CompileIgnoreLines(lines...), negations: negations}}}
+	return ignoreContext{layers: []ignoreLayer{newLayer(".", lines)}}
 }
 
 // Matcher reports whether a root-relative slash path matches the patterns,
@@ -93,13 +106,7 @@ func (ctx ignoreContext) within(fileSystem fs.FS, dirPath string, files []fs.Dir
 	}
 	layers := make([]ignoreLayer, 0, len(ctx.layers)+1)
 	layers = append(layers, ctx.layers...)
-	var negations []string
-	for _, l := range lines {
-		if t := strings.TrimSpace(l); strings.HasPrefix(t, "!") {
-			negations = append(negations, strings.TrimPrefix(t, "!"))
-		}
-	}
-	layers = append(layers, ignoreLayer{base: dirPath, gi: ignore.CompileIgnoreLines(lines...), negations: negations})
+	layers = append(layers, newLayer(dirPath, lines))
 	return ignoreContext{layers: layers}
 }
 
@@ -108,8 +115,12 @@ func (ctx ignoreContext) within(fileSystem fs.FS, dirPath string, files []fs.Dir
 // The ignore library matches `dir/*` against the directory itself, which git
 // does not: git keeps the directory and ignores its contents one by one, which
 // is what lets `!dir/Index.htm` bring a file back. Skipping the directory lost
-// such files. A directory is therefore walked, and each file judged on its
-// own, whenever a negation could apply somewhere inside it.
+// such files. Such a directory is therefore walked, and each file judged on
+// its own, whenever a negation could apply somewhere inside it.
+//
+// A directory excluded itself (`node_modules`, `dist/`) is always pruned: git
+// cannot re-include a file whose parent directory is excluded. Without this,
+// one `!.env.example` anywhere had every node_modules walked file by file.
 func (ctx ignoreContext) prunes(dirPath string) bool {
 	if !ctx.ignores(dirPath) {
 		return false
@@ -118,6 +129,11 @@ func (ctx ignoreContext) prunes(dirPath string) bool {
 	// while everything else in them stays ignored.
 	if d := strings.TrimSuffix(strings.TrimPrefix(dirPath, "./"), "/"); d == ".github" || d == "docs" {
 		return false
+	}
+	for _, l := range ctx.layers {
+		if rel, ok := relativeTo(dirPath, l.base); ok && l.self.MatchesPath(rel) {
+			return true
+		}
 	}
 	for _, l := range ctx.layers {
 		rel, ok := relativeTo(dirPath, l.base)

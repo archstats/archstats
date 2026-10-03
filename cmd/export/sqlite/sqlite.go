@@ -224,6 +224,11 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 		return err
 	}
 
+	err = saveSkippedFiles(db, results, options)
+	if err != nil {
+		return err
+	}
+
 	if options.StoreContent {
 		err = saveFileContents(db, results, options)
 		if err != nil {
@@ -250,6 +255,45 @@ func saveSnapshotInfo(db *sql.DB, results *core.Results, options *SqlOptions) er
 		}
 	}
 	return nil
+}
+
+// saveSkippedFiles records every path the walker left out and why, so a
+// reader can tell a file that is absent from one that was never there: a
+// TypeScript file dropped as binary made its tests look like they imported
+// nothing.
+func saveSkippedFiles(db *sql.DB, results *core.Results, options *SqlOptions) error {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS skipped_files (
+		path TEXT,
+		reason TEXT,
+		detail TEXT,
+		report_id TEXT,
+		timestamp DATE,
+		PRIMARY KEY (path, report_id)
+	)`); err != nil {
+		return err
+	}
+	if _, err := db.Exec("DELETE FROM skipped_files WHERE report_id = ?", options.ReportId); err != nil {
+		return err
+	}
+	if results == nil || len(results.SkippedFiles) == 0 {
+		return nil
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO skipped_files (path, reason, detail, report_id, timestamp) VALUES (?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, s := range results.SkippedFiles {
+		if _, err := stmt.Exec(s.Path, s.Reason, s.Detail, options.ReportId, options.ScanTime); err != nil {
+			return fmt.Errorf("writing skipped_files %s: %w", s.Path, err)
+		}
+	}
+	return tx.Commit()
 }
 
 // ensureSnapshotTable creates _snapshot keyed by (report_id, key), and

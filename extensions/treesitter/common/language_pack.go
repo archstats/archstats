@@ -99,6 +99,11 @@ func GetComponentResolutionFromTemplate(template *LanguagePackTemplate) Componen
 	return DirectoryBasedComponentResolution
 }
 
+// ClaimsFile reports whether this language reads the path as source.
+func (lp *LanguagePack) ClaimsFile(path string) bool {
+	return lp.FileGlob.Match(path)
+}
+
 // AnalyzeFile analyzes a file and returns the results.
 // Snippets (which are just tree-sitter capture groups) starting with an underscore are only used for stats, and are not recorded as snippets.
 func (lp *LanguagePack) AnalyzeFile(f file.File) *file.Results {
