@@ -97,4 +97,8 @@ package core
 //	               written intent and the code it is about); units carry
 //	               their line, signature, page rank and users; functions
 //	               their signature.
-const AnalysisRevision = 13
+//	14 2026-10-03  Go imports resolve through the module paths in go.mod:
+//	               a third-party package no longer lands on a local directory
+//	               whose name ends the import path, and a Go import only ever
+//	               resolves to a directory of Go source.
+const AnalysisRevision = 14

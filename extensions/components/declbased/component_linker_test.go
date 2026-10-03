@@ -1,10 +1,13 @@
 package declbased
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/archstats/archstats/core/file"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestComponentLinker_DeclaredStrategy(t *testing.T) {
@@ -305,9 +308,12 @@ func TestComponentLinker_JS_TS_Alias_Ambiguation(t *testing.T) {
 // it became `github/com/acme/thing`, matched nothing, and every Go project
 // analysed as components with no edges between them at all.
 func TestComponentLinker_Go_ModulePrefixedImports(t *testing.T) {
-	linker := &componentLinker{Strategy: "fallback"}
+	root := t.TempDir()
+	write(t, root, "go.mod", "module github.com/acme/thing\n\ngo 1.23\n")
+	linker := &componentLinker{Strategy: "fallback", root: root}
 
 	fileResults := []*file.Results{
+		{Name: "./go.mod", Directory: "."},
 		{
 			Name:      "core/walker/walk.go",
 			Directory: "core/walker",
@@ -326,7 +332,7 @@ func TestComponentLinker_Go_ModulePrefixedImports(t *testing.T) {
 	}
 	linker.EditFileResults(fileResults)
 
-	imports := fileResults[0].Snippets
+	imports := fileResults[1].Snippets
 	// An import snippet belongs to the component doing the importing; what it
 	// resolved to is its value.
 	if imports[0].Value != "core/file" {
@@ -339,6 +345,160 @@ func TestComponentLinker_Go_ModulePrefixedImports(t *testing.T) {
 	if imports[1].Value != "bufio" {
 		t.Errorf("stdlib import resolved into the project: %q", imports[1].Value)
 	}
+}
+
+// A Go import outside the scanned module is a library, whatever its last
+// segment is called. On archstats-ui, a Wails app, the Go backend's
+// `github.com/wailsapp/wails/v2/pkg/runtime` resolved to the generated
+// TypeScript in `frontend/wailsjs/runtime`, because that directory ends in
+// the same word, and a lens reported 13 backend-to-bindings crossings.
+func TestComponentLinker_Go_ThirdPartyImportDoesNotMatchLocalDirectory(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "go.mod", "module example.com/app\n\ngo 1.23\n")
+	linker := &componentLinker{Strategy: "fallback", root: root}
+
+	fileResults := []*file.Results{
+		{Name: "./go.mod", Directory: "."},
+		{
+			Name:      "app/editor.go",
+			Directory: "app",
+			Snippets: []*file.Snippet{
+				{File: "app/editor.go", Type: file.ComponentImport, Value: "github.com/x/y/runtime"},
+				{File: "app/editor.go", Type: file.ComponentImport, Value: "example.com/app/core"},
+				{File: "app/editor.go", Type: file.ComponentImport, Value: "example.com/app/web/runtime"},
+			},
+		},
+		{Name: "core/core.go", Directory: "core", Snippets: []*file.Snippet{{File: "core/core.go", Type: file.Type, Value: "Core"}}},
+		{Name: "web/runtime/runtime.ts", Directory: "web/runtime", Snippets: []*file.Snippet{{File: "web/runtime/runtime.ts", Type: file.Type, Value: "Runtime"}}},
+	}
+	linker.EditFileResults(fileResults)
+
+	imports := fileResults[1].Snippets
+	assert.Equal(t, "github.com/x/y/runtime", imports[0].Value, "a third-party package must stay unresolved")
+	assert.Equal(t, "core", imports[1].Value, "the module's own package still resolves")
+	// Even named by the module's own path, a directory of TypeScript is not
+	// a Go package.
+	assert.Equal(t, "example.com/app/web/runtime", imports[2].Value)
+}
+
+// A tree may hold several modules; each import belongs to the longest
+// module path that prefixes it, and lands under that module's go.mod.
+func TestComponentLinker_Go_SeveralModules(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "go.mod", "module example.com/app\n")
+	write(t, root, "tools/go.mod", "module example.com/app/tools\n")
+	write(t, root, "lib/go.mod", "module \"example.com/lib\" // quoted\n")
+	linker := &componentLinker{Strategy: "fallback", root: root}
+
+	fileResults := []*file.Results{
+		{Name: "./go.mod", Directory: "."},
+		{Name: "tools/go.mod", Directory: "tools"},
+		{Name: "lib/go.mod", Directory: "lib"},
+		{
+			Name:      "./main.go",
+			Directory: ".",
+			Snippets: []*file.Snippet{
+				{File: "./main.go", Type: file.ComponentImport, Value: "example.com/app/tools/gen"},
+				{File: "./main.go", Type: file.ComponentImport, Value: "example.com/lib/store"},
+				{File: "./main.go", Type: file.ComponentImport, Value: "example.com/lib"},
+			},
+		},
+		{
+			Name:      "lib/store/store.go",
+			Directory: "lib/store",
+			Snippets: []*file.Snippet{
+				{File: "lib/store/store.go", Type: file.ComponentImport, Value: "example.com/app"},
+			},
+		},
+		{Name: "lib/lib.go", Directory: "lib"},
+		{Name: "tools/gen/gen.go", Directory: "tools/gen"},
+	}
+	linker.EditFileResults(fileResults)
+
+	main := fileResults[3].Snippets
+	assert.Equal(t, "tools/gen", main[0].Value)
+	assert.Equal(t, "lib/store", main[1].Value)
+	assert.Equal(t, "lib", main[2].Value)
+	assert.Equal(t, ".", fileResults[4].Snippets[0].Value, "the root package")
+}
+
+// A scan rooted inside a module has no go.mod of its own; its imports still
+// carry the enclosing module's path.
+func TestComponentLinker_Go_ScanBelowModuleRoot(t *testing.T) {
+	outer := t.TempDir()
+	write(t, outer, "go.mod", "module example.com/mono\n")
+	root := filepath.Join(outer, "services", "api")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	linker := &componentLinker{Strategy: "fallback", root: root}
+
+	fileResults := []*file.Results{
+		{
+			Name:      "handler/h.go",
+			Directory: "handler",
+			Snippets: []*file.Snippet{
+				{File: "handler/h.go", Type: file.ComponentImport, Value: "example.com/mono/services/api/store"},
+				{File: "handler/h.go", Type: file.ComponentImport, Value: "example.com/mono/services/other/store"},
+			},
+		},
+		{Name: "store/s.go", Directory: "store"},
+	}
+	linker.EditFileResults(fileResults)
+
+	assert.Equal(t, "store", fileResults[0].Snippets[0].Value)
+	assert.Equal(t, "example.com/mono/services/other/store", fileResults[0].Snippets[1].Value, "outside the scan")
+}
+
+// A go.mod the go tool never reads must not claim imports. archstats keeps
+// a fixture under testdata declaring its own module path; read as a module,
+// it took every import of the real one and the Go graph came out empty.
+func TestComponentLinker_Go_TestdataModuleIsNotAModule(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "go.mod", "module example.com/app\n")
+	write(t, root, "core/module/testdata/gomod/go.mod", "module example.com/app\n")
+	write(t, root, "_old/go.mod", "module example.com/app\n")
+	linker := &componentLinker{Strategy: "fallback", root: root}
+
+	fileResults := []*file.Results{
+		{Name: "core/module/testdata/gomod/go.mod", Directory: "core/module/testdata/gomod"},
+		{Name: "_old/go.mod", Directory: "_old"},
+		{Name: "./go.mod", Directory: "."},
+		{
+			Name:      "cmd/root.go",
+			Directory: "cmd",
+			Snippets: []*file.Snippet{
+				{File: "cmd/root.go", Type: file.ComponentImport, Value: "example.com/app/core"},
+			},
+		},
+		{Name: "core/core.go", Directory: "core"},
+	}
+	linker.EditFileResults(fileResults)
+
+	assert.Equal(t, "core", fileResults[3].Snippets[0].Value)
+}
+
+// Two go.mod files declaring the same path, neither ignored: the import
+// lands wherever the package actually is.
+func TestComponentLinker_Go_DuplicateModulePath(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "a/go.mod", "module example.com/app\n")
+	write(t, root, "b/go.mod", "module example.com/app\n")
+	linker := &componentLinker{Strategy: "fallback", root: root}
+
+	fileResults := []*file.Results{
+		{Name: "a/go.mod", Directory: "a"},
+		{Name: "b/go.mod", Directory: "b"},
+		{
+			Name:      "b/main.go",
+			Directory: "b",
+			Snippets: []*file.Snippet{
+				{File: "b/main.go", Type: file.ComponentImport, Value: "example.com/app/store"},
+			},
+		},
+		{Name: "b/store/s.go", Directory: "b/store"},
+	}
+	linker.EditFileResults(fileResults)
+
+	assert.Equal(t, "b/store", fileResults[2].Snippets[0].Value)
 }
 
 func TestShortestDirEndingInIsDeterministic(t *testing.T) {

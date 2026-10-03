@@ -13,6 +13,7 @@ type componentLinker struct {
 	Strategy string
 	root     string
 	aliases  *aliasMap
+	goMods   *goModules
 }
 
 func (c *componentLinker) Init(settings core.Analyzer) error {
@@ -35,6 +36,14 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 
 	if c.aliases == nil {
 		c.aliases = readAliasesFrom(c.root, names)
+	}
+	if c.goMods == nil {
+		c.goMods = &goModules{mods: readGoModulesFrom(c.root, names), pkgDirs: map[string]bool{}}
+		for _, fr := range allFileResults {
+			if isGoFile(fr.Name) {
+				c.goMods.pkgDirs[fr.Directory] = true
+			}
+		}
 	}
 
 	// 1. Handle directory-based component strategy
@@ -108,6 +117,16 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 			// A type-only import resolves to a component exactly as an
 			// ordinary one does; only what it counts for differs.
 			if snippet.Type == file.ComponentImport || snippet.Type == file.ComponentImportTypeOnly || snippet.Type == file.ComponentImportDynamic {
+				// Go says exactly what its imports mean, in go.mod, and
+				// nothing else in the tree may answer for them: not a
+				// package.json name, and not a directory of TypeScript whose
+				// name happens to end the import path.
+				if isGoFile(snippet.File) {
+					if dir, ok := c.goMods.resolve(snippet.Value); ok {
+						snippet.Value = dir
+					}
+					continue
+				}
 				// The project's own vocabulary first. Only when nothing claims
 				// the name is it worth guessing from the shape of the tree.
 				if c.aliases != nil {
@@ -297,14 +316,13 @@ func resolveImport(importingFileDir, importValue string, dirs *dirIndex, declare
 		}
 	}
 
-	// 3b. Slash-separated absolute imports: Go, and any import already
-	// written as a path. The module prefix is not part of the tree --
-	// `github.com/acme/thing/core/file` lives at `core/file` -- and running
-	// it through the dotted branch below would split `github.com` into two
-	// directories that never existed, which is why Go resolved to nothing at
-	// all. The longest tail of the path that names a directory is the
-	// component: longest first, so a module whose last segment happens to
-	// match some unrelated folder cannot win over the real match.
+	// 3b. Slash-separated absolute imports: any import already written as a
+	// path. Running one through the dotted branch below would split
+	// `github.com` into two directories that never existed. The longest tail
+	// of the path that names a directory is the component: longest first, so
+	// a last segment that happens to match some unrelated folder cannot win
+	// over the real match. Go never reaches here; it is resolved from go.mod
+	// (see gomod.go), because this guess also matches third-party packages.
 	if strings.Contains(importValue, "/") && !strings.HasPrefix(importValue, ".") {
 		cleaned := strings.Trim(strings.ReplaceAll(importValue, "\\", "/"), "/")
 		segments := strings.Split(cleaned, "/")
