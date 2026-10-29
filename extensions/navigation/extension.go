@@ -11,7 +11,7 @@
 //
 // One pass reads each file and keeps only the small facts; linking them to
 // units, functions and components waits until those are resolved, as the
-// deployables extension does.
+// cicd extension does.
 package navigation
 
 import (

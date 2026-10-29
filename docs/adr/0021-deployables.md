@@ -1,6 +1,6 @@
 # 0021. Deployables
 
-- **Status**: Accepted
+- **Status**: Superseded by [0022](0022-cicd.md)
 - **Date**: 2026-09-27
 
 ## Context and Problem Statement

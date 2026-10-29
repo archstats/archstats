@@ -108,4 +108,14 @@ package core
 //	               walker left out: ignored, binary, unreadable or failed. A
 //	               directory an ignore rule excludes itself (node_modules) is
 //	               never entered, whatever negations the file has.
-const AnalysisRevision = 15
+//	16 2026-10-29  deployables become CI/CD: pipelines read the way they
+//	               run (pipeline_triggers, pipeline_jobs with needs and depth,
+//	               pipeline_steps, pipeline_handoffs, pipeline_outputs,
+//	               pipeline_unread) for GitHub Actions, GitLab, Jenkins
+//	               (scripted and shared libraries too), Rancher (CLI deploys,
+//	               Fleet, Rancher Pipelines), Azure, Bitbucket and CircleCI;
+//	               artifacts, artifact_contents and artifact_components
+//	               replace deployables; dockerfiles and dockerfile_stages;
+//	               cicd_flags; the runtime links, environments, config
+//	               values and dependencies tables are gone.
+const AnalysisRevision = 16

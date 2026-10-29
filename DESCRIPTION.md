@@ -139,37 +139,56 @@ Java files also carry `java_class` / `java_full_class`.
 | `git_file_shared_commits` | file pair, once (`file_1` < `file_2`) | `file_1`, `file_2`, `shared_commits`, `percentage_of_all_commits_file_1`, `percentage_of_all_commits_file_2` (0–100). Kept only where the two share at least 3 commits and that is at least 10% of the smaller side's commits; sweeping commits and files outside the snapshot are left out. Counted over files in a component and, from revision 5, files with a `system_kind`, so a build file or pipeline that changes with the code pairs with it. |
 | `git_component_cycles_shortest_shared_commits` | shortest cycle | `cycle`, `cycle_size`, `shared_commits`, `shared_commits__last_N_days` |
 
-### What the workspace builds and ships (revision 5)
+### How the workspace builds and ships (revision 16)
 
-A *deployable* is what gets built and shipped as one unit: a container image,
-an executable app whose image is built elsewhere (or not at all), or a
-serverless function. They are read from Dockerfiles, compose files, Skaffold,
-Kubernetes and Helm, Maven/Gradle/.NET build plugins, .NET Aspire app hosts,
-SAM and Serverless templates, and pipelines. Every fact carries the `file` and
-`line` it was read from, and every join says how it was made in `resolution`:
-`declared` (named outright), `path` (a relative path, resolved),
-`build_output` (a jar or dist folder traced to the module that builds it),
-`module_dependency` (an internal module a manifest depends on), `name`
-(joined on a normalised name; the weakest), `shared_config` (read from a
-ConfigMap several workloads load, so every one of them receives every
-address), `repository` (the only deployable in its repository) or `paths`
-(what a pipeline's path filter watches). A name that fits two things is never
-chosen between; it is listed in `deployable_unresolved` as `ambiguous`.
-Values of configuration keys that name secrets are never stored, and URLs are
-reduced to host, port and database.
+Pipelines are read the way they run: what starts them, the jobs they run and
+what each waits for, the steps inside each job, what they hand work to, and
+what they produce. GitHub Actions, GitLab CI, Jenkins (declarative, scripted
+and shared libraries) and Rancher (CLI deploys inside any CI job, Fleet
+bundles, Rancher Pipelines) are read in full; Azure Pipelines, Bitbucket
+Pipelines and CircleCI into the same model. Travis, Cloud Build, Drone,
+Tekton, Buildkite and Woodpecker are listed with `read` = `none`. Nothing is
+run or fetched: a remote include, template, orb or library is a hand-off, and
+one held in another repository of the workspace is followed to it. Every fact
+carries the `file` and `line` it was read from; what a reader could not follow
+is a row in `pipeline_unread`, never a silent gap. Values of secret-looking
+keys are never stored, and a password or token written into a command is
+masked in step text.
+
+A *job* is a GitHub or GitLab job, a Jenkins stage, an Azure job, a Bitbucket
+step, a CircleCI workflow job or a Fleet target. Systems that run in order
+(GitLab stages, Jenkins stages, Bitbucket steps) write that order as `needs`.
+
+An *artifact* is what the workspace builds: a container image, an executable
+app whose image is built elsewhere (or not at all), a serverless function, a
+desktop app or a mobile app. Joins say how they were made in `resolution`:
+`declared`, `path`, `build_output`, `module_dependency`, `name` (the weakest),
+`repository` (the only artifact in its repository) or `paths` (what a
+pipeline's path filter watches). A name that fits two things is never chosen
+between; it is listed in `cicd_unresolved` as `ambiguous`.
 
 | Table | One row per | Columns |
 |---|---|---|
-| `deployables` | deployable | `id` (its name, qualified by repository or file when two share one), `name`, `kind` (`image`, `app`, `function`), `repository`, `file`, `line` (where it is declared: the Dockerfile's first FROM, a pom's artifactId), `built_by` (`skaffold`, `jib`, `buildpacks`, `pipeline`, `compose`, `maven-docker`, `spring-boot`, `dotnet-publish`, `dockerfile`, `maven`, `gradle`, `dotnet`, `aspire`, `sam`, `serverless`, or `delegated` when a pipeline hands the build to a template outside the workspace), `context`, `base_image`, `runtime` (`java 17`, `node 20`…), `files` (production files it holds, build files excluded), `components`. From revision 7, `kind` `mobile_app` for an Android application module, an iOS app target, a Flutter app or a React Native app, with `platform` (`android`, `ios`, `flutter`, `react-native`) and `built_by` `gradle`, `xcode`, `flutter`, `react-native` or `expo`; the native projects inside a cross-platform app are that app's. |
-| `deployable_contents` | (deployable, path) | `deployable`, `path` (a folder or file; `.` is the whole workspace), `pattern` (a glob below `path`, from `COPY package*.json ./`), `module`, `file`, `line` (the COPY, context or manifest that put it there), `resolution` |
-| `deployable_components` | (deployable, component) | `deployable`, `component`, `files` |
-| `deployable_links` | link | `from` (a deployable), `to`, `to_kind` (`deployable`, `external` for something the workspace does not build, `module` for `shares_module`), `kind` (`calls`, `messages`, `uses_datastore`, `shares_datastore`, `shares_module`, `depends_on`), `mode` (`sync`, `async`, empty), `via` (the host, topic, database, vendor or module count it went through), `file`, `line`, `resolution`. `shares_module` is one row per deployable carrying an internal module that at least one other deployable carries too. |
-| `deployable_unresolved` | reference that joined to nothing | `from`, `ref`, `file`, `line`, `reason` (`not_built_here`, `external` (a well-known public image), `interpolated`, `ambiguous`, `not_found`) |
-| `pipelines` | pipeline file | `id`, `name`, `system` (`github_actions`, `gitlab`, `jenkins`, `azure_pipelines`, `circleci`, `travis`, `bitbucket`, `cloud_build`), `file`, `repository`, `parsed` (`full`, `partial` for a scripted Jenkinsfile, `none` for a system recognised but not read), `triggers`, `paths` (path filters, `!` for ignored), `stages` (in order: `build`, `test`, `scan`, `package`, `publish`, `deploy`, `approve`), `tools`, `delegates_to` and `delegates_ref` (reusable workflows, Jenkins shared libraries and GitLab includes outside the workspace, and the ref each is pinned to), `environments`, `deployables` |
-| `pipeline_deployables` | (pipeline, deployable, action) | `pipeline`, `deployable`, `action` (`builds`, `deploys`), `file`, `line`, `resolution` |
-| `deployable_environments` | (deployable, environment, source) | `deployable`, `environment`, `kind` (`enumerated`, or `pattern` for an open-ended set such as one per pull request), `source` (`helm_values`, `kustomize_overlay`, `workflow`, `applicationset`, `config_profile`), `file`, `line` |
-| `deployable_environment_values` | (deployable, environment, key) | `deployable`, `environment`, `source`, `key` (dotted path in a Helm values file), `value` (empty when `secret` is 1), `secret`, `file`, `line`. Only values files of the same kind are comparable; nothing else is stored. |
-| `deployable_dependencies` | (deployable, dependency) | `deployable`, `ecosystem` (`maven`, `npm`, `go`, `nuget`, `composer`, `container`, `runtime`, or a CycloneDX purl type), `name`, `version` (exact from a lockfile, declared from a manifest, empty when managed elsewhere; for mobile apps, Gradle libraries through the version catalog, Swift packages pinned by Package.resolved, pods by Podfile.lock, Dart packages by pubspec.lock, and `runtime` rows for SDK levels and deployment targets), `role` (`runtime`, `framework`, `base_image`, `internal`, `library`), `source` (`manifest`, `lockfile`, `dockerfile`, `pipeline`, `cyclonedx`), `file`, `line`. Direct dependencies only for Maven and Gradle; resolving the rest needs the network. |
+| `pipelines` | pipeline | `id` (its file), `name`, `system` (`github_actions`, `gitlab`, `jenkins`, `rancher_fleet`, `rancher_pipelines`, `azure_pipelines`, `bitbucket`, `circleci`, or a system not read), `kind` (`workflow`, `reusable_workflow`, `action`, `template` (only included or copied by others), `child` (a GitLab child pipeline), `library` (a Jenkins shared library step, `vars/name.groovy`), `gitops` (a Fleet bundle) or `pipeline`), `repository`, `file`, `line`, `read` (`full`, `partial`, `none`), `jobs`, `steps`, `stages` (the verbs its steps reach, in order: `build`, `test`, `scan`, `package`, `publish`, `deploy`, `approve`) |
+| `pipeline_unread` | region not read | `pipeline`, `from_line`, `to_line`, `reason` (`dynamic_stages` (stages built at run time from data the file does not hold), `unsupported_syntax`, `not_supported_system`), `file` |
+| `pipeline_triggers` | trigger | `pipeline`, `event` (`push`, `pull_request`, `tag`, `schedule`, `manual`, `called`, `upstream`, `other`), `filter` (branches, paths, cron or rule, as written), `file`, `line` |
+| `pipeline_jobs` | job | `pipeline`, `id`, `name`, `group` (GitLab stage, Jenkins parent stage, Azure stage, Bitbucket section), `depth` (the longest chain of needs before it, for layout), `needs` (job ids, comma separated), `runner` (runs-on, agent, image, pool, executor or Fleet target), `matrix` (combinations; -1 when repeated over data the file does not hold), `environment`, `gate` (`manual`, `approval`, `environment`), `condition` (as written), `file`, `line` |
+| `pipeline_steps` | step | `pipeline`, `job`, `index`, `name`, `verb` (`checkout`, `setup`, `build`, `test`, `scan`, `package`, `publish`, `deploy`, `approve`, `other`), `tool` (`maven`, `gradle`, `npm`, `docker`, `helm`, `kubectl`, `rancher`…), `target` (the image, chart or manifest it acts on), `text` (its first line, at most 160 characters, secrets masked), `file`, `line` |
+| `pipeline_handoffs` | use of something else | `pipeline`, `job`, `kind` (`reusable_workflow`, `action`, `shared_library`, `library_step`, `load`, `include`, `component`, `template`, `orb`, `pipe`, `child_pipeline`, `starts_pipeline`, `helm_chart`), `target`, `ref`, `pinned` (`sha`, `version`, `branch`, `none`, `implicit` (loaded by the server for every job), empty for a file in this repository), `via` (the library a step comes from), `local_pipeline` (the pipeline it resolves to inside the workspace, any repository), `file`, `line` |
+| `pipeline_outputs` | thing a job produces | `pipeline`, `job`, `step`, `kind` (`image`, `build`, `package`, `release`, `deploy`), `platform` (deploys: `rancher`, `kubernetes`, `helm`, `kustomize`, `fleet`, `compose`, `cloud`, `other`), `environment`, `target`, `artifact` (when joined), `server` and `context` (Rancher: as written, variables included), `file`, `line`, `resolution` |
+| `artifacts` | artifact | `id`, `name`, `kind` (`image`, `app`, `function`, `desktop_app`, `mobile_app`), `platform` (mobile and desktop), `repository`, `dockerfile`, `context`, `module`, `built_by` (`skaffold`, `jib`, `buildpacks`, `pipeline`, `compose`, `maven-docker`, `spring-boot`, `dotnet-publish`, `dockerfile`, `maven`, `gradle`, `dotnet`, `aspire`, `sam`, `serverless`, `wails`, `tauri`, `electron`, `xcode`, `flutter`, `react-native`, `expo`, or `delegated` when a pipeline hands the build to a template outside the workspace), `base` (the final stage's base image), `runtime` (`java 17`, `node 20`…), `files`, `components`, `file`, `line` |
+| `artifact_contents` | (artifact, path) | `artifact`, `path`, `pattern`, `module`, `file`, `line` (the COPY, context or manifest that put it there), `resolution` |
+| `artifact_components` | (artifact, component) | `artifact`, `component`, `files` |
+| `dockerfiles` | Dockerfile | `file`, `repository`, `stages`, `final_base`, `final_user`, `ports`, `entrypoint`, `healthcheck` (0/1), `dockerignore` (0/1) |
+| `dockerfile_stages` | FROM | `file`, `index`, `name`, `from`, `from_kind` (`image`, `stage`, `scratch`), `image`, `tag`, `digest`, `user`, `line` |
+| `cicd_flags` | hygiene fact | `rule`, `subject_kind` (`pipeline`, `job`, `dockerfile`), `subject`, `detail`, `file`, `line`. Rules: `base_unpinned_tag`, `base_no_digest`, `runs_as_root`, `add_remote_url`, `secret_like_key`, `copy_all_no_dockerignore`, `handoff_unpinned`, `library_unpinned`, `remote_include_unpinned`, `pr_target_checkout_head`, `no_permissions_block`, `curl_pipe_shell`, `docker_privileged`, `tls_verify_off`, `token_literal`, `ungated_prod_deploy` (to an environment named `prod`, `production`, `prd` or `live`), `push_latest_only`. Each is a fact with a line, not a score; `docs/rules/cicd.yml` has an assert template per rule. |
+| `cicd_unresolved` | reference that joined to nothing | `from`, `ref`, `file`, `line`, `reason` (`not_built_here`, `external`, `interpolated`, `ambiguous`, `not_found`, `include_not_found`, `reference_not_found`, `template_not_found`, `job_not_found`) |
+
+Removed in revision 16: `deployables`, `deployable_contents`,
+`deployable_components`, `deployable_links`, `deployable_unresolved`,
+`pipeline_deployables`, `deployable_environments`,
+`deployable_environment_values` and `deployable_dependencies`. ADR 0022 says
+why.
 
 ### What a mobile app declares to its platform (revision 7)
 

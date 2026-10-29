@@ -68,6 +68,7 @@ var ciNames = map[string]bool{
 	"bitbucket-pipelines.yml": true, ".drone.yml": true, "buildspec.yml": true,
 	"buildspec.yaml": true, "appveyor.yml": true, ".appveyor.yml": true,
 	"codefresh.yml": true, "wercker.yml": true, "bitrise.yml": true,
+	".rancher-pipeline.yml": true, ".rancher-pipeline.yaml": true,
 }
 
 var ciPaths = regexp.MustCompile(`(^|/)\.github/workflows/[^/]+\.ya?ml$|(^|/)\.github/actions/.+/action\.ya?ml$|(^|/)action\.ya?ml$|(^|/)\.gitlab/ci/.+\.ya?ml$|(^|/)\.circleci/config\.ya?ml$|(^|/)\.buildkite/[^/]+\.ya?ml$|(^|/)\.tekton/.+\.ya?ml$|(^|/)azure-pipelines[^/]*\.ya?ml$|(^|/)\.azure-pipelines/.+\.ya?ml$|(^|/)cloudbuild[^/]*\.ya?ml$|(^|/)\.woodpecker(\.ya?ml|/[^/]+\.ya?ml)$`)
@@ -82,7 +83,7 @@ var containerFile = regexp.MustCompile(`^(dockerfile|containerfile)([._-][^/]*)?
 var composeFile = regexp.MustCompile(`^(docker-)?compose([._-][^/]*)?\.ya?ml$`)
 
 var deployNames = map[string]bool{
-	"chart.yaml": true, "chart.yml": true,
+	"chart.yaml": true, "chart.yml": true, "fleet.yaml": true, "fleet.yml": true,
 	"kustomization.yaml": true, "kustomization.yml": true, "kustomization": true,
 	"helmfile.yaml": true, "helmfile.yml": true, "serverless.yml": true,
 	"serverless.yaml": true, "procfile": true, "fly.toml": true, "vercel.json": true,

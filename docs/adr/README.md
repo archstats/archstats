@@ -42,4 +42,5 @@ This script will:
 | 0018 | [Typed Dependency Edges](0018-typed-dependency-edges.md) | Accepted | 2026-09-21 |
 | 0019 | [Reporting Unresolved Edges](0019-reporting-unresolved-edges.md) | Accepted | 2026-09-21 |
 | 0020 | [Unit as a First-Class Concept](0020-unit-first-class-concept.md) | Accepted | 2026-09-21 |
-| 0021 | [Deployables](0021-deployables.md) | Accepted | 2026-09-27 |
+| 0021 | [Deployables](0021-deployables.md) | Superseded by 0022 | 2026-09-27 |
+| 0022 | [CI/CD](0022-cicd.md) | Accepted | 2026-10-29 |
