@@ -42,6 +42,11 @@ type entry struct {
 	// DeclLine is where the handler's declaration starts, for finding the
 	// measured function that contains it.
 	DeclLine int
+	// Auth is what the route's marks, or its class's, say about who may
+	// call it; Documented is "annotations" when they describe it for a
+	// contract.
+	Auth       string
+	Documented string
 }
 
 var httpVerbs = map[string]string{
@@ -63,6 +68,10 @@ type classContext struct {
 	Framework string
 	// Processor is a Nest Bull queue the class consumes.
 	Processor string
+	// Auth and Documented are the class's access and contract marks, which
+	// its members inherit.
+	Auth       string
+	Documented bool
 }
 
 func (s *source) entries() []entry {
@@ -108,6 +117,12 @@ func (s *source) classContexts(decls []decl) []classContext {
 					c.Client = true
 				case "Processor":
 					c.Processor = m.arg("name", "value")
+				}
+				if isAuthMark(m.Name) && c.Auth == "" {
+					c.Auth = markText(m)
+				}
+				if docMarks[m.Name] {
+					c.Documented = true
 				}
 			}
 		}
@@ -158,10 +173,23 @@ func (s *source) memberEntries(d decl, class classContext) []entry {
 	if class.Client {
 		return nil
 	}
-	e := entry{Member: d.Name, Class: class.Name, Line: d.Marks[0].Line, DeclLine: d.Line}
+	e := entry{Member: d.Name, Class: class.Name, Line: d.Marks[0].Line, DeclLine: d.Line, Auth: class.Auth}
+	if class.Documented {
+		e.Documented = "annotations"
+	}
 	for _, m := range d.Marks {
 		if m.Line < e.Line {
 			e.Line = m.Line
+		}
+		if isAuthMark(m.Name) {
+			// The member's own mark overrides its class's.
+			if e.Auth == class.Auth {
+				e.Auth = ""
+			}
+			e.Auth = strings.TrimPrefix(e.Auth+", "+markText(m), ", ")
+		}
+		if docMarks[m.Name] {
+			e.Documented = "annotations"
 		}
 	}
 	var out []entry
@@ -179,6 +207,10 @@ func (s *source) memberEntries(d decl, class classContext) []entry {
 	for _, m := range d.Marks {
 		verb, ok := httpVerbs[m.Name]
 		if !ok || strings.Contains(m.Full, ".") && s.lang != langCSharp {
+			continue
+		}
+		if s.lang == langCSharp && !strings.HasPrefix(m.Name, "Http") {
+			// Refit's [Get("/x")] on an interface is a call the code makes.
 			continue
 		}
 		x := e
@@ -525,6 +557,11 @@ func (s *source) jsRoutes() []entry {
 		if !strings.Contains(handler, "=>") && !strings.HasPrefix(handler, "function") && !strings.HasPrefix(handler, "async") {
 			e.Handler = lastName(handler)
 		}
+		for _, mw := range args[1 : len(args)-1] {
+			if name := lastName(mw); name != "" && authish.MatchString(name) {
+				e.Auth = strings.TrimPrefix(e.Auth+", "+name, ", ")
+			}
+		}
 		out = append(out, e)
 	}
 	return out
@@ -692,11 +729,26 @@ func (s *source) djangoURLs() []entry {
 			continue
 		}
 		p = strings.TrimSuffix(strings.TrimPrefix(p, "^"), "$")
+		auth := ""
+		// login_required(OrderView.as_view()): the wrapper is the access rule.
+		for {
+			w := rx(`^\s*([A-Za-z_][\w.]*)\s*\(`).FindStringSubmatchIndex(view)
+			if w == nil || !authish.MatchString(view[w[2]:w[3]]) {
+				break
+			}
+			auth = strings.TrimPrefix(auth+", "+lastName(view[w[2]:w[3]]), ", ")
+			inner, _ := balanced(view, w[1]-1)
+			args := splitArgs(inner)
+			if len(args) == 0 {
+				break
+			}
+			view = args[0]
+		}
 		handler := lastName(view)
 		if cls, ok := aliases[handler]; ok {
 			handler = cls
 		}
-		out = append(out, entry{Kind: kindHTTP, Method: "ANY", Path: joinRoute("", p), Framework: "django", Handler: handler, Line: s.line(loc[0])})
+		out = append(out, entry{Kind: kindHTTP, Method: "ANY", Path: joinRoute("", p), Framework: "django", Handler: handler, Line: s.line(loc[0]), Auth: auth})
 	}
 	return out
 }
@@ -705,7 +757,7 @@ func (s *source) laravelRoutes() []entry {
 	var out []entry
 	for _, loc := range laravelRoute.FindAllStringSubmatchIndex(s.code, -1) {
 		verb := s.code[loc[2]:loc[3]]
-		inner, _ := balanced(s.code, loc[1]-1)
+		inner, end := balanced(s.code, loc[1]-1)
 		args := splitArgs(inner)
 		method := strings.ToUpper(verb)
 		if verb == "match" && len(args) > 1 {
@@ -721,6 +773,9 @@ func (s *source) laravelRoutes() []entry {
 		e := entry{Kind: kindHTTP, Method: method, Path: joinRoute("", unquote(args[0])), Framework: "laravel", Line: s.line(loc[0])}
 		if len(args) > 1 {
 			e.Handler = lastName(args[1])
+		}
+		if mw := rx(`^\s*->\s*middleware\s*\(([^()]*)\)`).FindStringSubmatch(s.code[end:min(len(s.code), end+200)]); mw != nil && authish.MatchString(mw[1]) {
+			e.Auth = "middleware(" + strings.Join(strings.Fields(mw[1]), " ") + ")"
 		}
 		out = append(out, e)
 	}
@@ -759,6 +814,13 @@ func (s *source) minimalAPIRoutes() []entry {
 		e := entry{Kind: kind, Method: method, Path: joinRoute("", p), Framework: "aspnet-minimal", Line: s.line(loc[0])}
 		if h := args[len(args)-1]; !strings.Contains(h, "=>") {
 			e.Handler = lastName(h)
+		}
+		_, end := balanced(s.code, loc[1]-1)
+		if a := rx(`^(?:\s*\.\s*\w+\s*(?:<[^<>]*>)?\s*\([^()]*\))*?\s*\.\s*(RequireAuthorization|AllowAnonymous)\s*\(([^()]*)\)`).FindStringSubmatch(s.code[end:min(len(s.code), end+300)]); a != nil {
+			e.Auth = a[1]
+			if strings.TrimSpace(a[2]) != "" {
+				e.Auth += "(" + strings.TrimSpace(a[2]) + ")"
+			}
 		}
 		out = append(out, e)
 	}

@@ -127,4 +127,13 @@ package core
 //	               significant digits. summary holds numbers only (the
 //	               version is engine_version in _snapshot); an empty
 //	               component_communities keeps its columns.
-const AnalysisRevision = 17
+//	18 2026-10-29  HTTP and outbound: entry_points gain id, template, auth
+//	               and documented; api_operations and api_findings read
+//	               OpenAPI 3 / Swagger 2 contracts and the NLGov API design
+//	               rules; outbound_calls, outbound_systems and
+//	               config_entries say what the code calls, where it is
+//	               configured per environment and what that resolves to;
+//	               calls, route_reach and route_targets trace every entry
+//	               point member by member to the tables and calls it
+//	               reaches.
+const AnalysisRevision = 18

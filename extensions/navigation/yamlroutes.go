@@ -65,7 +65,7 @@ func (s *source) yamlRoutes() ([]entry, []routeImport) {
 		}
 		e := entry{Kind: kindHTTP, Method: "ANY", Path: joinRoute("", p), Framework: "symfony", Line: b.line, File: s.path}
 		if m := strings.Trim(b.fields["methods"], "[] "); m != "" {
-			e.Method = strings.ToUpper(strings.Join(strings.Fields(strings.ReplaceAll(m, ",", " ")), ","))
+			e.Method = strings.ToUpper(strings.Join(strings.Fields(strings.NewReplacer(",", " ", "'", " ", `"`, " ", "[", " ", "]", " ").Replace(m)), ","))
 		}
 		ctrl := b.fields["controller"]
 		if ctrl == "" {

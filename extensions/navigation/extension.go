@@ -39,6 +39,17 @@ type facts struct {
 	doc      *doc
 	types    []typeDecl
 	imports  []routeImport
+
+	// What the HTTP picture is read from.
+	config    *configFacts
+	spec      *spec
+	gens      []generator
+	syms      *symbols
+	outs      []outCall
+	bases     []clientBase
+	classAuth map[string]string
+	// resMarks are the resilience marks on the member declared on a line.
+	resMarks map[int]string
 }
 
 type extension struct {
@@ -52,6 +63,15 @@ type extension struct {
 	bindingRows []bindingRow
 	docRows     []*doc
 	linkRows    []linkRow
+
+	operationRows []operationRow
+	findingRows   []finding
+	outboundRows  []outboundRow
+	systemRows    []systemRow
+	configRows    []configRow
+	callRows      []callRow
+	reachRows     []reachRow
+	targetRows    []targetRow
 }
 
 // Extension reads entry points, data, wiring and docs.
@@ -71,6 +91,14 @@ func (e *extension) Init(a core.Analyzer) error {
 		{Name: "bindings", CreateViewFunc: e.bindingsView},
 		{Name: "docs", CreateViewFunc: e.docsView},
 		{Name: "doc_links", CreateViewFunc: e.docLinksView},
+		{Name: "api_operations", CreateViewFunc: e.operationsView},
+		{Name: "api_findings", CreateViewFunc: e.findingsView},
+		{Name: "outbound_calls", CreateViewFunc: e.outboundView},
+		{Name: "outbound_systems", CreateViewFunc: e.systemsView},
+		{Name: "config_entries", CreateViewFunc: e.configView},
+		{Name: "calls", CreateViewFunc: e.callsView},
+		{Name: "route_reach", CreateViewFunc: e.reachView},
+		{Name: "route_targets", CreateViewFunc: e.targetsView},
 	} {
 		a.RegisterView(v)
 	}
@@ -80,15 +108,31 @@ func (e *extension) Init(a core.Analyzer) error {
 func (e *extension) AnalyzeFile(f file.File) *file.Results {
 	p := clean(f.Path())
 	lang := languageOf(p)
-	if lang == langUnreadable {
-		return nil
-	}
 	content := f.Content()
-	if len(content) > maxFileSize {
+	fx := &facts{lang: lang}
+	// Contracts, configuration and build files are read whatever their
+	// language.
+	ext := strings.ToLower(path.Ext(p))
+	if ext == ".json" || ext == ".yaml" || ext == ".yml" {
+		fx.spec = readSpec(p, content)
+	}
+	if len(content) <= maxFileSize {
+		if format := configFormat(p, lang); format != "" && fx.spec == nil {
+			if cf := readConfig(p, format, content); len(cf.entries)+len(cf.tuning)+len(cf.services) > 0 {
+				fx.config = cf
+			}
+		}
+		fx.gens = generators(p, content)
+	}
+	if lang == langUnreadable || len(content) > maxFileSize {
+		if fx.spec != nil || fx.config != nil || len(fx.gens) > 0 {
+			e.mu.Lock()
+			e.files[p] = fx
+			e.mu.Unlock()
+		}
 		return nil
 	}
 	s := newSource(p, lang, content)
-	fx := &facts{lang: lang}
 	if lang == langMarkdown {
 		fx.doc = s.document()
 	} else {
@@ -99,8 +143,35 @@ func (e *extension) AnalyzeFile(f file.File) *file.Results {
 		fx.accesses = s.accesses()
 		fx.bindings = s.bindings()
 		fx.types = s.typeDecls()
+		if lang != langXML && lang != langYAML && lang != langPrisma {
+			sy := s.symbols()
+			fx.outs, fx.bases = s.outbound(sy)
+			// Only what linking reads is kept.
+			sy.consts, sy.keys, sy.addrs = nil, nil, nil
+			fx.syms = sy
+			fx.classAuth = s.classAuth()
+			// A class's own access marks, which its subclasses' routes inherit:
+			// nopCommerce's admin controllers are [AuthorizeAdmin] through
+			// their base class.
+			for _, c := range s.classContexts(s.decls()) {
+				if c.Auth != "" {
+					if fx.classAuth == nil {
+						fx.classAuth = map[string]string{}
+					}
+					fx.classAuth[c.Name] = c.Auth
+				}
+			}
+			for _, d := range s.decls() {
+				if r := resilienceOf(d.Marks); r != "" && !d.Class {
+					if fx.resMarks == nil {
+						fx.resMarks = map[int]string{}
+					}
+					fx.resMarks[d.Line] = r
+				}
+			}
+		}
 	}
-	if fx.doc == nil && len(fx.imports) == 0 && len(fx.entries) == 0 && len(fx.entities) == 0 && len(fx.accesses) == 0 && len(fx.bindings) == 0 && len(fx.types) == 0 {
+	if fx.doc == nil && len(fx.imports) == 0 && len(fx.entries) == 0 && len(fx.entities) == 0 && len(fx.accesses) == 0 && len(fx.bindings) == 0 && len(fx.types) == 0 && fx.syms == nil && fx.spec == nil && fx.config == nil && len(fx.gens) == 0 {
 		return nil
 	}
 	e.mu.Lock()
@@ -335,6 +406,7 @@ func (e *extension) EditResults(results *core.Results) {
 	e.linkEntries(l, files, paths)
 	e.linkData(l, files, paths)
 	e.linkDocs(l, files, paths)
+	e.linkHTTP(l, files, paths)
 }
 
 // placeUnits gives every unit the line it is declared on and its signature:
@@ -375,6 +447,9 @@ func (e *extension) placeUnits(l *linker) {
 type entryRow struct {
 	Kind, Method, Path, Framework, Handler, Unit, Function, Component, File string
 	Line                                                                    int
+	// Filled when the HTTP picture is linked.
+	ID                         int
+	Template, Auth, Documented string
 }
 
 // Frameworks that read routes from where files are only do so when their
@@ -420,7 +495,7 @@ func (e *extension) linkEntries(l *linker, files map[string]*facts, paths []stri
 			} else if _, byPath := fileRouteConfigs[x.Framework]; byPath && x.Line == 1 && x.DeclLine == 1 && !present(x.Framework) {
 				continue
 			}
-			row := entryRow{Kind: x.Kind, Method: x.Method, Path: x.Path, Framework: x.Framework, Handler: x.Handler, Component: componentOf(l.results, p), File: p, Line: x.Line}
+			row := entryRow{Kind: x.Kind, Method: x.Method, Path: x.Path, Framework: x.Framework, Handler: x.Handler, Component: componentOf(l.results, p), File: p, Line: x.Line, Auth: x.Auth, Documented: x.Documented}
 			var u *unit.Unit
 			var fn *file.Function
 			switch {
