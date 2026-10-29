@@ -108,4 +108,13 @@ package core
 //	               walker left out: ignored, binary, unreadable or failed. A
 //	               directory an ignore rule excludes itself (node_modules) is
 //	               never entered, whatever negations the file has.
-const AnalysisRevision = 15
+//	17 2026-10-29  HTTP and outbound: entry_points gain id, template, auth
+//	               and documented; api_operations and api_findings read
+//	               OpenAPI 3 / Swagger 2 contracts and the NLGov API design
+//	               rules; outbound_calls, outbound_systems and
+//	               config_entries say what the code calls, where it is
+//	               configured per environment and what that resolves to;
+//	               calls, route_reach and route_targets trace every entry
+//	               point member by member to the tables and calls it
+//	               reaches. (16 is CI/CD, on its own branch.)
+const AnalysisRevision = 17

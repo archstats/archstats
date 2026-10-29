@@ -43,3 +43,4 @@ This script will:
 | 0019 | [Reporting Unresolved Edges](0019-reporting-unresolved-edges.md) | Accepted | 2026-09-21 |
 | 0020 | [Unit as a First-Class Concept](0020-unit-first-class-concept.md) | Accepted | 2026-09-21 |
 | 0021 | [Deployables](0021-deployables.md) | Accepted | 2026-09-27 |
+| 0023 | [HTTP Routes, Contracts and Outbound Connections](0023-http-and-outbound.md) | Accepted | 2026-10-29 |

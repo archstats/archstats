@@ -2,8 +2,10 @@ package navigation
 
 import (
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // The languages the recognisers read, by what their source looks like rather
@@ -450,4 +452,17 @@ func lastName(expr string) string {
 		return ""
 	}
 	return e
+}
+
+var patterns sync.Map
+
+// rx is a pattern compiled once: the readers write their patterns where
+// they use them, and a scan reads every file with them.
+func rx(pattern string) *regexp.Regexp {
+	if re, ok := patterns.Load(pattern); ok {
+		return re.(*regexp.Regexp)
+	}
+	re := regexp.MustCompile(pattern)
+	patterns.Store(pattern, re)
+	return re
 }
