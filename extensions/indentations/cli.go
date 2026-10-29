@@ -2,33 +2,32 @@ package indentations
 
 import (
 	"fmt"
-	"github.com/archstats/archstats/cmd/config"
 	"github.com/archstats/archstats/core"
-	"github.com/spf13/cobra"
+	"github.com/archstats/archstats/core/plugin"
 )
 
 const (
 	IndentationSize = "indentation-size"
 )
 
-func CLIExtension() *config.CLIConfiguredExtension {
-	return &config.CLIConfiguredExtension{
+func CLIExtension() *plugin.Descriptor {
+	return &plugin.Descriptor{
 		Name:        "indentations",
 		Description: "Indentations extension",
-		Arguments: config.Arguments{
+		Arguments: plugin.Arguments{
 			IndentationSize: {
 				Default:     0,
 				Description: "Spaces per indentation level. 0 reads it per file: Prettier config or .editorconfig, then the file's own indentation.",
 				Required:    false,
-				Type:        config.Int,
+				Type:        plugin.Int,
 			},
 		},
 		Initializer: Init,
 	}
 }
 
-func Init(command *cobra.Command) (core.Extension, error) {
-	indentationSize, err := command.Flags().GetInt(IndentationSize)
+func Init(settings plugin.Settings) (core.Extension, error) {
+	indentationSize, err := settings.GetInt(IndentationSize)
 	if err != nil {
 		return nil, err
 	}

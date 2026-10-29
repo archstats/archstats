@@ -1,7 +1,7 @@
-package common
+package engine
 
 import (
-	"github.com/archstats/archstats/cmd/config"
+	"github.com/archstats/archstats/core/plugin"
 	"github.com/archstats/archstats/extensions/basic"
 	"github.com/archstats/archstats/extensions/cicd"
 	"github.com/archstats/archstats/extensions/codesmells"
@@ -30,9 +30,11 @@ import (
 	"github.com/gobwas/glob"
 )
 
-func Optional() []*config.CLIConfiguredExtension {
+// Optional is every extension a workspace switches on by having what it
+// reads, or that is asked for by name, in the order they run.
+func Optional() []*plugin.Descriptor {
 	gitExt := git.CLIExtension()
-	gitExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	gitExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		// Not ctx.HasPath(".git"): that sees only a root that is itself a
 		// repository, so a workspace holding several checkouts got no git
 		// data at all, however many repositories were inside it.
@@ -40,66 +42,66 @@ func Optional() []*config.CLIConfiguredExtension {
 	}
 
 	javaExt := java.CLIExtension()
-	javaExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	javaExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".java")
 	}
 
-	csharpExt := config.CreateEmptyCLIExtension("csharp", &csharp.Extension{})
-	csharpExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	csharpExt := plugin.Fixed("csharp", &csharp.Extension{})
+	csharpExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".cs")
 	}
 
-	kotlinExt := config.CreateEmptyCLIExtension("kotlin", &kotlin.Extension{})
-	kotlinExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	kotlinExt := plugin.Fixed("kotlin", &kotlin.Extension{})
+	kotlinExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".kt")
 	}
 
-	javascriptExt := config.CreateEmptyCLIExtension("javascript", &javascript.Extension{})
-	javascriptExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	javascriptExt := plugin.Fixed("javascript", &javascript.Extension{})
+	javascriptExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".js") || ctx.HasFileExtension(".jsx") || ctx.HasFileExtension(".mjs") || ctx.HasFileExtension(".cjs")
 	}
 
-	typescriptExt := config.CreateEmptyCLIExtension("typescript", &typescript.Extension{})
-	typescriptExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	typescriptExt := plugin.Fixed("typescript", &typescript.Extension{})
+	typescriptExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		// A single-file component's script is read by this pack too, and a
 		// Vue or Svelte app written in plain JavaScript may have no .ts file.
 		return ctx.HasFileExtension(".ts") || ctx.HasFileExtension(".tsx") || ctx.HasFileExtension(".mts") || ctx.HasFileExtension(".cts") ||
 			ctx.HasFileExtension(".vue") || ctx.HasFileExtension(".svelte")
 	}
 
-	goExt := config.CreateEmptyCLIExtension("go", &golang.Extension{})
-	goExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	goExt := plugin.Fixed("go", &golang.Extension{})
+	goExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".go")
 	}
 
-	pythonExt := config.CreateEmptyCLIExtension("python", &python.Extension{})
-	pythonExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	pythonExt := plugin.Fixed("python", &python.Extension{})
+	pythonExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".py")
 	}
 
-	phpExt := config.CreateEmptyCLIExtension("php", &php.Extension{})
-	phpExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	phpExt := plugin.Fixed("php", &php.Extension{})
+	phpExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".php")
 	}
 
-	swiftExt := config.CreateEmptyCLIExtension("swift", &swift.Extension{})
-	swiftExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	swiftExt := plugin.Fixed("swift", &swift.Extension{})
+	swiftExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".swift")
 	}
 
 	// Headers alone are C as often as Objective-C; an implementation file
 	// says which.
-	objcExt := config.CreateEmptyCLIExtension("objc", &objc.Extension{})
-	objcExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	objcExt := plugin.Fixed("objc", &objc.Extension{})
+	objcExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".m") || ctx.HasFileExtension(".mm")
 	}
 
-	dartExt := config.CreateEmptyCLIExtension("dart", &dart.Extension{})
-	dartExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+	dartExt := plugin.Fixed("dart", &dart.Extension{})
+	dartExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 		return ctx.HasFileExtension(".dart")
 	}
 
-	extensions := []*config.CLIConfiguredExtension{
+	extensions := []*plugin.Descriptor{
 		gitExt,
 		javaExt,
 		csharpExt,
@@ -112,7 +114,7 @@ func Optional() []*config.CLIConfiguredExtension {
 		swiftExt,
 		objcExt,
 		dartExt,
-		config.CreateEmptyCLIExtension("cycles", cycles.Extension()),
+		plugin.Fixed("cycles", cycles.Extension()),
 	}
 	for name, extension := range regex.GetLanguageExtensions() {
 		// Skip the languages the tree-sitter extensions above supersede.
@@ -122,12 +124,12 @@ func Optional() []*config.CLIConfiguredExtension {
 		if name == "kotlin" || name == "javascript" || name == "typescript" || name == "python" || name == "go" || name == "php" {
 			continue
 		}
-		cliExt := config.CreateEmptyCLIExtension(name, extension)
+		cliExt := plugin.Fixed(name, extension)
 
 		if regexExt, ok := extension.(*regex.Extension); ok && regexExt.GlobString != "" {
 			g, err := glob.Compile(regexExt.GlobString)
 			if err == nil {
-				cliExt.DiscoveryTrigger = func(ctx *config.DiscoveryContext) bool {
+				cliExt.DiscoveryTrigger = func(ctx *plugin.DiscoveryContext) bool {
 					for _, file := range ctx.Files {
 						if g.Match(file) {
 							return true
@@ -143,18 +145,20 @@ func Optional() []*config.CLIConfiguredExtension {
 	return extensions
 }
 
-func AlwaysEnabled() []*config.CLIConfiguredExtension {
-	return []*config.CLIConfiguredExtension{
+// AlwaysEnabled is every extension that runs on every scan, in the order
+// they run. Each call builds fresh instances.
+func AlwaysEnabled() []*plugin.Descriptor {
+	return []*plugin.Descriptor{
 		indentations.CLIExtension(),
-		config.CreateEmptyCLIExtension("basic", basic.Extension()),
-		config.CreateEmptyCLIExtension("components", components.Extension()),
-		config.CreateEmptyCLIExtension("lines", lines.Extension()),
+		plugin.Fixed("basic", basic.Extension()),
+		plugin.Fixed("components", components.Extension()),
+		plugin.Fixed("lines", lines.Extension()),
 		declbased.CLIExtension(),
-		config.CreateEmptyCLIExtension("codesmells", codesmells.Extension()),
+		plugin.Fixed("codesmells", codesmells.Extension()),
 		matrix.CLIExtension(),
-		config.CreateEmptyCLIExtension("rules", rules.Extension()),
-		config.CreateEmptyCLIExtension("cicd", cicd.Extension()),
-		config.CreateEmptyCLIExtension("mobile", mobile.Extension()),
-		config.CreateEmptyCLIExtension("navigation", navigation.Extension()),
+		plugin.Fixed("rules", rules.Extension()),
+		plugin.Fixed("cicd", cicd.Extension()),
+		plugin.Fixed("mobile", mobile.Extension()),
+		plugin.Fixed("navigation", navigation.Extension()),
 	}
 }

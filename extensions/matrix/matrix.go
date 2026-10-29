@@ -1,11 +1,10 @@
 package matrix
 
 import (
-	"github.com/archstats/archstats/cmd/config"
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/plugin"
 	"github.com/archstats/archstats/core/unit"
 	"github.com/samber/lo"
-	"github.com/spf13/cobra"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,20 +16,20 @@ func Extension() core.Extension {
 	return &extension{}
 }
 
-func CLIExtension() *config.CLIConfiguredExtension {
-	return &config.CLIConfiguredExtension{
+func CLIExtension() *plugin.Descriptor {
+	return &plugin.Descriptor{
 		Name:        "matrix",
 		Description: "Pairwise co-change, name similarity and path distance",
-		Arguments: config.Arguments{
+		Arguments: plugin.Arguments{
 			FileMatrix: {
 				Default:     false,
 				Description: "Also write file_matrix, every pair of files that changed together (large; git_commits and git_file_shared_commits hold the same co-change)",
 				Required:    false,
-				Type:        config.Bool,
+				Type:        plugin.Bool,
 			},
 		},
-		Initializer: func(command *cobra.Command) (core.Extension, error) {
-			fileMatrix, err := command.Flags().GetBool(FileMatrix)
+		Initializer: func(settings plugin.Settings) (core.Extension, error) {
+			fileMatrix, err := settings.GetBool(FileMatrix)
 			if err != nil {
 				return nil, err
 			}

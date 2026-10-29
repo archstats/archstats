@@ -2,9 +2,8 @@ package git
 
 import (
 	"fmt"
-	"github.com/archstats/archstats/cmd/config"
 	"github.com/archstats/archstats/core"
-	"github.com/spf13/cobra"
+	"github.com/archstats/archstats/core/plugin"
 )
 
 const (
@@ -14,55 +13,55 @@ const (
 	GitBasedOn             = "git-based-on"
 )
 
-func CLIExtension() *config.CLIConfiguredExtension {
-	return &config.CLIConfiguredExtension{
+func CLIExtension() *plugin.Descriptor {
+	return &plugin.Descriptor{
 		Name:        "git",
 		Description: "Git extension",
-		Arguments: config.Arguments{
+		Arguments: plugin.Arguments{
 			GitAfter: {
 				Default:     "",
 				Description: "Passed to git log --after",
 				Required:    false,
-				Type:        config.String,
+				Type:        plugin.String,
 			},
 			GitSince: {
 				Default:     "",
 				Description: "Passed to git log --since",
 				Required:    false,
-				Type:        config.String,
+				Type:        plugin.String,
 			},
 			GitBasedOn: {
 				Default:     "head",
 				Description: "What the last-N-days windows count back from: \"head\", the newest commit scanned, so the same commit reads the same on any day; or \"now\", the moment of the scan",
 				Required:    false,
-				Type:        config.String,
+				Type:        plugin.String,
 			},
 			GitMaxChangesPerCommit: {
 				Default:     100,
 				Description: "Filter out commits that modify more than this number of files (0 to disable)",
 				Required:    false,
-				Type:        config.Int,
+				Type:        plugin.Int,
 			},
 		},
 		Initializer: Init,
 	}
 }
 
-func Init(command *cobra.Command) (core.Extension, error) {
-	gitSince, err := command.Flags().GetString(GitSince)
+func Init(settings plugin.Settings) (core.Extension, error) {
+	gitSince, err := settings.GetString(GitSince)
 	if err != nil {
 		return nil, err
 	}
-	gitAfter, err := command.Flags().GetString(GitAfter)
+	gitAfter, err := settings.GetString(GitAfter)
 	if err != nil {
 		return nil, err
 	}
-	gitMaxChanges, err := command.Flags().GetInt(GitMaxChangesPerCommit)
+	gitMaxChanges, err := settings.GetInt(GitMaxChangesPerCommit)
 	if err != nil {
 		return nil, err
 	}
 
-	basedOn, err := command.Flags().GetString(GitBasedOn)
+	basedOn, err := settings.GetString(GitBasedOn)
 	if err != nil {
 		return nil, err
 	}

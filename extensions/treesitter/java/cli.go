@@ -2,9 +2,8 @@ package java
 
 import (
 	"fmt"
-	"github.com/archstats/archstats/cmd/config"
 	"github.com/archstats/archstats/core"
-	"github.com/spf13/cobra"
+	"github.com/archstats/archstats/core/plugin"
 	"os"
 )
 
@@ -14,44 +13,44 @@ const (
 	ClassIndirect         = "java-class-indirect"
 )
 
-func CLIExtension() *config.CLIConfiguredExtension {
-	return &config.CLIConfiguredExtension{
+func CLIExtension() *plugin.Descriptor {
+	return &plugin.Descriptor{
 		Name:        "java",
 		Description: "Java language extension",
-		Arguments: config.Arguments{
+		Arguments: plugin.Arguments{
 			IgnoreCommonImports: {
 				Default:     true,
 				Description: "Ignore common Java imports",
 				Required:    false,
-				Type:        config.Bool,
+				Type:        plugin.Bool,
 			},
 			ClassIndirect: {
 				Default:     false,
 				Description: "Also write java_class_connections_indirect, every class reachable from every class (large)",
 				Required:    false,
-				Type:        config.Bool,
+				Type:        plugin.Bool,
 			},
 			TreesitterQueriesFile: {
 				Default:     []string{},
 				Description: "Path to the treesitter queries file",
 				Required:    false,
-				Type:        config.StringSlice,
+				Type:        plugin.StringSlice,
 			},
 		},
 		Initializer: Init,
 	}
 }
 
-func Init(command *cobra.Command) (core.Extension, error) {
-	ignoreCommonImports, err := command.Flags().GetBool(IgnoreCommonImports)
+func Init(settings plugin.Settings) (core.Extension, error) {
+	ignoreCommonImports, err := settings.GetBool(IgnoreCommonImports)
 	if err != nil {
 		return nil, err
 	}
-	classIndirect, err := command.Flags().GetBool(ClassIndirect)
+	classIndirect, err := settings.GetBool(ClassIndirect)
 	if err != nil {
 		return nil, err
 	}
-	treesitterQueriesFiles, err := command.Flags().GetStringSlice(TreesitterQueriesFile)
+	treesitterQueriesFiles, err := settings.GetStringSlice(TreesitterQueriesFile)
 	if err != nil {
 		return nil, err
 	}

@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/engine"
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/spf13/cobra"
 	"path/filepath"
 	"regexp"
-	"sort"
-	"strings"
 )
 
 const (
@@ -59,25 +58,11 @@ func GetCommonFlags(command *cobra.Command) *CommonFlags {
 
 func Analyze(command *cobra.Command) (*core.Results, error) {
 	commonFlags := GetCommonFlags(command)
-	rootDir, _ := filepath.Abs(commonFlags.WorkingDirectory)
 
-	enabledExtensions, err := GetEnabledExtensions(command)
-	if err != nil {
-		return nil, err
+	var extra []core.Extension
+	if ctxExtra, ok := command.Context().Value(ExtraExtensionsKey).([]core.Extension); ok {
+		extra = append(extra, ctxExtra...)
 	}
-
-	var archstatsExtensions []core.Extension
-	for _, extension := range enabledExtensions {
-		initializer, err := extension.Initializer(command)
-		if err != nil {
-			return nil, err
-		}
-		archstatsExtensions = append(archstatsExtensions, initializer)
-	}
-	if extra, ok := command.Context().Value(ExtraExtensionsKey).([]core.Extension); ok {
-		archstatsExtensions = append(archstatsExtensions, extra...)
-	}
-
 	// --snippet was parsed and never used, so every pattern a user passed
 	// was silently ignored while the help text promised the opposite.
 	if len(commonFlags.Snippets) > 0 {
@@ -85,23 +70,16 @@ func Analyze(command *cobra.Command) (*core.Results, error) {
 		if err != nil {
 			return nil, err
 		}
-		archstatsExtensions = append(archstatsExtensions, snippets)
+		extra = append(extra, snippets)
 	}
 
-	allResults, err := core.New(&core.Config{
-		RootPath:       rootDir,
-		Extensions:     archstatsExtensions,
-		IgnorePatterns: commonFlags.Ignore,
-	}).Analyze()
-	if err == nil && allResults != nil {
-		names := make([]string, 0, len(enabledExtensions))
-		for _, ext := range enabledExtensions {
-			names = append(names, ext.Name)
-		}
-		sort.Strings(names)
-		allResults.SetSnapshotInfo("extensions", strings.Join(names, ","))
-	}
-	return allResults, err
+	return engine.Analyze(engine.Options{
+		Root:       commonFlags.WorkingDirectory,
+		Ignore:     commonFlags.Ignore,
+		Extensions: commonFlags.Extensions,
+		Settings:   command.Flags(),
+		Extra:      extra,
+	})
 }
 
 type emptyExtension struct {

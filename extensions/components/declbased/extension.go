@@ -2,20 +2,19 @@ package declbased
 
 import (
 	"fmt"
-	"github.com/archstats/archstats/cmd/config"
 	"github.com/archstats/archstats/core"
-	"github.com/spf13/cobra"
+	"github.com/archstats/archstats/core/plugin"
 )
 
 const (
 	ComponentStrategy = "component-strategy"
 )
 
-func CLIExtension() *config.CLIConfiguredExtension {
-	return &config.CLIConfiguredExtension{
+func CLIExtension() *plugin.Descriptor {
+	return &plugin.Descriptor{
 		Name:        "declbased",
 		Description: "Component linker based on code declarations or directory layouts",
-		Arguments: config.Arguments{
+		Arguments: plugin.Arguments{
 			ComponentStrategy: {
 				// A language pack already decides for itself how its files
 				// resolve: those with a declarations query (Java, C#, Kotlin)
@@ -29,15 +28,15 @@ func CLIExtension() *config.CLIConfiguredExtension {
 				Default:     "fallback",
 				Description: "Component resolution strategy: declared (only declarations, fallback to Unknown), directory (every directory is a component), or fallback (declarations if present, fallback to directory)",
 				Required:    false,
-				Type:        config.String,
+				Type:        plugin.String,
 			},
 		},
 		Initializer: Init,
 	}
 }
 
-func Init(command *cobra.Command) (core.Extension, error) {
-	strategy, err := command.Flags().GetString(ComponentStrategy)
+func Init(settings plugin.Settings) (core.Extension, error) {
+	strategy, err := settings.GetString(ComponentStrategy)
 	if err != nil {
 		return nil, err
 	}
