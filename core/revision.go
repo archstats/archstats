@@ -118,4 +118,7 @@ package core
 //	               replace deployables; dockerfiles and dockerfile_stages;
 //	               cicd_flags; the runtime links, environments, config
 //	               values and dependencies tables are gone.
-const AnalysisRevision = 16
+//	17 2026-10-29  summary holds numbers only (the version is
+//	               engine_version in _snapshot); an empty
+//	               component_communities keeps its columns.
+const AnalysisRevision = 17

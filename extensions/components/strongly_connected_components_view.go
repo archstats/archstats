@@ -33,5 +33,6 @@ func StronglyConnectedView(results *core.Results) *core.View {
 			rows = append(rows, row)
 		}
 	}
-	return core.CreateViewFromRows("strongly_connected_components", rows)
+	columns := []*core.Column{core.StringColumn("component"), core.IntColumn("group"), core.IntColumn("group_size")}
+	return &core.View{Name: "strongly_connected_components", Columns: append(columns, graphMetricColumns("group__")...), Rows: rows}
 }

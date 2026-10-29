@@ -2,7 +2,6 @@ package basic
 
 import (
 	"github.com/archstats/archstats/core"
-	"github.com/archstats/archstats/version"
 )
 
 const (
@@ -15,6 +14,11 @@ func summaryView(results *core.Results) *core.View {
 
 	totalStats := results.Calculate(results.StatRecords)
 	for stat, value := range *totalStats {
+		// A stat that is text, like java_class, names one file's class; its
+		// "total" was whichever file's name the merge kept.
+		if t, ok := core.ColumnTypeOf(value); !ok || (t != core.Integer && t != core.Float) {
+			continue
+		}
 		toReturn = append(toReturn, &core.Row{
 			Data: map[string]interface{}{
 				NameColumn:  stat,
@@ -23,11 +27,9 @@ func summaryView(results *core.Results) *core.View {
 		})
 	}
 
+	// The engine version is text in a column of numbers; it is in _snapshot
+	// as engine_version.
 	extraRows := []core.RowData{
-		{
-			NameColumn:  "version",
-			ValueColumn: version.Version(),
-		},
 		{
 			NameColumn:  "component_count",
 			ValueColumn: len(results.ComponentToFiles),
@@ -54,7 +56,7 @@ func summaryView(results *core.Results) *core.View {
 		})
 	}
 	return &core.View{
-		Columns: []*core.Column{core.StringColumn(NameColumn), core.IntColumn(ValueColumn)},
+		Columns: []*core.Column{core.StringColumn(NameColumn), core.NumberColumn(ValueColumn)},
 		Rows:    toReturn,
 	}
 }

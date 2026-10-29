@@ -12,6 +12,7 @@ import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/plugin"
 	"github.com/archstats/archstats/core/walker"
+	"github.com/archstats/archstats/version"
 	"github.com/rs/zerolog/log"
 )
 
@@ -124,5 +125,6 @@ func Analyze(opts Options) (*core.Results, error) {
 	}
 	sort.Strings(names)
 	results.SetSnapshotInfo("extensions", strings.Join(names, ","))
+	results.SetSnapshotInfo("engine_version", version.Version())
 	return results, nil
 }

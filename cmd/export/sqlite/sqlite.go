@@ -601,6 +601,8 @@ func columnTypeDDL(column *core.Column) string {
 		return "TEXT"
 	case core.Float:
 		return "REAL"
+	case core.Number:
+		return "NUMERIC"
 	case core.Date:
 		return "DATE"
 	case core.PositionInFile:

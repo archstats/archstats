@@ -114,6 +114,22 @@ func createSubGraph(components []string, graph *component.Graph) *component.Grap
 func setGraphMetricsOnRow(row *core.Row, metrics *ComponentInGraphMetrics) {
 	setGraphMetricsOnRowWithPrefix(row, metrics, "")
 }
+
+// graphMetricColumns are the columns setGraphMetricsOnRowWithPrefix writes,
+// declared so that a view with no rows still has them: an empty
+// component_communities used to be a table with no columns at all, and every
+// query naming one failed.
+func graphMetricColumns(prefix string) []*core.Column {
+	var columns []*core.Column
+	for _, name := range []string{Dependents, Dependencies, ShortCycleCount, ShortCycleSizeMax, AfferentCouplings, EfferentCouplings} {
+		columns = append(columns, core.IntColumn(prefix+name))
+	}
+	for _, name := range []string{ShortCycleSizeAvg, Betweenness, PageRank, HubScore, AuthorityScore, HarmonicCentrality, FarnessCentrality, ResidualCloseness} {
+		columns = append(columns, core.FloatColumn(prefix+name))
+	}
+	return columns
+}
+
 func setGraphMetricsOnRowWithPrefix(row *core.Row, metrics *ComponentInGraphMetrics, prefix string) {
 	row.Data[prefix+Dependents] = metrics.Dependents
 	row.Data[prefix+Dependencies] = metrics.Dependencies

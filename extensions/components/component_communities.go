@@ -15,12 +15,12 @@ func CommunitiesView(results *core.Results) (view *core.View) {
 		// With no edges there is nothing to group by, and gonum's directed
 		// Louvain indexes community -1 on such a graph and panics: the whole
 		// export of spring-petclinic-microservices died on it.
-		return core.CreateViewFromRows("component_communities", nil)
+		return communitiesView(nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
 			log.Warn().Msgf("component communities could not be computed: %v", r)
-			view = core.CreateViewFromRows("component_communities", nil)
+			view = communitiesView(nil)
 		}
 	}()
 
@@ -49,7 +49,12 @@ func CommunitiesView(results *core.Results) (view *core.View) {
 			rows = append(rows, row)
 		}
 	}
-	return core.CreateViewFromRows("component_communities", rows)
+	return communitiesView(rows)
+}
+
+func communitiesView(rows []*core.Row) *core.View {
+	columns := []*core.Column{core.StringColumn("component"), core.IntColumn("community_nr"), core.IntColumn("community_size")}
+	return &core.View{Name: "component_communities", Columns: append(columns, graphMetricColumns("community__")...), Rows: rows}
 }
 
 func hasEdges(g graph.Directed) bool {
