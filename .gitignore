@@ -12,3 +12,5 @@ go.work
 archstats
 **/temp_testdata/**
 *.db
+# Local clones and experiments
+scratch/
