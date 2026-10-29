@@ -9,6 +9,8 @@ This document is a self-contained, high-density reference manual for Large Langu
 *   **`cmd/`**: Bootstraps the Cobra CLI configuration and handles output formats.
     *   `root.go`: Registers global flags (like `--extensions` / `-e`, `--exclude-views`, `--sqlite`).
     *   `export/sqlite/sqlite.go`: The database driver. Handles dynamically checking existing table columns via `pragma_table_info`, generating `ALTER TABLE ... ADD COLUMN` statements, and bulk-inserting rows in optimum parameter-limited chunks.
+*   **`engine/`**: The composition root the CLI and the desktop app both call. `catalog.go` lists every extension (`AlwaysEnabled`, `Optional`) with its discovery trigger; `engine.Select` picks the ones a workspace needs and `engine.Analyze(engine.Options{Root: dir})` runs a whole scan.
+*   **`core/plugin/`**: How an extension is described (`Descriptor`: name, arguments with defaults, discovery trigger, `Initializer`) and configured (`Settings`: the CLI's flag set, or `plugin.Values` from a map). Extensions never import `cmd/`.
 *   **`core/`**: Orchestrates the static analysis pipeline.
     *   `analyzer.go`: Defines the analysis lifecycle:
         1.  Initializes extensions (e.g. Kotlin, Git, Regex).

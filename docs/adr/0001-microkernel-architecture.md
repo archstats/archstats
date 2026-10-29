@@ -1,6 +1,6 @@
 # 0001. Microkernel Architecture
 
-- **Status**: Accepted
+- **Status**: Accepted, amended by [0023](0023-kernel-boundary-and-engine.md): core also owns the shared model (files, components, modules, units) and the manifest readers that build it
 - **Date**: 2026-06-01
 
 ## Context and Problem Statement
