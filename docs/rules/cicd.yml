@@ -1,0 +1,144 @@
+# Rule templates about how the workspace builds and ships: one per hygiene
+# flag the cicd extension records, and two about the pipelines themselves.
+#
+# Copy the ones your team wants to hold itself to into your own rules file
+# and run
+#   archstats assert -r rules.yml -f .
+# Each query lists what breaks the rule; `expect: 0` means none may. They are
+# templates, not verdicts: whether a base image must be pinned to a digest is
+# the team's call. Tables are described in DESCRIPTION.md under "How the
+# workspace builds and ships".
+
+assertions:
+  - name: "Every image is built by a pipeline here"
+    description: >
+      An image no pipeline in the workspace builds is built by hand, or by
+      something the workspace cannot show.
+    query: |
+      SELECT id AS artifact, file, line FROM artifacts
+      WHERE kind = 'image' AND id NOT IN (SELECT artifact FROM pipeline_outputs WHERE artifact != '')
+    expect: 0
+
+  - name: "Every pipeline is read in full"
+    description: >
+      A pipeline read in part has lines Archstats could not follow, such as
+      stages built in a loop; what it says about that pipeline is incomplete.
+    query: |
+      SELECT pipeline, from_line, to_line, reason FROM pipeline_unread
+    expect: 0
+
+  - name: "Every base image names a version"
+    description: >
+      A base image with no tag, or :latest, changes under the build whenever
+      its publisher pushes.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'base_unpinned_tag'
+    expect: 0
+
+  - name: "Every base image is pinned to a digest"
+    description: >
+      A tag can be moved to other contents; a digest cannot.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'base_no_digest'
+    expect: 0
+
+  - name: "No image runs as root"
+    description: >
+      A final stage without USER runs as the base image's user, which is root
+      unless the base image sets one.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'runs_as_root'
+    expect: 0
+
+  - name: "No Dockerfile ADDs from a URL"
+    description: >
+      ADD of a URL fetches whatever the URL serves at build time, unchecked.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'add_remote_url'
+    expect: 0
+
+  - name: "No secret-looking ENV or ARG"
+    description: >
+      ENV and ARG values are kept in the image's history, readable by anyone
+      who can pull it.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'secret_like_key'
+    expect: 0
+
+  - name: "No COPY of everything without a .dockerignore"
+    description: >
+      COPY . with no .dockerignore puts every file in the build context into
+      the image: .git, local env files, build output.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'copy_all_no_dockerignore'
+    expect: 0
+
+  - name: "Every action, orb, pipe and component is pinned"
+    description: >
+      Something used at a branch, or with no ref, runs whatever its owner
+      pushes next, in every pipeline that uses it.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'handoff_unpinned'
+    expect: 0
+
+  - name: "Every Jenkins shared library is pinned"
+    description: >
+      A library loaded without @ref, or at a branch, changes under every
+      pipeline that loads it.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'library_unpinned'
+    expect: 0
+
+  - name: "Every remote include and template is pinned"
+    description: >
+      A GitLab include or Azure template from another project, at its default
+      branch, changes under this pipeline without a change here.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'remote_include_unpinned'
+    expect: 0
+
+  - name: "No pull_request_target checks out the pull request"
+    description: >
+      pull_request_target runs with the repository's secrets; checking out the
+      pull request's code runs a stranger's code with them.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'pr_target_checkout_head'
+    expect: 0
+
+  - name: "Every GitHub workflow sets its permissions"
+    description: >
+      Without a permissions block, a workflow's token gets the repository's
+      default, which is often write to everything.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'no_permissions_block'
+    expect: 0
+
+  - name: "No script pipes a download into a shell"
+    description: >
+      curl … | sh runs whatever the server returns, unchecked.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'curl_pipe_shell'
+    expect: 0
+
+  - name: "No privileged containers"
+    description: >
+      docker run --privileged gives the container the host.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'docker_privileged'
+    expect: 0
+
+  - name: "TLS verification stays on"
+    description: >
+      --skip-verify and its kind accept any certificate, so the deploy or
+      download can be intercepted.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'tls_verify_off'
+    expect: 0
+
+  - name: "No token or password written into a command"
+    description: >
+      A secret written into the file is readable by everyone who can read
+      the repository, and stays in its history.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'token_literal'
+    expect: 0
+
+  - name: "No deploy to production without a gate"
+    description: >
+      A deploy to an environment named prod, production, prd or live with no
+      manual step, approval or deployment environment in front of it ships
+      every change that reaches it.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'ungated_prod_deploy'
+    expect: 0
+
+  - name: "No image pushed only as latest"
+    description: >
+      An image pushed only as :latest cannot be told apart from the one
+      before it, or rolled back to.
+    query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'push_latest_only'
+    expect: 0

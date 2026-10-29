@@ -108,6 +108,16 @@ package core
 //	               walker left out: ignored, binary, unreadable or failed. A
 //	               directory an ignore rule excludes itself (node_modules) is
 //	               never entered, whatever negations the file has.
+//	16 2026-10-29  deployables become CI/CD: pipelines read the way they
+//	               run (pipeline_triggers, pipeline_jobs with needs and depth,
+//	               pipeline_steps, pipeline_handoffs, pipeline_outputs,
+//	               pipeline_unread) for GitHub Actions, GitLab, Jenkins
+//	               (scripted and shared libraries too), Rancher (CLI deploys,
+//	               Fleet, Rancher Pipelines), Azure, Bitbucket and CircleCI;
+//	               artifacts, artifact_contents and artifact_components
+//	               replace deployables; dockerfiles and dockerfile_stages;
+//	               cicd_flags; the runtime links, environments, config
+//	               values and dependencies tables are gone.
 //	17 2026-10-29  HTTP and outbound: entry_points gain id, template, auth
 //	               and documented; api_operations and api_findings read
 //	               OpenAPI 3 / Swagger 2 contracts and the NLGov API design
@@ -116,5 +126,5 @@ package core
 //	               configured per environment and what that resolves to;
 //	               calls, route_reach and route_targets trace every entry
 //	               point member by member to the tables and calls it
-//	               reaches. (16 is CI/CD, on its own branch.)
+//	               reaches.
 const AnalysisRevision = 17
