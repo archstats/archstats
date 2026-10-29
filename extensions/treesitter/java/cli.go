@@ -2,9 +2,10 @@ package java
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/plugin"
-	"os"
 )
 
 const (

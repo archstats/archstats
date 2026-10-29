@@ -3,13 +3,13 @@ package typescript
 import (
 	"testing"
 
-	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	typescript "github.com/tree-sitter/tree-sitter-typescript/bindings/go"
 )
 
 func TestTypeScriptSignature(t *testing.T) {
-	_, fns := common.JSComplexity.MeasureByName(tree_sitter.NewLanguage(typescript.LanguageTypescript()), `
+	_, fns := ecmascript.Complexity.MeasureByName(tree_sitter.NewLanguage(typescript.LanguageTypescript()), `
 export const total = (items: Item[]): number => items.length
 export function place(cart: Cart): Order { return null }
 class Orders {

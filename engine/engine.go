@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/plugin"
 	"github.com/archstats/archstats/core/walker"
 	"github.com/archstats/archstats/version"
@@ -127,4 +128,21 @@ func Analyze(opts Options) (*core.Results, error) {
 	results.SetSnapshotInfo("extensions", strings.Join(names, ","))
 	results.SetSnapshotInfo("engine_version", version.Version())
 	return results, nil
+}
+
+// Classifier holds the file conventions of every extension in the
+// catalogue, for a tool that judges files outside a scan. A scan holds only
+// the conventions of the extensions it runs.
+func Classifier() *file.Classifier {
+	descriptors := append(AlwaysEnabled(), Optional()...)
+	settings := plugin.Values(nil, descriptors)
+	a := core.New(&core.Config{})
+	for _, d := range descriptors {
+		ext, err := d.Initializer(settings)
+		if err != nil {
+			continue
+		}
+		_ = ext.Init(a)
+	}
+	return a.Files()
 }

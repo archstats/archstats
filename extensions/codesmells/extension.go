@@ -2,14 +2,15 @@ package codesmells
 
 import (
 	"embed"
+	"math"
+	"strings"
+
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
 	"github.com/archstats/archstats/extensions/indentations"
 	"github.com/archstats/archstats/extensions/treesitter/common"
-	"math"
-	"strings"
 )
 
 const (
@@ -42,12 +43,15 @@ func Extension() core.Extension {
 	return &extension{}
 }
 
-type extension struct{}
+type extension struct {
+	files *file.Classifier
+}
 
 //go:embed definitions/**
 var defs embed.FS
 
 func (e *extension) Init(settings core.Analyzer) error {
+	e.files = settings.Files()
 	loadedDefs, err := definitions.LoadYamlFiles(defs)
 	if err != nil {
 		return err
@@ -152,46 +156,27 @@ func intOf(v interface{}) int {
 	return int(f)
 }
 
-// isExcludedFromCodeSmells identifies non-code/configuration files to ignore.
-func isExcludedFromCodeSmells(path string) bool {
-	lowerPath := strings.ToLower(path)
-
-	// Check standard exclusions
-	exclusions := []string{
-		"node_modules/",
-		"vendor/",
-		"dist/",
-		"build/",
-		"target/",
-		".git/",
-		".github/",
-		"package-lock.json",
-		"yarn.lock",
-		"pnpm-lock.yaml",
-		"go.sum",
-		"cargo.lock",
-		"composer.lock",
+// excluded says whether a file gets no health reading: someone else's code
+// and code a tool wrote, by the role core gave it from the registered
+// conventions; text that is not code by its format or its system kind, even
+// as a test's fixture; and whatever sits in version control's folders or a
+// build's output.
+//
+// Text that is not code matters here: a translation catalogue and a
+// stylesheet topped the hotspot lists of django-oscar and LibreChat.
+func excluded(files *file.Classifier, role, systemKind, path string) bool {
+	switch {
+	case role == file.RoleThirdParty, role == file.RoleGenerated, role == file.RoleNonCode,
+		file.IsNonCode(path), systemKind == file.SystemKindLockfile:
+		return true
 	}
-	for _, excl := range exclusions {
-		// A directory, not a package named like one: see InDirOutsideSourceRoot.
-		if strings.HasSuffix(excl, "/") {
-			if file.InDirOutsideSourceRoot(lowerPath, excl) {
-				return true
-			}
-			continue
-		}
-		if strings.Contains(lowerPath, excl) {
+	lowerPath := strings.ToLower(path)
+	for _, dir := range []string{".git/", ".github/", "dist/", "build/", "target/"} {
+		// A directory, not a package named like one.
+		if files.InDirOutsideSourceRoot(lowerPath, dir) {
 			return true
 		}
 	}
-
-	// Text that is not code gets no health reading: a translation catalogue
-	// and a stylesheet topped the hotspot lists of django-oscar and
-	// LibreChat. The list is core's, shared with file roles.
-	if file.IsNonCode(lowerPath) {
-		return true
-	}
-
 	return false
 }
 
@@ -233,7 +218,7 @@ func (e *extension) EditResults(results *core.Results) {
 	for file, records := range results.StatRecordsByFile {
 		// Vendored and minified code is not the project's to keep healthy, and
 		// was the hottest "hotspot" in at least one codebase.
-		if isExcludedFromCodeSmells(file) || results.ThirdPartyFiles[file] || results.GeneratedFiles[file] {
+		if excluded(e.files, results.FileRoles[file], results.FileSystemKinds[file], file) || results.ThirdPartyFiles[file] || results.GeneratedFiles[file] {
 			continue // skip excluded files entirely from codesmell evaluations
 		}
 		fileStats := results.Calculate(records)

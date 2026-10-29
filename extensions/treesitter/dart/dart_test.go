@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/module"
 	"github.com/archstats/archstats/core/unit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,7 +74,7 @@ func analyse(t *testing.T) (map[string]*file.Results, map[string]*unit.Unit) {
 		all = append(all, res)
 		byName[p] = res
 	}
-	(&linker{root: root}).EditFileResults(all)
+	(&linker{modules: func() *module.Map { return module.Read(root, ManifestReaders()...) }}).EditFileResults(all)
 	units := map[string]*unit.Unit{}
 	for _, fr := range all {
 		for _, u := range fr.Units {

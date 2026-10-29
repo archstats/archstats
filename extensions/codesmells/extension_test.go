@@ -1,9 +1,11 @@
 package codesmells
 
 import (
-	"github.com/archstats/archstats/core/stats"
 	"math"
 	"testing"
+
+	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/stats"
 )
 
 func healthFor(t *testing.T, m fileMetrics, path string) healthBreakdown {
@@ -227,12 +229,12 @@ func TestNonCodeTextGetsNoCodeSmells(t *testing.T) {
 		"static/icons/logo.svg",
 		"dist-maps/app.js.map",
 	} {
-		if !isExcludedFromCodeSmells(p) {
+		if !excludedByRole(p) {
 			t.Errorf("%s: want excluded", p)
 		}
 	}
 	for _, p := range []string{"src/oscar/apps/basket/models.py", "client/src/App.tsx", "Nop.Core/Caching/CacheKey.cs"} {
-		if isExcludedFromCodeSmells(p) {
+		if excludedByRole(p) {
 			t.Errorf("%s: want a reading", p)
 		}
 	}
@@ -251,4 +253,10 @@ func TestHealthIsTenLessItsDeductions(t *testing.T) {
 			t.Errorf("%+v: health %v, deductions give %v", m, b.health, want)
 		}
 	}
+}
+
+// excludedByRole judges a path as a scan with no pack would: by its format.
+func excludedByRole(p string) bool {
+	files := file.NewClassifier()
+	return excluded(files, files.Role(p, false, false, ""), "", p)
 }

@@ -1,4 +1,4 @@
-package module
+package apple
 
 import (
 	"os"
@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/archstats/archstats/core/module"
 )
 
 // ---------------------------------------------------------------------------
@@ -34,13 +36,13 @@ var (
 	swiftDepEntry = regexp.MustCompile(`"([^"]+)"|\.(?:target|byName|product)\s*\(\s*name\s*:\s*"([^"]+)"`)
 )
 
-func (swiftpmReader) Read(root, manifest string) []*Module {
-	raw, ok := readFile(manifest)
+func (swiftpmReader) Read(root, manifest string) []*module.Module {
+	raw, ok := module.ReadFile(manifest)
 	if !ok {
 		return nil
 	}
 	raw = stripSwiftComments(raw)
-	dir := relDir(root, manifest)
+	dir := module.RelDir(root, manifest)
 	// `.target(name:)` inside a dependency list is a reference to a target,
 	// not a declaration of one.
 	var lists [][2]int
@@ -55,7 +57,7 @@ func (swiftpmReader) Read(root, manifest string) []*Module {
 		}
 		return false
 	}
-	var out []*Module
+	var out []*module.Module
 	for _, loc := range swiftTargetCall.FindAllStringSubmatchIndex(raw, -1) {
 		if inList(loc[0]) {
 			continue
@@ -99,15 +101,15 @@ func (swiftpmReader) Read(root, manifest string) []*Module {
 				if isPackageArg(list, dep) {
 					continue
 				}
-				deps = appendUnique(deps, dep)
+				deps = module.AppendUnique(deps, dep)
 			}
 		}
 		typ := map[string]string{"target": "library", "executableTarget": "executable", "testTarget": "test",
 			"macro": "macro", "plugin": "plugin", "systemLibrary": "system-library"}[kind]
-		out = append(out, &Module{
+		out = append(out, &module.Module{
 			Name:      name,
 			Dir:       joinRel(dir, targetDir),
-			Manifest:  relFile(root, manifest),
+			Manifest:  module.RelFile(root, manifest),
 			DependsOn: deps,
 			Type:      typ,
 		})
@@ -135,8 +137,8 @@ type xcodeReader struct{}
 func (xcodeReader) Kind() string         { return "xcode" }
 func (xcodeReader) Claims(b string) bool { return b == "project.pbxproj" }
 
-func (xcodeReader) Read(root, manifest string) []*Module {
-	raw, ok := readFile(manifest)
+func (xcodeReader) Read(root, manifest string) []*module.Module {
+	raw, ok := module.ReadFile(manifest)
 	if !ok {
 		return nil
 	}
@@ -162,7 +164,7 @@ func (xcodeReader) Read(root, manifest string) []*Module {
 		return l
 	}
 	// The directory holding the .xcodeproj is SOURCE_ROOT.
-	projectDir := relDir(root, filepath.Dir(manifest))
+	projectDir := module.RelDir(root, filepath.Dir(manifest))
 
 	// Every group and file's path, resolved through the group tree.
 	paths := map[string]string{}
@@ -236,7 +238,7 @@ func (xcodeReader) Read(root, manifest string) []*Module {
 		}
 	}
 
-	var out []*Module
+	var out []*module.Module
 	names := map[string]string{} // target id -> name
 	for id, v := range objects {
 		if m, ok := v.(map[string]any); ok && str(m, "isa") == "PBXNativeTarget" {
@@ -250,7 +252,7 @@ func (xcodeReader) Read(root, manifest string) []*Module {
 	sort.Strings(ids)
 	for _, id := range ids {
 		t := obj(id)
-		mod := &Module{Name: names[id], Manifest: relFile(root, manifest), Type: xcodeProductType(str(t, "productType"))}
+		mod := &module.Module{Name: names[id], Manifest: module.RelFile(root, manifest), Type: xcodeProductType(str(t, "productType"))}
 		var files, dirs []string
 		for _, phase := range list(t, "buildPhases") {
 			ph := obj(phase)
@@ -271,12 +273,12 @@ func (xcodeReader) Read(root, manifest string) []*Module {
 		}
 		for _, d := range list(t, "dependencies") {
 			if n := names[str(obj(d), "target")]; n != "" {
-				mod.DependsOn = appendUnique(mod.DependsOn, n)
+				mod.DependsOn = module.AppendUnique(mod.DependsOn, n)
 			}
 		}
 		for _, d := range list(t, "packageProductDependencies") {
 			if n := str(obj(d), "productName"); n != "" {
-				mod.DependsOn = appendUnique(mod.DependsOn, n)
+				mod.DependsOn = module.AppendUnique(mod.DependsOn, n)
 			}
 		}
 		// The directory is where the target's own code is: the folders it
@@ -592,3 +594,6 @@ func (p *plistParser) value() any {
 		return p.s[start:p.i]
 	}
 }
+
+// ManifestReaders reads SwiftPM manifests and Xcode projects.
+func ManifestReaders() []module.Reader { return []module.Reader{swiftpmReader{}, xcodeReader{}} }

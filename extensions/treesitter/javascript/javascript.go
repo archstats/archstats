@@ -4,6 +4,7 @@ import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	javascript "github.com/tree-sitter/tree-sitter-javascript/bindings/go"
 )
@@ -12,6 +13,10 @@ type Extension struct {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
+	settings.RegisterConventions(ecmascript.Conventions())
+	for _, r := range ecmascript.ManifestReaders() {
+		settings.RegisterModuleReader(r)
+	}
 	settings.RegisterFileAnalyzer(&jsAnalyzer{lp: createJavaScriptLanguagePack()})
 	return nil
 }
@@ -27,8 +32,8 @@ func (a *jsAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	if res == nil {
 		return nil
 	}
-	common.KeepReactOnlyWhereUsed(f.Path(), res)
-	res.Units = common.JSUnitsFrom(f.Path(), f.Content(), res)
+	ecmascript.KeepReactOnlyWhereUsed(f.Path(), res)
+	res.Units = ecmascript.UnitsFrom(f.Path(), f.Content(), res)
 	return res
 }
 
@@ -42,7 +47,7 @@ func createJavaScriptLanguagePack() *common.LanguagePack {
 	language := tree_sitter.NewLanguage(javascript.Language())
 	template := &common.LanguagePackTemplate{
 		FileGlob:   "**/*.{js,jsx,mjs,cjs}",
-		Complexity: common.JSComplexity,
+		Complexity: ecmascript.Complexity,
 		Language:   language,
 		QueriesForStats: []string{
 			// Imports: capture string inside import/export statements
@@ -83,7 +88,7 @@ func createJavaScriptLanguagePack() *common.LanguagePack {
 			// React Hooks: useQuery, useEffect, etc. (call expressions starting with "use" followed by uppercase)
 			`(call_expression function: (identifier) @js__react__hooks (#match? @js__react__hooks "^use[A-Z]"))`,
 		},
-		QueriesForSnippets: common.JSUnitQueries("identifier", false),
+		QueriesForSnippets: ecmascript.UnitQueries("identifier", false),
 		SnippetTransformers: map[string]func(*file.Snippet) *file.Snippet{
 			file.ComponentImport:         stripQuotes,
 			file.ComponentImportTypeOnly: stripQuotes,

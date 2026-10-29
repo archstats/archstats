@@ -1,9 +1,11 @@
-package common
+package ecmascript
 
-// JSComplexity reads JavaScript's and TypeScript's functions for code
+import "github.com/archstats/archstats/extensions/treesitter/common"
+
+// Complexity reads JavaScript's and TypeScript's functions for code
 // health. An arrow function assigned to a name takes that name; one passed
 // as an argument nests inside the function that passes it.
-var JSComplexity = &Complexity{
+var Complexity = &common.Complexity{
 	Functions: []string{"function_declaration", "generator_function_declaration", "method_definition", "arrow_function",
 		"function_expression", "function", "generator_function"},
 	Ifs:         []string{"if_statement"},

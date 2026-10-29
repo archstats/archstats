@@ -43,6 +43,7 @@ func Extension() core.Extension {
 func (e *extension) Init(a core.Analyzer) error {
 	// A desktop app scans many times with one set of extensions.
 	e.files, e.kinds, e.model = map[string][]byte{}, map[string]string{}, nil
+	a.RegisterConventions(Conventions())
 	a.RegisterFileAnalyzer(e)
 	a.RegisterResultsEditor(e)
 	for _, v := range []*core.ViewFactory{
@@ -101,7 +102,7 @@ func (e *extension) AnalyzeFile(f file.File) *file.Results {
 // or load with no kind at all.
 func KindOf(path string, content []byte) (kind string, keep bool) {
 	p := strings.TrimPrefix(path, "./")
-	kind = file.SystemKind(path, content)
+	kind = SystemKind(path, content)
 	base := strings.ToLower(filepath.Base(p))
 	switch {
 	case jenkinsVar.MatchString(p):

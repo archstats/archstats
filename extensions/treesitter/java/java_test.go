@@ -1,6 +1,12 @@
 package java
 
 import (
+	"io/fs"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
@@ -8,11 +14,6 @@ import (
 	"github.com/archstats/archstats/extensions/treesitter/common"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
-	"io/fs"
-	"os"
-	"strings"
-	"testing"
-	"time"
 )
 
 func TestImports(t *testing.T) {

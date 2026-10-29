@@ -1,4 +1,4 @@
-package common
+package ecmascript
 
 import (
 	"path"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/unit"
+	"github.com/archstats/archstats/extensions/treesitter/common"
 )
 
 // Units for the two grammars that share a language.
@@ -80,12 +81,12 @@ const jsFactories = `^(defineStore|defineComponent|createSlice|createApi)$`
 // value.
 const jsWrappers = `^(forwardRef|memo|observer|createAsyncThunk|createSelector)$`
 
-// JSUnitQueries are the snippet queries for a JavaScript-family grammar.
+// UnitQueries are the snippet queries for a JavaScript-family grammar.
 //
 // `typeIdentifier` differs between them: TypeScript names a class with a
 // type_identifier and JavaScript with a plain identifier, and a query naming
 // the wrong node compiles to nothing rather than failing.
-func JSUnitQueries(typeIdentifier string, withTypes bool) []string {
+func UnitQueries(typeIdentifier string, withTypes bool) []string {
 	queries := []string{
 		`(class_declaration name: (` + typeIdentifier + `) @` + CaptureJSClass + `)`,
 
@@ -247,25 +248,7 @@ func DefaultExportName(filePath string) string {
 	return base
 }
 
-// ModuleOf is the module a file is, which is its path without the extension.
-// `client/src/utils/rules.ts` is the module `client/src/utils/rules`, and an
-// index file is named by its directory the way an import writes it.
-func ModuleOf(filePath string) string {
-	p := path.Clean(strings.TrimPrefix(filePath, "./"))
-	ext := path.Ext(p)
-	p = strings.TrimSuffix(p, ext)
-	// A package's own file is named by its directory: `index.ts` is what
-	// `import "./components"` means, and Python's `__init__.py` is what
-	// `from oscar import get_version` means.
-	if base := path.Base(p); base == "index" || (base == "__init__" && ext == ".py") {
-		if dir := path.Dir(p); dir != "." && dir != "/" {
-			return dir
-		}
-	}
-	return p
-}
-
-// JSUnitsFrom builds units from what the shared queries captured.
+// UnitsFrom builds units from what the shared queries captured.
 //
 // content is the file, used to find where an imported name is actually used.
 // Nothing in a tree-sitter query can ask "where is this identifier
@@ -273,7 +256,7 @@ func ModuleOf(filePath string) string {
 // millions of snippets in the database to throw almost all of them away, so
 // the usages are found by scanning for the name and attributed to whichever
 // declaration's span contains them.
-func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit {
+func UnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit {
 	module := ModuleOf(filePath)
 
 	var classes, shapes, functions, methods, decorators, factories, supertypes, wrappers []*file.Snippet
@@ -427,8 +410,8 @@ func JSUnitsFrom(filePath string, content []byte, res *file.Results) []*unit.Uni
 	}
 	ownNested(out, declaredBy, spans)
 
-	moduleRefs := AttachRefs(out, declaredBy, content, bindings, sources, importSpans, spans)
-	if mu := ModuleUnit(module, filePath, moduleRefs); mu != nil {
+	moduleRefs := common.AttachRefs(out, declaredBy, content, bindings, sources, importSpans, spans, ImportedRef)
+	if mu := common.ModuleUnit(module, filePath, moduleRefs); mu != nil {
 		out = append(out, mu)
 	}
 	return out
@@ -512,103 +495,6 @@ func ownNested(units []*unit.Unit, declaredBy []*file.Snippet, spans []*file.Sni
 	}
 }
 
-// ModuleUnit is the file itself, as the unit that makes the references its
-// declarations do not: top-level code, a barrel's re-exported names, a test
-// file's calls. Without it a file declaring nothing could never be an edge's
-// source, so every barrel, context file and spec lost all of its imports --
-// 191 of them in LibreChat alone. Returns nil when the module itself uses
-// nothing, so a file is not given a unit only to stand for nothing.
-//
-// Its id ends in "#" with no name, so it can be a reference's source but
-// never a target: nothing imports "the module" by name.
-func ModuleUnit(module, filePath string, refs []unit.Ref) *unit.Unit {
-	if len(refs) == 0 {
-		return nil
-	}
-	return &unit.Unit{
-		ID:    module + "#",
-		Kind:  unit.KindModule,
-		Name:  path.Base(module),
-		Files: []string{filePath},
-		Refs:  refs,
-	}
-}
-
-// AttachRefs works out which unit used which imported name, and returns the
-// references the module itself makes: uses outside every declaration.
-//
-// An import clause says what was taken and from where; the usages say by
-// whom. declaredBy is the snippet that declares each unit, index for index
-// (nil for a unit with no span of its own); a declaration span belongs to the
-// unit whose own declaring name sits inside it. It used to be matched by
-// name, which gave every method called render the first render's span.
-//
-// The usages are found by scanning the file for the name, because nothing in
-// a tree-sitter query can ask "where is this identifier referenced" and
-// capturing every identifier would put millions of snippets in the database
-// to throw almost all of them away. Textual rather than semantic: a name in
-// a comment or a string counts, which overstates a little and is far better
-// than the alternative of attributing every import to every unit in the file.
-func AttachRefs(units []*unit.Unit, declaredBy []*file.Snippet, content []byte, bindings, sources, importSpans, spans []*file.Snippet) []unit.Ref {
-	if len(bindings) == 0 {
-		return nil
-	}
-	type span struct {
-		begin, end int
-		unitIdx    int
-	}
-	var owned []span
-	for _, sp := range spans {
-		best, bestOffset := -1, 0
-		for i, d := range declaredBy {
-			if d == nil || i >= len(units) {
-				continue
-			}
-			off := d.Begin.Offset
-			if off < sp.Begin.Offset || off > sp.End.Offset {
-				continue
-			}
-			if best == -1 || off < bestOffset {
-				best, bestOffset = i, off
-			}
-		}
-		if best >= 0 {
-			owned = append(owned, span{begin: sp.Begin.Offset, end: sp.End.Offset, unitIdx: best})
-		}
-	}
-	// Innermost first, so a method inside a class is preferred over the class.
-	sort.SliceStable(owned, func(i, j int) bool {
-		return (owned[i].end - owned[i].begin) < (owned[j].end - owned[j].begin)
-	})
-
-	var moduleRefs []unit.Ref
-	text := string(content)
-	for _, b := range bindings {
-		source := firstSourceAfter(b, sources, importSpans)
-		if source == "" || b.Value == "" {
-			continue
-		}
-		ref := ImportedRef(source, b.Value)
-		for _, at := range occurrencesOf(text, b.Value) {
-			if insideAny(at, importSpans) {
-				continue
-			}
-			attributed := false
-			for _, sp := range owned {
-				if at >= sp.begin && at <= sp.end {
-					units[sp.unitIdx].Refs = appendRef(units[sp.unitIdx].Refs, ref)
-					attributed = true
-					break
-				}
-			}
-			if !attributed {
-				moduleRefs = appendRef(moduleRefs, ref)
-			}
-		}
-	}
-	return moduleRefs
-}
-
 // importedName is the unit an import clause takes. A single-file component
 // exports one thing, the component, whatever the importer calls it: `import
 // Panel from "./ChatPanel.vue"` takes ChatPanel, named for its file the way
@@ -646,25 +532,75 @@ func ImportBindings(res *file.Results) map[string]string {
 	}
 	out := map[string]string{}
 	for _, b := range bindings {
-		if source := firstSourceAfter(b, sources, importSpans); source != "" && b.Value != "" {
+		if source := common.FirstSourceAfter(b, sources, importSpans); source != "" && b.Value != "" {
 			out[b.Value] = source
 		}
 	}
 	return out
 }
 
-// ImportedRef is the reference a use of an imported name makes.
-func ImportedRef(source, binding string) unit.Ref {
-	return unit.Ref{Module: source, Name: importedName(source, binding)}
+// ModuleOf is the module a JavaScript or TypeScript file is: its path
+// without the extension, and an index file named by its directory the way an
+// import writes it.
+func ModuleOf(filePath string) string {
+	return common.ModuleOf(filePath, "index")
 }
 
-func appendRef(list []unit.Ref, r unit.Ref) []unit.Ref {
-	for _, existing := range list {
-		if existing == r {
-			return list
+// ImportedRef is the reference a use of an imported name makes.
+func ImportedRef(source, binding string) unit.Ref {
+	ref := unit.Ref{Module: source, Name: importedName(source, binding)}
+	p := withoutSourceExtension(source)
+	if p != source {
+		ref.Path = p
+	}
+	ref.Unaliased = withoutAliasPrefix(p)
+	return ref
+}
+
+// withoutAliasPrefix strips a project's own import alias, leaving the path
+// the file tree can be searched for. Returns "" when the module carries no
+// alias, so a bare package name is never mangled into a false match.
+//
+// `~/` and `@/` are the two conventions nearly every TypeScript project
+// configures; `@scope/pkg` is a published package unless the rest of it
+// matches a real directory, which the resolver's suffix search decides
+// rather than this.
+//
+// This is not a detail. LibreChat writes 3,485 of its 7,984 imports this
+// way, against 1,766 relative ones: read without it, 81% of its units have
+// no edge at all and the graph is empty for the language that needs it most.
+func withoutAliasPrefix(module string) string {
+	switch {
+	case strings.HasPrefix(module, "~/"), strings.HasPrefix(module, "@/"):
+		return module[2:]
+	case strings.HasPrefix(module, "~"), strings.HasPrefix(module, "@"):
+		// `@acme/shared/thing` keeps everything after the scope, because the
+		// scope is the publisher and the rest is the path.
+		if i := strings.Index(module, "/"); i > 0 && i+1 < len(module) {
+			return module[i+1:]
 		}
 	}
-	return append(list, r)
+	return ""
+}
+
+// withoutSourceExtension drops the file extension an import path spells out,
+// because a module is named for its file without one. `./ChatPanel.vue` is
+// the only way to import a Vue component, and `./reader.js` is how ESM
+// TypeScript must write `./reader`; kept, neither names any module. Only a
+// path is touched: a bare package name is not a file. An index file is named
+// by its directory, so `./components/index.js` is `./components`.
+func withoutSourceExtension(module string) string {
+	if !strings.Contains(module, "/") {
+		return module
+	}
+	switch path.Ext(module) {
+	case ".vue", ".svelte", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts":
+		module = strings.TrimSuffix(module, path.Ext(module))
+		if path.Base(module) == "index" {
+			module = path.Dir(module)
+		}
+	}
+	return module
 }
 
 // The snippet that named a unit, so a declaration span can be matched to it.
@@ -675,57 +611,6 @@ func nameSnippetOf(u *unit.Unit, nameSnippets []*file.Snippet) *file.Snippet {
 		}
 	}
 	return nil
-}
-
-// The module an import clause took its names from: the first source string
-// inside the same import statement.
-func firstSourceAfter(binding *file.Snippet, sources, importSpans []*file.Snippet) string {
-	for _, span := range importSpans {
-		if binding.Begin.Offset < span.Begin.Offset || binding.Begin.Offset > span.End.Offset {
-			continue
-		}
-		for _, src := range sources {
-			if src.Begin.Offset >= span.Begin.Offset && src.End.Offset <= span.End.Offset {
-				return src.Value
-			}
-		}
-	}
-	return ""
-}
-
-func insideAny(offset int, spans []*file.Snippet) bool {
-	for _, s := range spans {
-		if offset >= s.Begin.Offset && offset <= s.End.Offset {
-			return true
-		}
-	}
-	return false
-}
-
-// Whole-word occurrences of a name. Textual rather than semantic: a name in
-// a comment or a string counts, which overstates a little and is far better
-// than the alternative of attributing every import to every unit in the file.
-func occurrencesOf(text, name string) []int {
-	var out []int
-	for from := 0; ; {
-		idx := strings.Index(text[from:], name)
-		if idx < 0 {
-			return out
-		}
-		at := from + idx
-		from = at + len(name)
-		if at > 0 && isWordByte(text[at-1]) {
-			continue
-		}
-		if end := at + len(name); end < len(text) && isWordByte(text[end]) {
-			continue
-		}
-		out = append(out, at)
-	}
-}
-
-func isWordByte(b byte) bool {
-	return b == '_' || b == '$' || (b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
 func byOffset(snippets []*file.Snippet) {

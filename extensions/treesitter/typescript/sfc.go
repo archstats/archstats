@@ -8,6 +8,7 @@ import (
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/unit"
 	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	"github.com/archstats/archstats/extensions/treesitter/javascript"
 	"github.com/gobwas/glob"
 )
@@ -54,7 +55,7 @@ func (a *sfcAnalyzer) analyze(filePath string, content []byte) *file.Results {
 	if res == nil {
 		return nil
 	}
-	common.KeepReactOnlyWhereUsed(filePath, res)
+	ecmascript.KeepReactOnlyWhereUsed(filePath, res)
 	res.Units = sfcUnits(filePath, content, res, blocks)
 	return res
 }
@@ -162,7 +163,7 @@ func maskOutside(content []byte, blocks []scriptBlock) []byte {
 // a template write it `<chat-panel>`, which no textual search for the name
 // finds; those tags are matched to imported names separately.
 func sfcUnits(filePath string, content []byte, res *file.Results, blocks []scriptBlock) []*unit.Unit {
-	module := common.ModuleOf(filePath)
+	module := ecmascript.ModuleOf(filePath)
 	name := componentName(filePath)
 	component := &unit.Unit{
 		ID:      module + "#" + name,
@@ -173,7 +174,7 @@ func sfcUnits(filePath string, content []byte, res *file.Results, blocks []scrip
 	}
 
 	out := []*unit.Unit{component}
-	for _, u := range common.JSUnitsFrom(filePath, content, res) {
+	for _, u := range ecmascript.UnitsFrom(filePath, content, res) {
 		switch {
 		case u.Kind == unit.KindModule && u.ID == module+"#":
 			component.Refs = appendRefs(component.Refs, u.Refs...)
@@ -194,10 +195,10 @@ func sfcUnits(filePath string, content []byte, res *file.Results, blocks []scrip
 		out = append(out, u)
 	}
 
-	bindings := common.ImportBindings(res)
+	bindings := ecmascript.ImportBindings(res)
 	for _, tag := range kebabTags(content, blocks) {
 		if source, ok := bindings[pascalCase(tag)]; ok {
-			component.Refs = appendRefs(component.Refs, common.ImportedRef(source, pascalCase(tag)))
+			component.Refs = appendRefs(component.Refs, ecmascript.ImportedRef(source, pascalCase(tag)))
 		}
 	}
 	return out
@@ -207,7 +208,7 @@ func sfcUnits(filePath string, content []byte, res *file.Results, blocks []scrip
 // first dot. Vue registers `components/ChatPanel.vue` as ChatPanel, and Nuxt
 // `ChatPanel.client.vue` as ChatPanel too.
 func componentName(filePath string) string {
-	return common.DefaultExportName(filePath)
+	return ecmascript.DefaultExportName(filePath)
 }
 
 func frameworkOf(filePath string) string {

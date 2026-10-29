@@ -26,8 +26,12 @@ import (
 type Extension struct{}
 
 func (e *Extension) Init(settings core.Analyzer) error {
+	settings.RegisterConventions(apple.Conventions())
+	for _, r := range apple.ManifestReaders() {
+		settings.RegisterModuleReader(r)
+	}
 	settings.RegisterFileAnalyzer(&analyzer{lp: createPack()})
-	settings.RegisterFileResultsEditor(&apple.Linker{Root: settings.RootPath()})
+	settings.RegisterFileResultsEditor(&apple.Linker{Modules: settings.Modules})
 	return nil
 }
 

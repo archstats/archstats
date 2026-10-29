@@ -1,9 +1,10 @@
-package module
+package apple
 
 import (
-	"os"
 	"testing"
 
+	"github.com/archstats/archstats/core/module"
+	"github.com/archstats/archstats/core/module/moduletest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,9 +40,9 @@ package.targets.append(contentsOf: [
 
 func TestSwiftPM_Targets(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, root, "Packages/Timeline/Package.swift", packageSwift)
-	m := Read(root)
-	byName := map[string]*Module{}
+	moduletest.Write(t, root, "Packages/Timeline/Package.swift", packageSwift)
+	m := module.Read(root, ManifestReaders()...)
+	byName := map[string]*module.Module{}
 	for _, mod := range m.Modules() {
 		byName[mod.Name] = mod
 	}
@@ -90,9 +91,9 @@ const pbxproj = `// !$*UTF8*$!
 
 func TestXcode_Targets(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, root, "ios/MyApp.xcodeproj/project.pbxproj", pbxproj)
-	m := Read(root)
-	byName := map[string]*Module{}
+	moduletest.Write(t, root, "ios/MyApp.xcodeproj/project.pbxproj", pbxproj)
+	m := module.Read(root, ManifestReaders()...)
+	byName := map[string]*module.Module{}
 	for _, mod := range m.Modules() {
 		byName[mod.Name] = mod
 	}
@@ -110,56 +111,4 @@ func TestXcode_Targets(t *testing.T) {
 	assert.Equal(t, "ios/Widget", w.Dir, "a synchronised folder is the target's directory")
 	assert.Equal(t, "WidgetExtension", m.NameOf("ios/Widget/Provider.swift"))
 	assert.Equal(t, "MyApp", m.NameOf("ios/MyApp/Feed/Feed.swift"))
-}
-
-// Probe against a real checkout: ARCHSTATS_MODULE_PROBE=/path go test -run Probe -v
-func TestProbe(t *testing.T) {
-	dir := os.Getenv("ARCHSTATS_MODULE_PROBE")
-	if dir == "" {
-		t.Skip()
-	}
-	for _, mod := range Read(dir).Modules() {
-		t.Logf("%-8s %-18s %-40s %-50s files=%d deps=%v", mod.Kind, mod.Type, mod.Name, mod.Dir, len(mod.Files), mod.DependsOn)
-	}
-}
-
-func TestPub(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, root, "mobile/pubspec.yaml", "name: immich_mobile\ndependencies:\n  flutter:\n    sdk: flutter\n  hooks_riverpod: ^2.4.0\n  openapi:\n    path: openapi\ndev_dependencies:\n  build_runner: any\n")
-	writeFile(t, root, "mobile/lib/main.dart", "void main() {}")
-	writeFile(t, root, "mobile/openapi/pubspec.yaml", "name: openapi\ndependencies:\n  http: any\n")
-	m := Read(root)
-	app := m.ByName("immich_mobile")
-	require.NotNil(t, app)
-	assert.Equal(t, "pub", app.Kind)
-	assert.Equal(t, "flutter-app", app.Type)
-	assert.Equal(t, "mobile", app.Dir)
-	assert.Equal(t, []string{"flutter", "hooks_riverpod", "openapi", "build_runner"}, app.DependsOn)
-	assert.Equal(t, "dart-package", m.ByName("openapi").Type)
-	assert.Equal(t, "openapi", m.NameOf("mobile/openapi/lib/api.dart"))
-}
-
-// Signal applies precompiled script plugins; Thunderbird names its plugins
-// through constants. Neither says "android" where the plugin is applied.
-func TestGradle_ConventionPluginTypes(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, root, "settings.gradle.kts", ``)
-	writeFile(t, root, "build-logic/plugins/src/main/java/signal-library.gradle.kts", "plugins {\n  id(\"com.android.library\")\n  id(\"kotlin-android\")\n}\n")
-	writeFile(t, root, "core/util/build.gradle.kts", "plugins {\n  id(\"signal-library\")\n  id(\"kotlin-parcelize\")\n}\n")
-	writeFile(t, root, "app-thunderbird/build.gradle.kts", "plugins {\n    id(ThunderbirdPlugins.App.androidCompose)\n}\n")
-	writeFile(t, root, "feature/mail/build.gradle.kts", "plugins {\n    id(ThunderbirdPlugins.Library.androidCompose)\n}\n")
-	writeFile(t, root, "core/common/build.gradle.kts", "plugins {\n    id(ThunderbirdPlugins.Library.kmp)\n}\n")
-	m := Read(root)
-	typeOf := func(dir string) string {
-		for _, mod := range m.Modules() {
-			if mod.Dir == dir {
-				return mod.Type
-			}
-		}
-		return "(missing)"
-	}
-	assert.Equal(t, "android-library", typeOf("core/util"))
-	assert.Equal(t, "android-application", typeOf("app-thunderbird"))
-	assert.Equal(t, "android-library", typeOf("feature/mail"))
-	assert.Equal(t, "kotlin-multiplatform", typeOf("core/common"))
 }

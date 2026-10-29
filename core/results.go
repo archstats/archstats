@@ -2,6 +2,10 @@ package core
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
+	"sync"
+
 	"github.com/archstats/archstats/core/component"
 	definitions2 "github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
@@ -11,9 +15,6 @@ import (
 	"github.com/archstats/archstats/core/walker"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
-	"path/filepath"
-	"strings"
-	"sync"
 )
 
 // Results represents the results of an analysis in pre-aggregated form.
@@ -204,10 +205,11 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 	fileToDirectory := lo.MapValues(statsByFile, func(snippets *stats.Stats, file string) string {
 		return file[:strings.LastIndex(file, "/")]
 	})
-	// Modules are read from the manifests among the files the walker found,
-	// so .gitignore and .archstatsignore are honoured for free (ADR 0012).
 	allFileNames := lo.Map(fileResults, func(fr *file.Results, _ int) string { return fr.Name })
-	moduleMap := module.ReadFrom(rootPath, allFileNames)
+	moduleMap := settings.modules
+	if moduleMap == nil {
+		moduleMap = module.New()
+	}
 	fileToModule := make(map[string]string, len(allFileNames))
 	moduleToFiles := make(map[string][]string)
 	for _, name := range allFileNames {
@@ -347,7 +349,7 @@ func (r *Results) GetDefinition(str string) *definitions2.Definition {
 	return r.definitions[str]
 }
 
-func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer, opts walker.Options) ([]*file.Results, *walker.Report, error) {
+func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer, classifier *file.Classifier, opts walker.Options) ([]*file.Results, *walker.Report, error) {
 	var allFileResults []*file.Results
 
 	lock := sync.Mutex{}
@@ -360,8 +362,11 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer, opts walke
 			}
 		}
 		currentFileResults := mergeFileResults(currentFileResultsToMerge)
-		currentFileResults.ThirdParty = file.IsThirdParty(theFile.Path(), theFile.Content())
-		currentFileResults.Generated = !currentFileResults.ThirdParty && file.IsGenerated(theFile.Content())
+		class := classifier.Classify(theFile.Path(), theFile.Content())
+		currentFileResults.ThirdParty = class.ThirdParty
+		currentFileResults.Generated = class.Generated
+		currentFileResults.Role = class.Role
+		currentFileResults.SystemKind = class.SystemKind
 		// Recorded as stats too, so a reader of the snapshot can tell which
 		// files are not the project's own writing.
 		if currentFileResults.ThirdParty {
@@ -369,10 +374,6 @@ func getAllFileResults(rootPath string, fileAnalyzers []FileAnalyzer, opts walke
 		}
 		if currentFileResults.Generated {
 			currentFileResults.Stats = append(currentFileResults.Stats, &stats.Record{StatType: file.GeneratedFileCount, Value: 1})
-		}
-		currentFileResults.Role = file.Role(theFile.Path(), currentFileResults.ThirdParty, currentFileResults.Generated)
-		if !currentFileResults.ThirdParty {
-			currentFileResults.SystemKind = file.SystemKind(theFile.Path(), theFile.Content())
 		}
 		// Test code counted apart, so a component's size can say how much of
 		// it is tests.

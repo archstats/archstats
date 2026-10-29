@@ -85,6 +85,15 @@ type Ref struct {
 	// into a sub-package the compiler would never look in. The empty module
 	// is a real one here: Go's root package declares its units there.
 	Exact bool `json:"exact,omitempty"`
+	// Path is the module as a path in this codebase, where the language
+	// writes it some other way: `./ChatPanel.vue` is the module
+	// `./ChatPanel`. Empty when Module already is one. Resolution uses Path;
+	// Module stays as written, so a reader sees why the edge exists.
+	Path string `json:"path,omitempty"`
+	// Unaliased is the module with the project's own import alias taken off,
+	// for a language whose projects alias their own source: `~/components/Chat`
+	// is `components/Chat`, wherever the tree keeps it. Tried after Path.
+	Unaliased string `json:"unaliased,omitempty"`
 }
 
 // A Unit is a named, addressable thing in the code.

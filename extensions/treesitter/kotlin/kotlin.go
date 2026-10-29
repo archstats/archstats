@@ -7,6 +7,7 @@ import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/jvm"
 	kotlin "github.com/fwcd/tree-sitter-kotlin/bindings/go"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
@@ -15,6 +16,10 @@ type Extension struct {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
+	settings.RegisterConventions(jvm.Conventions())
+	for _, r := range jvm.ManifestReaders() {
+		settings.RegisterModuleReader(r)
+	}
 	settings.RegisterFileAnalyzer(&kotlinAnalyzer{lp: createKotlinLanguagePack()})
 	return nil
 }

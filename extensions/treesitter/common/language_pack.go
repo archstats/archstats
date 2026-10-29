@@ -3,12 +3,13 @@ package common
 import (
 	"context"
 	"errors"
+	"strings"
+	"time"
+
 	"github.com/archstats/archstats/core/file"
 	"github.com/gobwas/glob"
 	"github.com/rs/zerolog/log"
 	sitter "github.com/tree-sitter/go-tree-sitter"
-	"strings"
-	"time"
 )
 
 type ComponentResolutionFunc func(r *file.Results) string

@@ -1,4 +1,4 @@
-package common
+package ecmascript
 
 import (
 	"testing"
@@ -43,7 +43,7 @@ func TestFunctionsAndClassesAreBothUnits(t *testing.T) {
 		snip(CaptureJSFunction, "MessageList", 200),
 	}}
 
-	units := JSUnitsFrom("client/src/chat.ts", nil, res)
+	units := UnitsFrom("client/src/chat.ts", nil, res)
 	assert.ElementsMatch(t, []string{
 		"client/src/chat#ChatStore",
 		"client/src/chat#useChat",
@@ -76,7 +76,7 @@ func TestMethodsBelongToTheClassThatHoldsThem(t *testing.T) {
 	}}
 
 	byID := map[string]*unit.Unit{}
-	for _, u := range JSUnitsFrom("src/two.ts", nil, res) {
+	for _, u := range UnitsFrom("src/two.ts", nil, res) {
 		byID[u.ID] = u
 	}
 
@@ -95,7 +95,7 @@ func TestMethodBeforeAnyClassHasNoOwner(t *testing.T) {
 		snip(CaptureJSClass, "Later", 100),
 	}}
 	byID := map[string]*unit.Unit{}
-	for _, u := range JSUnitsFrom("src/a.ts", nil, res) {
+	for _, u := range UnitsFrom("src/a.ts", nil, res) {
 		byID[u.ID] = u
 	}
 	assert.Empty(t, byID["src/a#orphan"].Owner)
@@ -112,7 +112,7 @@ func TestDecoratorsAttachToTheClassBelowThem(t *testing.T) {
 	}}
 
 	byID := map[string]*unit.Unit{}
-	for _, u := range JSUnitsFrom("src/user.ts", nil, res) {
+	for _, u := range UnitsFrom("src/user.ts", nil, res) {
 		byID[u.ID] = u
 	}
 	assert.True(t, byID["src/user#UserService"].HasMarker("Injectable"))
@@ -121,11 +121,11 @@ func TestDecoratorsAttachToTheClassBelowThem(t *testing.T) {
 
 func TestInterfacesAreTypesAndMarkedAsSuch(t *testing.T) {
 	res := &file.Results{Snippets: []*file.Snippet{snip(CaptureJSInterface, "Config", 0)}}
-	units := JSUnitsFrom("src/config.ts", nil, res)
+	units := UnitsFrom("src/config.ts", nil, res)
 	assert.Equal(t, unit.KindType, units[0].Kind)
 	assert.True(t, units[0].HasMarker("interface"))
 }
 
 func TestNothingDeclaredIsNoUnits(t *testing.T) {
-	assert.Empty(t, JSUnitsFrom("src/empty.ts", nil, &file.Results{}))
+	assert.Empty(t, UnitsFrom("src/empty.ts", nil, &file.Results{}))
 }

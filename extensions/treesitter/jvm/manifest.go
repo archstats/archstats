@@ -1,78 +1,13 @@
-package module
+package jvm
 
 import (
 	"encoding/xml"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/archstats/archstats/core/module"
 )
-
-// ---------------------------------------------------------------------------
-// dotnet: C#
-//
-// The `.csproj` is .NET's real module, and in nopCommerce it is the whole
-// architecture: 40 projects named `Nop.Core`, `Nop.Services`, `Nop.Data`,
-// `Nop.Web`, and `Nop.Plugin.Payments.PayPal` and thirty more like it. The
-// namespaces do not say which of those is a plugin. The project references
-// do, and they are what makes "core must never depend on a plugin"
-// checkable.
-// ---------------------------------------------------------------------------
-
-type dotnetReader struct{}
-
-func (dotnetReader) Kind() string { return "dotnet" }
-func (dotnetReader) Claims(b string) bool {
-	switch strings.ToLower(filepath.Ext(b)) {
-	case ".csproj", ".fsproj", ".vbproj":
-		return true
-	}
-	return false
-}
-
-type msbuildProject struct {
-	ItemGroups []struct {
-		ProjectReference []struct {
-			Include string `xml:"Include,attr"`
-		} `xml:"ProjectReference"`
-		PackageReference []struct {
-			Include string `xml:"Include,attr"`
-		} `xml:"PackageReference"`
-	} `xml:"ItemGroup"`
-}
-
-func (dotnetReader) Read(root, path string) []*Module {
-	raw, ok := readFile(path)
-	if !ok {
-		return nil
-	}
-	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-	if name == "" {
-		return nil
-	}
-	var proj msbuildProject
-	var deps []string
-	// A malformed or unusual project file still declares a module by its own
-	// name; only its dependencies are lost.
-	if xml.Unmarshal([]byte(raw), &proj) == nil {
-		for _, group := range proj.ItemGroups {
-			for _, ref := range group.ProjectReference {
-				// `..\Nop.Core\Nop.Core.csproj` names the project, not a path
-				// anybody downstream cares about.
-				p := strings.ReplaceAll(ref.Include, `\`, "/")
-				deps = appendUnique(deps, strings.TrimSuffix(filepath.Base(p), filepath.Ext(p)))
-			}
-			for _, ref := range group.PackageReference {
-				deps = appendUnique(deps, ref.Include)
-			}
-		}
-	}
-	return []*Module{{
-		Name:      name,
-		Dir:       relDir(root, path),
-		Manifest:  relFile(root, path),
-		DependsOn: deps,
-	}}
-}
 
 // ---------------------------------------------------------------------------
 // maven: Java
@@ -92,8 +27,8 @@ type pom struct {
 	} `xml:"dependencies"`
 }
 
-func (mavenReader) Read(root, path string) []*Module {
-	raw, ok := readFile(path)
+func (mavenReader) Read(root, path string) []*module.Module {
+	raw, ok := module.ReadFile(path)
 	if !ok {
 		return nil
 	}
@@ -104,13 +39,13 @@ func (mavenReader) Read(root, path string) []*Module {
 	var deps []string
 	for _, d := range p.Dependencies.Dependency {
 		if d.ArtifactId != "" {
-			deps = appendUnique(deps, d.ArtifactId)
+			deps = module.AppendUnique(deps, d.ArtifactId)
 		}
 	}
-	return []*Module{{
+	return []*module.Module{{
 		Name:      p.ArtifactId,
-		Dir:       relDir(root, path),
-		Manifest:  relFile(root, path),
+		Dir:       module.RelDir(root, path),
+		Manifest:  module.RelFile(root, path),
 		DependsOn: deps,
 	}}
 }
@@ -142,12 +77,12 @@ var gradleAccessorDep = regexp.MustCompile(`\bprojects\.([A-Za-z0-9_]+(?:\.[A-Za
 // which is the directory under the build's settings file with colons for
 // slashes. Named by its last directory instead, nowinandroid's feature
 // modules were all "impl" and "api".
-func (gradleReader) Read(root, path string) []*Module {
-	raw, ok := readFile(path)
+func (gradleReader) Read(root, path string) []*module.Module {
+	raw, ok := module.ReadFile(path)
 	if !ok {
 		return nil
 	}
-	dir := relDir(root, path)
+	dir := module.RelDir(root, path)
 	name := gradleProjectPath(root, dir)
 	if name == "" {
 		// The root build script of a multi-module build configures the build
@@ -156,7 +91,7 @@ func (gradleReader) Read(root, path string) []*Module {
 	}
 	var deps []string
 	for _, m := range gradleProjectDep.FindAllStringSubmatch(raw, -1) {
-		deps = appendUnique(deps, strings.Trim(m[1], ":"))
+		deps = module.AppendUnique(deps, strings.Trim(m[1], ":"))
 	}
 	for _, m := range gradleAccessorDep.FindAllStringSubmatch(raw, -1) {
 		// `projects.core.data.dependencyProject` and `.path` are properties of
@@ -165,12 +100,12 @@ func (gradleReader) Read(root, path string) []*Module {
 		for len(segs) > 1 && (segs[len(segs)-1] == "path" || segs[len(segs)-1] == "dependencyProject") {
 			segs = segs[:len(segs)-1]
 		}
-		deps = appendUnique(deps, gradleAccessorPrefix+strings.Join(segs, ":"))
+		deps = module.AppendUnique(deps, gradleAccessorPrefix+strings.Join(segs, ":"))
 	}
-	return []*Module{{
+	return []*module.Module{{
 		Name:      name,
 		Dir:       dir,
-		Manifest:  relFile(root, path),
+		Manifest:  module.RelFile(root, path),
 		DependsOn: deps,
 		Type:      gradleModuleType(raw),
 	}}
@@ -200,7 +135,7 @@ func gradleProjectPath(root, dir string) string {
 
 func hasGradleSettings(dir string) bool {
 	for _, f := range []string{"settings.gradle.kts", "settings.gradle"} {
-		if _, ok := readFile(filepath.Join(dir, f)); ok {
+		if _, ok := module.ReadFile(filepath.Join(dir, f)); ok {
 			return true
 		}
 	}
@@ -264,19 +199,19 @@ func gradleModuleType(raw string) string {
 // and a directory is often kebab case, so both are compared with the case and
 // the separators taken out; an accessor that matches no module of this build
 // keeps its colon form.
-func resolveGradleAccessors(m *Map) {
+func resolveGradleAccessors(m *module.Map) {
 	norm := func(s string) string {
 		return strings.ToLower(strings.NewReplacer("-", "", "_", "", ".", "").Replace(s))
 	}
 	byNorm := map[string]string{}
-	for _, mod := range m.modules {
+	for _, mod := range m.Modules() {
 		if mod.Kind == "gradle" {
 			if _, taken := byNorm[norm(mod.Name)]; !taken {
 				byNorm[norm(mod.Name)] = mod.Name
 			}
 		}
 	}
-	for _, mod := range m.modules {
+	for _, mod := range m.Modules() {
 		for i, dep := range mod.DependsOn {
 			if !strings.HasPrefix(dep, gradleAccessorPrefix) {
 				continue
@@ -290,7 +225,7 @@ func resolveGradleAccessors(m *Map) {
 		// An accessor and a project() call can name the same module.
 		var uniq []string
 		for _, d := range mod.DependsOn {
-			uniq = appendUnique(uniq, d)
+			uniq = module.AppendUnique(uniq, d)
 		}
 		mod.DependsOn = uniq
 	}
@@ -311,7 +246,7 @@ func gradlePluginIDs(raw string) []string {
 		for _, m := range gradlePluginID.FindAllStringSubmatch(block[1]+block[2], -1) {
 			for _, g := range m[1:] {
 				if g != "" {
-					ids = appendUnique(ids, g)
+					ids = module.AppendUnique(ids, g)
 				}
 			}
 		}
@@ -328,7 +263,7 @@ func gradlePluginIDs(raw string) []string {
 //   - A constant naming the plugin, `id(ThunderbirdPlugins.App.androidCompose)`,
 //     whose words are the platform's once split at the capitals. Thunderbird
 //     applies its 152 modules' plugins this way.
-func typeGradleConventions(m *Map, root string, paths []string) {
+func typeGradleConventions(m *module.Map, root string, paths []string) {
 	scripts := map[string]string{} // plugin id -> script path
 	for _, p := range paths {
 		base := filepath.Base(p)
@@ -347,7 +282,7 @@ func typeGradleConventions(m *Map, root string, paths []string) {
 		if depth < 3 {
 			for _, id := range ids {
 				if script, ok := scripts[id]; ok {
-					if content, ok := readFile(filepath.Join(root, filepath.FromSlash(script))); ok {
+					if content, ok := module.ReadFile(filepath.Join(root, filepath.FromSlash(script))); ok {
 						if t := typeOf(content, depth+1); t != "" {
 							return t
 						}
@@ -357,11 +292,11 @@ func typeGradleConventions(m *Map, root string, paths []string) {
 		}
 		return typeFromWords(ids)
 	}
-	for _, mod := range m.modules {
+	for _, mod := range m.Modules() {
 		if mod.Kind != "gradle" || mod.Type != "" {
 			continue
 		}
-		if raw, ok := readFile(filepath.Join(root, filepath.FromSlash(mod.Manifest))); ok {
+		if raw, ok := module.ReadFile(filepath.Join(root, filepath.FromSlash(mod.Manifest))); ok {
 			mod.Type = typeOf(raw, 0)
 		}
 	}
@@ -387,3 +322,13 @@ func typeFromWords(ids []string) string {
 	}
 	return ""
 }
+
+// Finish resolves the type-safe project accessors against every Gradle
+// module read, and types the modules whose plugins are conventions.
+func (gradleReader) Finish(m *module.Map, root string, paths []string) {
+	resolveGradleAccessors(m)
+	typeGradleConventions(m, root, paths)
+}
+
+// ManifestReaders are the JVM build tools' readers: Maven and Gradle.
+func ManifestReaders() []module.Reader { return []module.Reader{mavenReader{}, gradleReader{}} }

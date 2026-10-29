@@ -9,7 +9,20 @@ import (
 
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/module"
+	"github.com/archstats/archstats/extensions/treesitter/apple"
+	"github.com/archstats/archstats/extensions/treesitter/csharp"
+	"github.com/archstats/archstats/extensions/treesitter/dart"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
+	"github.com/archstats/archstats/extensions/treesitter/golang"
+	"github.com/archstats/archstats/extensions/treesitter/jvm"
+	"github.com/archstats/archstats/extensions/treesitter/php"
+	"github.com/archstats/archstats/extensions/treesitter/python"
 )
+
+// testFiles judges roles by every pack's conventions, as a scan with all of
+// them would.
+var testFiles = file.NewClassifier(Conventions(), jvm.Conventions(), csharp.Conventions(), ecmascript.Conventions(),
+	golang.Conventions(), python.Conventions(), php.Conventions(), apple.Conventions(), dart.Conventions())
 
 // ws builds linker input from files written inline. Every path is walked;
 // roles and components come from the path, as a scan would give them.
@@ -17,7 +30,7 @@ func ws(files map[string]string, modules ...*module.Module) *Input {
 	in := &Input{Files: map[string][]byte{}, Kinds: map[string]string{}, Roles: map[string]string{}, Components: map[string]string{}, Modules: module.New(modules...)}
 	for p, c := range files {
 		in.AllFiles = append(in.AllFiles, p)
-		in.Roles[p] = file.Role(p, false, false)
+		in.Roles[p] = testFiles.Role(p, false, false, SystemKind(p, []byte(c)))
 		kind, keep := KindOf(p, []byte(c))
 		if keep {
 			in.Files[p] = []byte(c)

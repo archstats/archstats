@@ -1,9 +1,10 @@
-package module
+package dart
 
 import (
 	"path/filepath"
 	"sort"
 
+	"github.com/archstats/archstats/core/module"
 	"gopkg.in/yaml.v3"
 )
 
@@ -29,8 +30,8 @@ type pubspec struct {
 	Flutter         *yaml.Node           `yaml:"flutter"`
 }
 
-func (pubReader) Read(root, manifest string) []*Module {
-	raw, ok := readFile(manifest)
+func (pubReader) Read(root, manifest string) []*module.Module {
+	raw, ok := module.ReadFile(manifest)
 	if !ok {
 		return nil
 	}
@@ -46,22 +47,25 @@ func (pubReader) Read(root, manifest string) []*Module {
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			deps = appendUnique(deps, name)
+			deps = module.AppendUnique(deps, name)
 		}
 	}
 	_, flutter := p.Dependencies["flutter"]
 	typ := "dart-package"
 	if flutter {
 		typ = "flutter-package"
-		if _, ok := readFile(filepath.Join(filepath.Dir(manifest), "lib", "main.dart")); ok {
+		if _, ok := module.ReadFile(filepath.Join(filepath.Dir(manifest), "lib", "main.dart")); ok {
 			typ = "flutter-app"
 		}
 	}
-	return []*Module{{
+	return []*module.Module{{
 		Name:      p.Name,
-		Dir:       relDir(root, manifest),
-		Manifest:  relFile(root, manifest),
+		Dir:       module.RelDir(root, manifest),
+		Manifest:  module.RelFile(root, manifest),
 		DependsOn: deps,
 		Type:      typ,
 	}}
 }
+
+// ManifestReaders reads pubspec.yaml.
+func ManifestReaders() []module.Reader { return []module.Reader{pubReader{}} }

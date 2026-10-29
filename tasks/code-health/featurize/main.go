@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/engine"
 	"github.com/archstats/archstats/extensions/indentations"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 	csharp "github.com/tree-sitter/tree-sitter-c-sharp/bindings/go"
@@ -360,6 +360,9 @@ func (f *osFile) Content() []byte { return f.content }
 
 var skipDirs = of(".git", "node_modules", "vendor", "dist", "build", "target", "bower_components", ".venv", "venv", "__pycache__")
 
+// classifier judges files by every pack's conventions, as a scan would.
+var classifier = engine.Classifier()
+
 func main() {
 	if os.Args[1] == "touched" {
 		touched(os.Args[2], os.Args[3], os.Args[4])
@@ -396,12 +399,12 @@ func main() {
 		if err != nil || len(content) == 0 || len(content) > 2<<20 {
 			return nil
 		}
-		if file.IsGenerated(content) || file.IsThirdParty(rel, content) {
+		if classifier.IsGenerated(content) || classifier.IsThirdParty(rel, content) {
 			return nil
 		}
 		info, _ := d.Info()
 		res := ind.AnalyzeFile(&osFile{FileInfo: info, path: rel, content: content})
-		row := &fileRow{path: rel, lang: sp.name, test: file.IsTestPath(rel)}
+		row := &fileRow{path: rel, lang: sp.name, test: classifier.IsTestPath(rel)}
 		for _, r := range res.Stats {
 			switch r.StatType {
 			case indentations.Max:

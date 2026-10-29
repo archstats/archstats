@@ -56,7 +56,7 @@ func NewIndex(units []*Unit) *Index {
 	}
 	seen := map[string]bool{}
 	for _, u := range units {
-		module, name := splitID(u.ID)
+		module, name := splitID(u)
 		// Where every unit lives is recorded, the file-level module unit
 		// included: its relative imports resolve against it. Skipping it
 		// with the unnamed units below left "./reader" resolved against
@@ -101,59 +101,26 @@ func NewIndex(units []*Unit) *Index {
 	return idx
 }
 
-// withoutAliasPrefix strips a project's own import alias, leaving the path
-// the file tree can be searched for. Returns "" when the module carries no
-// alias, so a bare package name is never mangled into a false match.
-//
-// `~/` and `@/` are the two conventions nearly every TypeScript project
-// configures; `@scope/pkg` is a published package unless the rest of it
-// matches a real directory, which the suffix search decides rather than this.
-func withoutAliasPrefix(module string) string {
-	switch {
-	case strings.HasPrefix(module, "~/"), strings.HasPrefix(module, "@/"):
-		return module[2:]
-	case strings.HasPrefix(module, "~"), strings.HasPrefix(module, "@"):
-		// `@acme/shared/thing` keeps everything after the scope, because the
-		// scope is the publisher and the rest is the path.
-		if i := strings.Index(module, "/"); i > 0 && i+1 < len(module) {
-			return module[i+1:]
-		}
-	}
-	return ""
-}
-
-// withoutSourceExtension drops the file extension an import path spells out,
-// because a module is named for its file without one. `./ChatPanel.vue` is
-// the only way to import a Vue component, and `./reader.js` is how ESM
-// TypeScript must write `./reader`; kept, neither names any module. Only a
-// path is touched: a dotted Python or Java name is not a file. An index file
-// is named by its directory, so `./components/index.js` is `./components`.
-func withoutSourceExtension(module string) string {
-	if !strings.Contains(module, "/") {
-		return module
-	}
-	switch path.Ext(module) {
-	case ".vue", ".svelte", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts":
-		module = strings.TrimSuffix(module, path.Ext(module))
-		if path.Base(module) == "index" {
-			module = path.Dir(module)
-		}
-	}
-	return module
-}
-
-func splitID(id string) (module, name string) {
+// splitID parts a unit's id into the module it lives in and its name. An id
+// is `module#name`, or the module qualified by the name with one separator
+// between, whichever separator the language writes: `Acme.Order.Order`,
+// `Acme\Order\Order`.
+func splitID(u *Unit) (module, name string) {
+	id := u.ID
 	if i := strings.LastIndex(id, "#"); i >= 0 {
 		return id[:i], id[i+1:]
+	}
+	if n := len(id) - len(u.Name) - 1; u.Name != "" && n > 0 && strings.HasSuffix(id, u.Name) && !isWordByte(id[n]) {
+		return id[:n], u.Name
 	}
 	if i := strings.LastIndex(id, "."); i >= 0 {
 		return id[:i], id[i+1:]
 	}
-	// PHP names its namespaces with backslashes: Acme\Order\Order.
-	if i := strings.LastIndex(id, `\`); i >= 0 {
-		return id[:i], id[i+1:]
-	}
 	return "", id
+}
+
+func isWordByte(b byte) bool {
+	return b == '_' || b >= '0' && b <= '9' || b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z'
 }
 
 // Connections resolves every unit's references into edges.
@@ -193,7 +160,7 @@ func (idx *Index) resolve(from *Unit, ref Ref) string {
 	if ref.Exact {
 		return idx.byModuleAndName[ref.Module][ref.Name]
 	}
-	candidates := idx.candidateModules(from, ref.Module)
+	candidates := idx.candidateModules(from, ref)
 	for _, module := range candidates {
 		if names := idx.byModuleAndName[module]; names != nil {
 			if id, ok := names[ref.Name]; ok {
@@ -244,11 +211,14 @@ func (idx *Index) underDirectory(directories []string, name string) string {
 }
 
 // The modules a reference might mean, best first.
-func (idx *Index) candidateModules(from *Unit, module string) []string {
+func (idx *Index) candidateModules(from *Unit, ref Ref) []string {
+	module := ref.Path
+	if module == "" {
+		module = ref.Module
+	}
 	if module == "" {
 		return nil
 	}
-	module = withoutSourceExtension(module)
 	// Relative: resolved against the directory the reference was written in.
 	if strings.HasPrefix(module, ".") {
 		base := idx.moduleOf[from.ID]
@@ -269,18 +239,13 @@ func (idx *Index) candidateModules(from *Unit, module string) []string {
 		candidates = append(candidates, slashed)
 	}
 
-	// A project's own alias for its own source. `~/components/Chat` and
-	// `@/utils` name a directory inside this repository, and the prefix is
-	// configuration rather than part of the path -- so the tail is what the
-	// file tree can be searched for.
-	//
-	// This is not a detail. LibreChat writes 3,485 of its 7,984 imports this
-	// way, against 1,766 relative ones: read without it, 81% of its units
-	// have no edge at all and the graph is empty for the language that needs
-	// it most.
-	if tail := withoutAliasPrefix(module); tail != "" {
-		candidates = append(candidates, tail)
-		slashed = tail
+	// A project's own alias for its own source names a directory inside this
+	// repository, and the prefix is configuration rather than part of the
+	// path -- so the pack's unaliased tail is what the file tree is searched
+	// for, and it is preferred where it matches.
+	if ref.Unaliased != "" {
+		candidates = append(candidates, ref.Unaliased)
+		slashed = ref.Unaliased
 	}
 
 	// The two ways an import and a directory fail to line up, and they point

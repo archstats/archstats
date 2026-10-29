@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/archstats/archstats/core/unit"
-	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +74,7 @@ func TestACommonJSExpressAppReadsThroughRequire(t *testing.T) {
 	for p, src := range expressCJS {
 		res := pack.AnalyzeFileContent(p, []byte(src))
 		require.NotNil(t, res, p)
-		all = append(all, common.JSUnitsFrom(p, []byte(src), res)...)
+		all = append(all, ecmascript.UnitsFrom(p, []byte(src), res)...)
 	}
 	byID := map[string]*unit.Unit{}
 	for _, u := range all {
