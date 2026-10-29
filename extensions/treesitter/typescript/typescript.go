@@ -13,6 +13,7 @@ type Extension struct {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
+	settings.RegisterImportResolver(ecmascript.ImportResolver())
 	settings.RegisterConventions(ecmascript.Conventions())
 	for _, r := range ecmascript.ManifestReaders() {
 		settings.RegisterModuleReader(r)

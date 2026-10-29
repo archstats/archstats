@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/component"
 	"github.com/archstats/archstats/core/file"
 	"github.com/samber/lo"
 )
@@ -12,8 +13,10 @@ import (
 type componentLinker struct {
 	Strategy string
 	root     string
-	aliases  *aliasMap
-	goMods   *goModules
+	// The languages' own readings of their imports, asked before an import
+	// is read as a path. A func, because packs register theirs after this
+	// linker is made.
+	resolvers func() []component.ImportResolver
 }
 
 func (c *componentLinker) Init(settings core.Analyzer) error {
@@ -27,23 +30,17 @@ func (c *componentLinker) interfaceAssertions() core.FileResultsEditor {
 func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 	// Pre-map file name to its directory path
 	fileDirs := make(map[string]string, len(allFileResults))
-	names := make([]string, 0, len(allFileResults))
 	for _, fr := range allFileResults {
 		fileDirs[fr.Name] = fr.Directory
-		names = append(names, fr.Name)
 	}
-	dirs := newDirIndex(fileDirs)
+	dirs := component.NewDirIndex(fileDirs)
 
-	if c.aliases == nil {
-		c.aliases = readAliasesFrom(c.root, names)
+	var resolvers []component.ImportResolver
+	if c.resolvers != nil {
+		resolvers = c.resolvers()
 	}
-	if c.goMods == nil {
-		c.goMods = &goModules{mods: readGoModulesFrom(c.root, names), pkgDirs: map[string]bool{}}
-		for _, fr := range allFileResults {
-			if isGoFile(fr.Name) {
-				c.goMods.pkgDirs[fr.Directory] = true
-			}
-		}
+	for _, r := range resolvers {
+		r.Prepare(c.root, allFileResults)
 	}
 
 	// 1. Handle directory-based component strategy
@@ -117,23 +114,12 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 			// A type-only import resolves to a component exactly as an
 			// ordinary one does; only what it counts for differs.
 			if snippet.Type == file.ComponentImport || snippet.Type == file.ComponentImportTypeOnly || snippet.Type == file.ComponentImportDynamic {
-				// Go says exactly what its imports mean, in go.mod, and
-				// nothing else in the tree may answer for them: not a
-				// package.json name, and not a directory of TypeScript whose
-				// name happens to end the import path.
-				if isGoFile(snippet.File) {
-					if dir, ok := c.goMods.resolve(snippet.Value); ok {
-						snippet.Value = dir
-					}
+				// The language's own reading first: what its manifests and
+				// its rules say an import means. Only when none answers is it
+				// worth guessing from the shape of the tree.
+				if resolved, ok := resolveByLanguage(resolvers, snippet.File, fileDirs[snippet.File], snippet.Value, dirs); ok {
+					snippet.Value = resolved
 					continue
-				}
-				// The project's own vocabulary first. Only when nothing claims
-				// the name is it worth guessing from the shape of the tree.
-				if c.aliases != nil {
-					if resolved := c.aliases.resolve(snippet.Value, dirs); resolved != "" {
-						snippet.Value = resolved
-						continue
-					}
 				}
 				original := snippet.Value
 				snippet.Value = resolveImport(fileDirs[snippet.File], snippet.Value, dirs, declaredComponents)
@@ -152,7 +138,7 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 				// os, and is not, because it never reaches here.
 				if snippet.Type == file.ComponentImportDynamic {
 					if !actualComponents[snippet.Value] && !strings.ContainsAny(snippet.Value, "./\\") {
-						if best := dirs.shortestEndingIn(snippet.Value); best != "" {
+						if best := dirs.ShortestEndingIn(snippet.Value); best != "" {
 							snippet.Value = best
 						}
 					}
@@ -170,56 +156,20 @@ func (c *componentLinker) EditFileResults(allFileResults []*file.Results) {
 	}
 }
 
-// dirIndex holds the scan's directories so that resolving an import is a
-// lookup, not a pass over every file: on hibernate-orm those passes took 20
-// seconds, one import at a time.
-type dirIndex struct {
-	dirs map[string]bool
-	// bySuffix maps every whole-segment tail of a directory, the directory
-	// itself included, to the shortest directory ending in it.
-	bySuffix map[string]string
-}
-
-func newDirIndex(fileDirs map[string]string) *dirIndex {
-	x := &dirIndex{dirs: map[string]bool{}, bySuffix: map[string]string{}}
-	for _, dir := range fileDirs {
-		if x.dirs[dir] {
-			continue
-		}
-		x.dirs[dir] = true
-		tail := dir
-		for {
-			if best, ok := x.bySuffix[tail]; !ok || len(dir) < len(best) || (len(dir) == len(best) && dir < best) {
-				x.bySuffix[tail] = dir
-			}
-			i := strings.IndexByte(tail, '/')
-			if i < 0 {
-				break
-			}
-			tail = tail[i+1:]
+// resolveByLanguage is the first registered resolver's answer, if any has
+// one.
+func resolveByLanguage(resolvers []component.ImportResolver, fromFile, fromDir, imp string, dirs component.Dirs) (string, bool) {
+	for _, r := range resolvers {
+		if resolved, ok := r.Resolve(fromFile, fromDir, imp, dirs); ok {
+			return resolved, true
 		}
 	}
-	return x
+	return "", false
 }
 
-func (x *dirIndex) has(dir string) bool {
-	return x.dirs[dir]
-}
-
-// shortestEndingIn finds the directory a path names, wherever the import
-// root happens to sit in the tree. The shortest wins: between `src/acme/db`
-// and `vendor/other/src/acme/db`, the first is the one the code means. Two
-// of the same length (django-oscar's `catalogue/reviews` and
-// `dashboard/reviews` for the label `reviews`) are settled by name, so the
-// same code resolves the same way on every scan; map order used to decide.
-func (x *dirIndex) shortestEndingIn(path string) string {
-	if path == "" || path == "." || path == "/" {
-		return ""
-	}
-	return x.bySuffix[path]
-}
-
-func resolveImport(importingFileDir, importValue string, dirs *dirIndex, declaredComponents map[string]bool) string {
+// resolveImport reads an import as a path, whatever language wrote it:
+// relative to the importing file, as the tail of a directory, or dotted.
+func resolveImport(importingFileDir, importValue string, dirs component.Dirs, declaredComponents map[string]bool) string {
 	// 0. If it matches a declared component, keep it as is
 	if declaredComponents[importValue] {
 		return importValue
@@ -234,48 +184,13 @@ func resolveImport(importingFileDir, importValue string, dirs *dirIndex, declare
 		}
 	}
 
-	// 1. Python-style dot-relative imports (e.g. ".db", "..utils.crypto")
-	if strings.HasPrefix(importValue, ".") && !strings.Contains(importValue, "/") && !strings.Contains(importValue, "\\") {
-		// Count leading dots
-		dotsCount := 0
-		for dotsCount < len(importValue) && importValue[dotsCount] == '.' {
-			dotsCount++
-		}
-
-		// The rest of the import value after leading dots
-		rest := importValue[dotsCount:]
-		restSlashed := strings.ReplaceAll(rest, ".", "/")
-
-		// Calculate base directory by going up dotsCount - 1 levels
-		baseDir := importingFileDir
-		for i := 0; i < dotsCount-1; i++ {
-			baseDir = filepath.Dir(baseDir)
-		}
-
-		resolved := filepath.Join(baseDir, restSlashed)
-		resolved = strings.ReplaceAll(resolved, "\\", "/")
-
-		// If the resolved directory itself exists, return it
-		if dirs.has(resolved) {
-			return resolved
-		}
-
-		// If it's a file inside a known directory, resolve to its containing directory
-		parentDir := filepath.Dir(resolved)
-		parentDir = strings.ReplaceAll(parentDir, "\\", "/")
-		if dirs.has(parentDir) {
-			return parentDir
-		}
-		return resolved
-	}
-
-	// 2. Standard relative paths (JS/TS, e.g. "./foo", "../bar")
+	// 1. Relative paths: "./foo", "../bar"
 	if strings.HasPrefix(importValue, ".") {
 		resolved := filepath.Clean(filepath.Join(importingFileDir, importValue))
 		resolved = strings.ReplaceAll(resolved, "\\", "/")
 
 		// If the resolved directory itself exists, return it
-		if dirs.has(resolved) {
+		if dirs.Has(resolved) {
 			return resolved
 		}
 
@@ -283,24 +198,20 @@ func resolveImport(importingFileDir, importValue string, dirs *dirIndex, declare
 		// resolve to its containing directory
 		parentDir := filepath.Dir(resolved)
 		parentDir = strings.ReplaceAll(parentDir, "\\", "/")
-		if dirs.has(parentDir) {
+		if dirs.Has(parentDir) {
 			return parentDir
 		}
 		return resolved
 	}
 
-	// 3. JS/TS Alias and Path mappings (e.g. "@/components/foo", "~/utils/bar", "@components/baz", "components/foo")
-	if strings.HasPrefix(importValue, "@") || strings.HasPrefix(importValue, "~") || strings.Contains(importValue, "/") || strings.Contains(importValue, "\\") {
-		cleaned := importValue
-		cleaned = strings.ReplaceAll(cleaned, "\\", "/")
-		if strings.HasPrefix(cleaned, "@/") || strings.HasPrefix(cleaned, "~/") {
-			cleaned = cleaned[2:]
-		} else if strings.HasPrefix(cleaned, "@") || strings.HasPrefix(cleaned, "~") {
-			cleaned = cleaned[1:]
-		}
+	// 2. A path naming a directory wherever the import root sits:
+	// "components/foo" is the directory ending in it, or its parent when
+	// the path names a file.
+	if strings.Contains(importValue, "/") || strings.Contains(importValue, "\\") {
+		cleaned := strings.ReplaceAll(importValue, "\\", "/")
 
 		// Check if cleaned path itself is a suffix of any known directory
-		bestMatch := dirs.shortestEndingIn(cleaned)
+		bestMatch := dirs.ShortestEndingIn(cleaned)
 		if bestMatch != "" {
 			return bestMatch
 		}
@@ -309,31 +220,32 @@ func resolveImport(importingFileDir, importValue string, dirs *dirIndex, declare
 		parent := filepath.Dir(cleaned)
 		parent = strings.ReplaceAll(parent, "\\", "/")
 		if parent != "." && parent != "/" {
-			bestMatch = dirs.shortestEndingIn(parent)
+			bestMatch = dirs.ShortestEndingIn(parent)
 		}
 		if bestMatch != "" {
 			return bestMatch
 		}
 	}
 
-	// 3b. Slash-separated absolute imports: any import already written as a
+	// 3. Slash-separated absolute imports: any import already written as a
 	// path. Running one through the dotted branch below would split
 	// `github.com` into two directories that never existed. The longest tail
 	// of the path that names a directory is the component: longest first, so
 	// a last segment that happens to match some unrelated folder cannot win
-	// over the real match. Go never reaches here; it is resolved from go.mod
-	// (see gomod.go), because this guess also matches third-party packages.
+	// over the real match. A language whose imports carry more than a path
+	// -- Go's module prefix -- resolves them itself and never reaches here,
+	// because this guess also matches third-party packages.
 	if strings.Contains(importValue, "/") && !strings.HasPrefix(importValue, ".") {
 		cleaned := strings.Trim(strings.ReplaceAll(importValue, "\\", "/"), "/")
 		segments := strings.Split(cleaned, "/")
 		for start := 0; start < len(segments); start++ {
-			if best := dirs.shortestEndingIn(strings.Join(segments[start:], "/")); best != "" {
+			if best := dirs.ShortestEndingIn(strings.Join(segments[start:], "/")); best != "" {
 				return best
 			}
 		}
 	}
 
-	// 4. Python/Java dot-separated absolute imports (e.g. "my_package.sub_package")
+	// 4. Dotted absolute imports: "my_package.sub_package"
 	if strings.Contains(importValue, ".") && !strings.HasPrefix(importValue, ".") {
 		slashed := strings.ReplaceAll(importValue, ".", "/")
 		slashed = strings.ReplaceAll(slashed, "\\", "/")
@@ -345,17 +257,17 @@ func resolveImport(importingFileDir, importValue string, dirs *dirIndex, declare
 		// absolute intra-package import in a modern Python project was lost.
 		// The shortest match wins, so a vendored copy deeper in the tree
 		// cannot outrank the real one.
-		if best := dirs.shortestEndingIn(slashed); best != "" {
+		if best := dirs.ShortestEndingIn(slashed); best != "" {
 			return best
 		}
 
 		parentDir := filepath.Dir(slashed)
 		parentDir = strings.ReplaceAll(parentDir, "\\", "/")
-		if best := dirs.shortestEndingIn(parentDir); best != "" {
+		if best := dirs.ShortestEndingIn(parentDir); best != "" {
 			return best
 		}
 
-		if dirs.has(parentDir) {
+		if dirs.Has(parentDir) {
 			return parentDir
 		}
 		return slashed

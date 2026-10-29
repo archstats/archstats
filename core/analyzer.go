@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/archstats/archstats/core/component"
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/module"
@@ -39,6 +40,13 @@ type Analyzer interface {
 	// once every extension's Init has run, so ask for it in AnalyzeFile or
 	// later.
 	Files() *file.Classifier
+	// RegisterImportResolver adds a language's reading of its own imports,
+	// for the component linker. Two registrations of one Name register it
+	// once.
+	RegisterImportResolver(resolver component.ImportResolver)
+	// ImportResolvers is every registered resolver, in registration order.
+	// Complete once every extension's Init has run.
+	ImportResolvers() []component.ImportResolver
 	// Modules is the module map, read from the manifests among the files the
 	// walker found. Nil until the walk is done: a file results editor may
 	// read it, an Init may not.
@@ -67,6 +75,7 @@ type analyzer struct {
 	moduleReaders      []module.Reader
 	modules            *module.Map
 	files              *file.Classifier
+	importResolvers    []component.ImportResolver
 	definitions        map[string]*definitions.Definition
 }
 
@@ -109,6 +118,19 @@ func (analyzer *analyzer) RegisterConventions(conventions file.Conventions) {
 
 func (analyzer *analyzer) Files() *file.Classifier {
 	return analyzer.files
+}
+
+func (analyzer *analyzer) RegisterImportResolver(resolver component.ImportResolver) {
+	for _, r := range analyzer.importResolvers {
+		if r.Name() == resolver.Name() {
+			return
+		}
+	}
+	analyzer.importResolvers = append(analyzer.importResolvers, resolver)
+}
+
+func (analyzer *analyzer) ImportResolvers() []component.ImportResolver {
+	return analyzer.importResolvers
 }
 
 func (analyzer *analyzer) Modules() *module.Map {

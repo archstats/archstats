@@ -1,4 +1,4 @@
-package declbased
+package ecmascript
 
 import (
 	"encoding/json"
@@ -9,6 +9,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/archstats/archstats/core/component"
+	"github.com/archstats/archstats/core/file"
 )
 
 // What a project says its own import names mean.
@@ -132,11 +135,11 @@ func (m *aliasMap) readPackage(root, manifestPath string) {
 			continue
 		}
 		if d := joinRel(pkgDir, path.Dir(entry)); d != "" && d != pkgDir {
-			dirs = appendUnique(dirs, d)
+			dirs = appendUniqueDir(dirs, d)
 		}
 	}
-	dirs = appendUnique(dirs, joinRel(pkgDir, "src"))
-	dirs = appendUnique(dirs, pkgDir)
+	dirs = appendUniqueDir(dirs, joinRel(pkgDir, "src"))
+	dirs = appendUniqueDir(dirs, pkgDir)
 
 	m.entries = append(m.entries,
 		aliasEntry{prefix: pkg.Name, exact: true, dirs: dirs},
@@ -183,7 +186,7 @@ func (m *aliasMap) readTSConfig(root, configPath string) {
 		var dirs []string
 		for _, target := range targets {
 			target = strings.TrimSuffix(target, "*")
-			dirs = appendUnique(dirs, joinRel(base, path.Dir(path.Join(target, "x"))))
+			dirs = appendUniqueDir(dirs, joinRel(base, path.Dir(path.Join(target, "x"))))
 		}
 		if strings.HasSuffix(pattern, "*") {
 			m.entries = append(m.entries, aliasEntry{prefix: strings.TrimSuffix(pattern, "*"), dirs: dirs})
@@ -196,7 +199,7 @@ func (m *aliasMap) readTSConfig(root, configPath string) {
 // resolve turns an import written in the project's own vocabulary into the
 // directory it names, or "" when no alias claims it — which is the common and
 // correct answer for a third-party package.
-func (m *aliasMap) resolve(importValue string, dirs *dirIndex) string {
+func (m *aliasMap) resolve(importValue string, dirs component.Dirs) string {
 	for _, entry := range m.entries {
 		var rest string
 		if entry.exact {
@@ -230,8 +233,8 @@ func (m *aliasMap) resolve(importValue string, dirs *dirIndex) string {
 	return ""
 }
 
-func isKnownDir(candidate string, dirs *dirIndex) bool {
-	return candidate != "" && candidate != "." && dirs.has(candidate)
+func isKnownDir(candidate string, dirs component.Dirs) bool {
+	return candidate != "" && candidate != "." && dirs.Has(candidate)
 }
 
 func relDir(root, dir string) string {
@@ -258,7 +261,7 @@ func joinRel(base, rest string) string {
 	return joined
 }
 
-func appendUnique(list []string, value string) []string {
+func appendUniqueDir(list []string, value string) []string {
 	if value == "" {
 		return list
 	}
@@ -268,4 +271,65 @@ func appendUnique(list []string, value string) []string {
 		}
 	}
 	return append(list, value)
+}
+
+// ImportResolver reads a JavaScript or TypeScript project's own import names:
+// its workspaces' package names, its tsconfig paths, and the `~/` and `@/`
+// aliases nearly every project configures for its source root.
+func ImportResolver() component.ImportResolver { return &jsImports{} }
+
+type jsImports struct{ aliases *aliasMap }
+
+func (*jsImports) Name() string { return "ecmascript" }
+
+func (j *jsImports) Prepare(root string, files []*file.Results) {
+	names := make([]string, 0, len(files))
+	for _, fr := range files {
+		names = append(names, fr.Name)
+	}
+	j.aliases = readAliasesFrom(root, names)
+}
+
+// Resolve answers for an import a script makes in the project's own
+// vocabulary, and leaves the rest -- relative paths, third-party packages --
+// to the linker.
+func (j *jsImports) Resolve(fromFile, _, imp string, dirs component.Dirs) (string, bool) {
+	if !isScript(fromFile) {
+		return "", false
+	}
+	if j.aliases != nil {
+		if resolved := j.aliases.resolve(imp, dirs); resolved != "" {
+			return resolved, true
+		}
+	}
+	// An alias no tsconfig declared, read as the directory it names: `@/x`
+	// and `~/x` from the source root, `@x` from wherever x is.
+	if !strings.HasPrefix(imp, "@") && !strings.HasPrefix(imp, "~") {
+		return "", false
+	}
+	cleaned := strings.ReplaceAll(imp, "\\", "/")
+	if strings.HasPrefix(cleaned, "@/") || strings.HasPrefix(cleaned, "~/") {
+		cleaned = cleaned[2:]
+	} else {
+		cleaned = cleaned[1:]
+	}
+	if best := dirs.ShortestEndingIn(cleaned); best != "" {
+		return best, true
+	}
+	if parent := path.Dir(cleaned); parent != "." && parent != "/" {
+		if best := dirs.ShortestEndingIn(parent); best != "" {
+			return best, true
+		}
+	}
+	return "", false
+}
+
+// isScript reports whether a file is JavaScript, TypeScript or a single-file
+// component's script.
+func isScript(p string) bool {
+	switch strings.ToLower(path.Ext(p)) {
+	case ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".vue", ".svelte":
+		return true
+	}
+	return false
 }

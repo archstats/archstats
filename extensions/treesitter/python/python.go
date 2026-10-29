@@ -11,6 +11,7 @@ type Extension struct {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
+	settings.RegisterImportResolver(ImportResolver())
 	settings.RegisterConventions(Conventions())
 	for _, r := range ManifestReaders() {
 		settings.RegisterModuleReader(r)

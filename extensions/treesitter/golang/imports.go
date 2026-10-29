@@ -1,4 +1,4 @@
-package declbased
+package golang
 
 import (
 	"os"
@@ -7,6 +7,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/archstats/archstats/core/component"
+	"github.com/archstats/archstats/core/file"
 )
 
 // What a Go import means, read from go.mod rather than guessed.
@@ -92,7 +95,7 @@ func readGoModulesFrom(root string, names []string) []goModule {
 
 // ignoredByGoTool reports whether the go tool would never see this file:
 // it skips directories named testdata and those beginning with . or _.
-// archstats keeps a fixture at core/module/testdata/gomod/go.mod declaring
+// archstats keeps a fixture at golang/testdata/manifests/gomod/go.mod declaring
 // its own module path, and read as a module it swallowed every import of the
 // real one, and the Go graph came out empty.
 func ignoredByGoTool(name string) bool {
@@ -167,4 +170,39 @@ func (g *goModules) resolve(importValue string) (string, bool) {
 
 func isGoFile(name string) bool {
 	return strings.HasSuffix(name, ".go")
+}
+
+// ImportResolver resolves Go imports through go.mod, and says nothing about
+// any other language's.
+func ImportResolver() component.ImportResolver { return &goImports{} }
+
+type goImports struct{ mods *goModules }
+
+func (*goImports) Name() string { return "go" }
+
+func (g *goImports) Prepare(root string, files []*file.Results) {
+	names := make([]string, 0, len(files))
+	g.mods = &goModules{pkgDirs: map[string]bool{}}
+	for _, fr := range files {
+		names = append(names, fr.Name)
+		if isGoFile(fr.Name) {
+			g.mods.pkgDirs[fr.Directory] = true
+		}
+	}
+	g.mods.mods = readGoModulesFrom(root, names)
+}
+
+// Resolve answers for every import a Go file makes: the package directory
+// when a module in the tree declares it, and the import as written when none
+// does, because nothing else in the tree may answer for a Go import -- not a
+// package.json name, and not a directory of TypeScript whose name happens to
+// end the import path.
+func (g *goImports) Resolve(fromFile, _, imp string, _ component.Dirs) (string, bool) {
+	if !isGoFile(fromFile) || g.mods == nil {
+		return "", false
+	}
+	if dir, ok := g.mods.resolve(imp); ok {
+		return dir, true
+	}
+	return imp, true
 }
