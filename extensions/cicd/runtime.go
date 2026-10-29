@@ -119,41 +119,21 @@ func redactURL(v string) string {
 	return v
 }
 
-var (
-	goModVersion = regexp.MustCompile(`(?m)^go\s+(\d+\.\d+)`)
-	enginesNode  = regexp.MustCompile(`"engines"\s*:\s*\{[^}]*"node"\s*:\s*"[^0-9]*(\d+)`)
-)
+var ()
 
-// manifestRuntime reads the runtime the artifact's own modules declare:
-// java.version in a POM, the Gradle toolchain, a .NET target framework, the
-// go directive, package.json engines.
+// manifestRuntime reads the runtime the artifact's own modules declare, as
+// their build tools read it: java.version in a POM, the Gradle toolchain, a
+// .NET target framework, the go directive, package.json engines.
 func (b *builder) manifestRuntime(d *Artifact) string {
 	for _, name := range d.modules {
 		mod := b.in.Modules.ByName(name)
 		if mod == nil {
 			continue
 		}
-		for _, p := range b.poms {
-			if p.File == mod.Manifest && p.JavaVersion != "" {
-				return "java " + p.JavaVersion
+		for _, facts := range b.tools {
+			if r := facts.Runtimes[mod.Manifest]; r != "" {
+				return r
 			}
-		}
-		for _, g := range b.gradles {
-			if g.File == mod.Manifest && g.JavaVersion != "" {
-				return "java " + g.JavaVersion
-			}
-		}
-		for _, c := range b.csprojs {
-			if c.File == mod.Manifest && c.TargetFramework != "" {
-				return "dotnet " + strings.TrimPrefix(c.TargetFramework, "net")
-			}
-		}
-		content := b.in.Files[mod.Manifest]
-		if m := goModVersion.FindSubmatch(content); m != nil {
-			return "go " + string(m[1])
-		}
-		if m := enginesNode.FindSubmatch(content); m != nil {
-			return "node " + string(m[1])
 		}
 	}
 	return ""

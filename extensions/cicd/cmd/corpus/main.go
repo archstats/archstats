@@ -32,7 +32,7 @@ func main() {
 	stats := map[string]*stat{}
 	reasons := map[string]map[string]int{}
 	for _, root := range flag.Args() {
-		in := &cicd.Input{Files: map[string][]byte{}, Kinds: map[string]string{}, Roles: map[string]string{}, Components: map[string]string{}}
+		in := &cicd.Input{Tools: engine.BuildTools(), Files: map[string][]byte{}, Kinds: map[string]string{}, Roles: map[string]string{}, Components: map[string]string{}}
 		_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
@@ -55,7 +55,7 @@ func main() {
 			}
 			in.AllFiles = append(in.AllFiles, rel)
 			in.Roles[rel] = classifier.Role(rel, false, false, classifier.SystemKind(rel, content))
-			if kind, keep := cicd.KindOf(rel, content); keep {
+			if kind, keep := cicd.KindOf(rel, content, engine.BuildTools()); keep {
 				in.Files[rel] = content
 				if kind != "" {
 					in.Kinds[rel] = kind

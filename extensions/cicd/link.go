@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/archstats/archstats/core/module"
+	"github.com/archstats/archstats/extensions/cicd/buildtool"
 )
 
 // Input is what the linker needs from a scan. Paths are clean and
@@ -25,6 +26,9 @@ type Input struct {
 	Modules    *module.Map
 	// RepoOf names the repository a path belongs to.
 	RepoOf func(string) string
+	// Tools read the build tools' manifests: what their plugins build,
+	// which modules are applications. cicd knows no build tool itself.
+	Tools []buildtool.Tool
 	// Remotes maps each repository folder to its origin's path
 	// (group/sub/name), for resolving references to other projects.
 	Remotes map[string]string
@@ -167,10 +171,10 @@ type builder struct {
 	values      []*valuesFile
 	functions   []*function
 	argo        []*argoApp
-	poms        []*pom
-	gradles     []*gradleProject
-	csprojs     []*dotnetProject
-	aspire      map[string][]*aspireResource // app host file -> resources
+	// What each build tool's manifests declare, in the order of in.Tools.
+	tools []buildtool.Facts
+	// The module kinds a mobile app is made of, from every tool.
+	mobileKinds map[string]bool
 	pipelines   []*pipelineFact
 	gitRepos    []*gitRepo
 
@@ -191,7 +195,7 @@ func Build(in *Input) *Model {
 	b := &builder{
 		in: in, m: &Model{},
 		dockerfiles: map[string]*Dockerfile{}, configMaps: map[string][]configEntry{},
-		aspire: map[string][]*aspireResource{}, byID: map[string]*Artifact{},
+		byID: map[string]*Artifact{}, mobileKinds: map[string]bool{},
 		buildOf: map[*imageBuild]*Artifact{}, runs: map[string][]string{},
 		workloadsBy: map[string]*workload{}, allFileSet: map[string]bool{}, dirSet: map[string]bool{},
 		chartDeps: map[string][]string{}, valuesOwner: map[string][]string{},
@@ -246,19 +250,17 @@ func (b *builder) skipped(f string) bool {
 }
 
 var (
-	rootProjectName = regexp.MustCompile(`rootProject\.name\s*=\s*["']([^"']+)["']`)
-	composeName     = regexp.MustCompile(`^(docker-)?compose([._-][^/]*)?\.ya?ml$`)
-	k8sHead         = regexp.MustCompile(`(?m)^apiVersion:\s*\S+`)
-	k8sKindHead     = regexp.MustCompile(`(?m)^kind:\s*[A-Z]`)
-	composeHead     = regexp.MustCompile(`(?m)^services:\s*$`)
-	skaffoldHead    = regexp.MustCompile(`(?m)^apiVersion:\s*skaffold/`)
-	samHead         = regexp.MustCompile(`(?m)^\s*"?Transform"?\s*:.*AWS::Serverless|AWS::Lambda::Function`)
-	templatedYAML   = regexp.MustCompile(`\{\{[-\s]`)
+	composeName   = regexp.MustCompile(`^(docker-)?compose([._-][^/]*)?\.ya?ml$`)
+	k8sHead       = regexp.MustCompile(`(?m)^apiVersion:\s*\S+`)
+	k8sKindHead   = regexp.MustCompile(`(?m)^kind:\s*[A-Z]`)
+	composeHead   = regexp.MustCompile(`(?m)^services:\s*$`)
+	skaffoldHead  = regexp.MustCompile(`(?m)^apiVersion:\s*skaffold/`)
+	samHead       = regexp.MustCompile(`(?m)^\s*"?Transform"?\s*:.*AWS::Serverless|AWS::Lambda::Function`)
+	templatedYAML = regexp.MustCompile(`\{\{[-\s]`)
 )
 
 func (b *builder) read() {
 	files := sortedKeys(b.in.Files)
-	pomFiles := map[string][]byte{}
 	for _, f := range files {
 		kind := b.in.Kinds[f]
 		content := b.in.Files[f]
@@ -317,24 +319,6 @@ func (b *builder) read() {
 			}
 		case "build":
 			switch {
-			case base == "pom.xml":
-				pomFiles[f] = content
-			case base == "build.gradle" || base == "build.gradle.kts":
-				name := stdpath.Base(dirOf(f))
-				if dirOf(f) == "." {
-					name = ""
-				}
-				// The module map's name is the project path
-				// (`feature:foryou:impl`); a deployable must name its module
-				// the same way or the two never join.
-				if b.in.Modules != nil {
-					if mod := b.in.Modules.Of(f); mod != nil && mod.Dir == dirOf(f) && mod.Kind == "gradle" {
-						name = mod.Name
-					}
-				}
-				if name != "" {
-					b.gradles = append(b.gradles, readGradle(f, content, name))
-				}
 			case base == "wails.json":
 				if a := readWails(f, content); a != nil {
 					b.desktop = append(b.desktop, a)
@@ -343,22 +327,17 @@ func (b *builder) read() {
 				if a := readTauri(f, content); a != nil {
 					b.desktop = append(b.desktop, a)
 				}
-			case strings.HasSuffix(base, ".csproj") || strings.HasSuffix(base, ".fsproj") || strings.HasSuffix(base, ".vbproj"):
-				b.csprojs = append(b.csprojs, readCsproj(f, content))
 			}
-		case "aspire":
-			b.aspire[f] = readAspireHost(f, content)
 		}
 	}
-	b.poms = readPoms(pomFiles)
-	for _, p := range b.poms {
-		b.builds = append(b.builds, p.Images...)
-	}
-	for _, g := range b.gradles {
-		b.builds = append(b.builds, g.Images...)
-	}
-	for _, c := range b.csprojs {
-		b.builds = append(b.builds, c.Images...)
+	toolIn := buildtool.Input{Files: b.in.Files, Kinds: b.in.Kinds, Modules: b.in.Modules}
+	for _, t := range b.in.Tools {
+		facts := t.Read(toolIn)
+		b.tools = append(b.tools, facts)
+		b.builds = append(b.builds, facts.Images...)
+		for _, k := range facts.MobileModuleKinds {
+			b.mobileKinds[k] = true
+		}
 	}
 	for _, f := range b.composes {
 		vars := map[string]string{}
@@ -729,42 +708,12 @@ func (b *builder) appArtifacts() {
 		line                             int
 	}
 	var apps []app
-	aspireProjects := map[string]*aspireResource{}
-	for _, host := range sortedKeys(b.aspire) {
-		for _, r := range b.aspire[host] {
-			if r.Kind == "Project" && r.Project != "" {
-				aspireProjects[strings.ToLower(r.Project)] = r
+	for _, facts := range b.tools {
+		for _, a := range facts.Apps {
+			if b.contained(a.Dir) || (a.NeedsDelivery && !b.repoHasDelivery(a.File)) {
+				continue
 			}
-		}
-	}
-	for _, p := range b.poms {
-		if p.Executable && !b.contained(p.Dir) && b.repoHasDelivery(p.File) {
-			apps = append(apps, app{name: p.ArtifactID, module: p.ArtifactID, dir: p.Dir, file: p.File, line: p.Line, builtBy: "maven"})
-		}
-	}
-	for _, g := range b.gradles {
-		if g.Executable && !b.contained(g.Dir) && b.repoHasDelivery(g.File) {
-			name := g.Name
-			// A single-project build is named by settings.gradle, not by the
-			// folder it was cloned into.
-			for _, settings := range []string{"settings.gradle", "settings.gradle.kts"} {
-				if m := rootProjectName.FindSubmatch(b.in.Files[joinPath(g.Dir, settings)]); m != nil {
-					name = string(m[1])
-				}
-			}
-			apps = append(apps, app{name: name, module: g.Name, dir: g.Dir, file: g.File, line: 1, builtBy: "gradle"})
-		}
-	}
-	for _, c := range b.csprojs {
-		r := aspireProjects[strings.ToLower(c.Name)]
-		if c.AspireHost || b.contained(c.Dir) {
-			continue
-		}
-		switch {
-		case r != nil:
-			apps = append(apps, app{name: r.Name, module: c.Name, dir: c.Dir, file: c.File, line: 1, builtBy: "aspire"})
-		case c.Web && b.repoHasDelivery(c.File):
-			apps = append(apps, app{name: c.Name, module: c.Name, dir: c.Dir, file: c.File, line: 1, builtBy: "dotnet"})
+			apps = append(apps, app{name: a.Name, module: a.Module, dir: a.Dir, file: a.File, line: a.Line, builtBy: a.BuiltBy})
 		}
 	}
 	for _, a := range apps {
@@ -937,7 +886,7 @@ func (b *builder) moduleExpansion() {
 					// A mobile app at a repository's root holds its native
 					// projects and its own packages, not every server beside
 					// it: bluesky's app carries no Go web server.
-					if d.Kind == "mobile_app" && !mobilePart(d, mod) {
+					if d.Kind == "mobile_app" && !b.mobilePart(d, mod) {
 						continue
 					}
 					if !have[mod.Name] {

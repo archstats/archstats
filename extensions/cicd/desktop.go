@@ -10,7 +10,8 @@ import (
 // installer or a binary built from the whole project, frontend included.
 // Three frameworks say so in a file of their own: Wails (wails.json beside
 // the Go module), Tauri (src-tauri/tauri.conf.json under the web project)
-// and Electron (a Node module that depends on electron).
+// and what the build tools say ships to a desktop: Electron, a Node module
+// that depends on electron.
 
 type desktopApp struct {
 	names    []string
@@ -66,11 +67,9 @@ func nonEmpty(xs ...string) []string {
 
 func (b *builder) desktopArtifacts() {
 	apps := append([]*desktopApp(nil), b.desktop...)
-	if b.in.Modules != nil {
-		for _, mod := range b.in.Modules.Modules() {
-			if mod.Kind == "node" && hasDep(mod, "electron") {
-				apps = append(apps, &desktopApp{names: []string{mod.Name}, dir: cleanDir(mod.Dir), file: mod.Manifest, platform: "electron"})
-			}
+	for _, facts := range b.tools {
+		for _, a := range facts.Desktop {
+			apps = append(apps, &desktopApp{names: a.Names, dir: a.Dir, file: a.File, platform: a.Platform})
 		}
 	}
 	sort.SliceStable(apps, func(i, j int) bool { return apps[i].file < apps[j].file })

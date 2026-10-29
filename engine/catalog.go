@@ -4,6 +4,14 @@ import (
 	"github.com/archstats/archstats/core/plugin"
 	"github.com/archstats/archstats/extensions/basic"
 	"github.com/archstats/archstats/extensions/cicd"
+	"github.com/archstats/archstats/extensions/cicd/buildtool"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/dotnet"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/gomod"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/gradle"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/maven"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/node"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/pub"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/xcode"
 	"github.com/archstats/archstats/extensions/codesmells"
 	"github.com/archstats/archstats/extensions/components"
 	"github.com/archstats/archstats/extensions/components/cycles"
@@ -157,8 +165,14 @@ func AlwaysEnabled() []*plugin.Descriptor {
 		plugin.Fixed("codesmells", codesmells.Extension()),
 		matrix.CLIExtension(),
 		plugin.Fixed("rules", rules.Extension()),
-		plugin.Fixed("cicd", cicd.Extension()),
+		plugin.Fixed("cicd", cicd.Extension(BuildTools()...)),
 		plugin.Fixed("mobile", mobile.Extension()),
 		plugin.Fixed("navigation", navigation.Extension()),
 	}
+}
+
+// BuildTools are the build tools whose manifests CI/CD reads, one per
+// ecosystem, in the order their applications are listed.
+func BuildTools() []buildtool.Tool {
+	return []buildtool.Tool{maven.Tool(), gradle.Tool(), dotnet.Tool(), node.Tool(), xcode.Tool(), pub.Tool(), gomod.Tool()}
 }

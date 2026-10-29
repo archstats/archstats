@@ -9,6 +9,14 @@ import (
 
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/module"
+	"github.com/archstats/archstats/extensions/cicd/buildtool"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/dotnet"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/gomod"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/gradle"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/maven"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/node"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/pub"
+	"github.com/archstats/archstats/extensions/cicd/buildtool/xcode"
 	"github.com/archstats/archstats/extensions/treesitter/apple"
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
 	"github.com/archstats/archstats/extensions/treesitter/dart"
@@ -24,14 +32,17 @@ import (
 var testFiles = file.NewClassifier(Conventions(), jvm.Conventions(), csharp.Conventions(), ecmascript.Conventions(),
 	golang.Conventions(), python.Conventions(), php.Conventions(), apple.Conventions(), dart.Conventions())
 
+// testTools are the build tools a scan runs with.
+var testTools = []buildtool.Tool{maven.Tool(), gradle.Tool(), dotnet.Tool(), node.Tool(), xcode.Tool(), pub.Tool(), gomod.Tool()}
+
 // ws builds linker input from files written inline. Every path is walked;
 // roles and components come from the path, as a scan would give them.
 func ws(files map[string]string, modules ...*module.Module) *Input {
-	in := &Input{Files: map[string][]byte{}, Kinds: map[string]string{}, Roles: map[string]string{}, Components: map[string]string{}, Modules: module.New(modules...)}
+	in := &Input{Tools: testTools, Files: map[string][]byte{}, Kinds: map[string]string{}, Roles: map[string]string{}, Components: map[string]string{}, Modules: module.New(modules...)}
 	for p, c := range files {
 		in.AllFiles = append(in.AllFiles, p)
 		in.Roles[p] = testFiles.Role(p, false, false, SystemKind(p, []byte(c)))
-		kind, keep := KindOf(p, []byte(c))
+		kind, keep := KindOf(p, []byte(c), testTools)
 		if keep {
 			in.Files[p] = []byte(c)
 		}

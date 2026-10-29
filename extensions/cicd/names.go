@@ -3,6 +3,8 @@ package cicd
 import (
 	"sort"
 	"strings"
+
+	"github.com/archstats/archstats/extensions/cicd/buildtool"
 )
 
 // Joining by name is the weakest evidence the linker has, and where it goes
@@ -11,44 +13,13 @@ import (
 // folder that happens to be called mongo. So: normalise hard, match exactly,
 // and refuse a tie rather than pick a winner.
 
-// ImageName is an image reference reduced to what can be joined on: the
-// last path segment, lower-cased, without registry, tag or digest.
-type ImageName struct {
-	// "librechat-api" for ghcr.io/${{ github.repository_owner }}/librechat-api:latest.
-	Repo string
-	// The tag, when it is written out: "latest-cart" for the OTel demo, which
-	// names all its images `demo` and tells them apart by tag.
-	Tag string
-}
+// ImageName and NormalizeImage are the contract's, shared with the build
+// tools that name images too.
+type ImageName = buildtool.ImageName
 
-func isInterpolated(s string) bool {
-	return strings.Contains(s, "${") || strings.Contains(s, "{{") || strings.Contains(s, "$(") ||
-		strings.HasPrefix(s, "$") || strings.Contains(s, "<") || strings.Contains(s, "%")
-}
+var NormalizeImage = buildtool.NormalizeImage
 
-// NormalizeImage reduces an image reference. It returns an empty Repo when
-// the name itself is interpolated: europe-west4-docker.pkg.dev/${p}/repo/${IMAGE}
-// names no image that can be known from the files, and must not become "repo".
-func NormalizeImage(ref string) ImageName {
-	ref = strings.TrimSpace(ref)
-	ref = strings.Trim(ref, `"'`)
-	ref = strings.TrimPrefix(ref, "docker://")
-	if i := strings.Index(ref, "@sha256:"); i >= 0 {
-		ref = ref[:i]
-	} else if i := strings.Index(ref, "@"); i >= 0 && !strings.Contains(ref[i:], "/") {
-		ref = ref[:i]
-	}
-	segs := strings.Split(ref, "/")
-	last := segs[len(segs)-1]
-	repo, tag, _ := strings.Cut(last, ":")
-	if repo == "" || isInterpolated(repo) {
-		return ImageName{}
-	}
-	if isInterpolated(tag) {
-		tag = ""
-	}
-	return ImageName{Repo: strings.ToLower(repo), Tag: strings.ToLower(tag)}
-}
+func isInterpolated(s string) bool { return buildtool.IsInterpolated(s) }
 
 // normalizeName is how service, workload and application names are compared.
 func normalizeName(s string) string {
@@ -132,12 +103,4 @@ var wellKnownImages = map[string]bool{
 	"etcd": true, "keycloak": true, "mailhog": true, "wiremock": true, "pgvector": true,
 	"meilisearch": true, "clickhouse-server": true, "redpanda": true, "cp-kafka": true,
 	"otel-collector": true, "opentelemetry-collector-contrib": true, "haproxy": true,
-}
-
-// String writes the name back the short way: repo, or repo:tag.
-func (n ImageName) String() string {
-	if n.Tag == "" {
-		return n.Repo
-	}
-	return n.Repo + ":" + n.Tag
 }
