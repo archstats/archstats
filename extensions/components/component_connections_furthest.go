@@ -1,7 +1,10 @@
 package components
 
 import (
+	"math"
+
 	"github.com/archstats/archstats/core"
+	"github.com/archstats/archstats/core/component"
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
@@ -26,7 +29,7 @@ func ConnectionsFurthestView(results *core.Results) *core.View {
 			if from == to {
 				continue
 			}
-			shortest, _, _ := allPaths.Between(theGraph.ComponentToId(from), theGraph.ComponentToId(to))
+			shortest := canonicalPath(theGraph, allPaths, theGraph.ComponentToId(from), theGraph.ComponentToId(to))
 			if len(shortest) > len(furthest) {
 				furthest = shortest
 			}
@@ -56,4 +59,35 @@ func ConnectionsFurthestView(results *core.Results) *core.View {
 		Columns: []*core.Column{core.StringColumn("component"), core.StringColumn("furthest_component"), core.IntColumn("furthest_component_distance"), core.StringColumn("furthest_component_shortest_path")},
 		Rows:    rows,
 	}
+}
+
+// canonicalPath is a shortest path from one component to another that takes
+// the alphabetically first next step wherever several are equally short.
+// gonum's Between picks among them at random, so the path shown changed
+// between two scans of the same commit.
+func canonicalPath(g *component.Graph, paths path.AllShortest, from, to int64) []graph.Node {
+	left := paths.Weight(from, to)
+	if math.IsInf(left, 0) {
+		return nil
+	}
+	route := []graph.Node{g.Node(from)}
+	for current := from; current != to; {
+		var next graph.Node
+		successors := g.From(current)
+		for successors.Next() {
+			n := successors.Node()
+			if paths.Weight(n.ID(), to) != left-1 {
+				continue
+			}
+			if next == nil || g.IdToComponent(n.ID()) < g.IdToComponent(next.ID()) {
+				next = n
+			}
+		}
+		if next == nil {
+			return nil
+		}
+		route = append(route, next)
+		current, left = next.ID(), left-1
+	}
+	return route
 }

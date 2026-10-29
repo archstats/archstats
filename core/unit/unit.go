@@ -134,6 +134,11 @@ type Unit struct {
 // The result is ordered by ID, so a view built from it is stable between
 // runs and a diff of two exports means something.
 func Merge(units []*Unit) []*Unit {
+	// The partials are folded in the order of the file they are in, not the
+	// order the walker's workers finished: "the first non-empty value" and
+	// the order of the markers used to change between two scans.
+	units = append([]*Unit(nil), units...)
+	sort.SliceStable(units, func(i, j int) bool { return firstFile(units[i]) < firstFile(units[j]) })
 	byID := make(map[string]*Unit, len(units))
 	var order []string
 	for _, u := range units {
@@ -233,4 +238,11 @@ func appendUniqueMarker(list []Marker, m Marker) []Marker {
 		}
 	}
 	return append(list, m)
+}
+
+func firstFile(u *Unit) string {
+	if u == nil || len(u.Files) == 0 {
+		return ""
+	}
+	return u.Files[0]
 }

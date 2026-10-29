@@ -118,7 +118,13 @@ package core
 //	               replace deployables; dockerfiles and dockerfile_stages;
 //	               cicd_flags; the runtime links, environments, config
 //	               values and dependencies tables are gone.
-//	17 2026-10-29  summary holds numbers only (the version is
-//	               engine_version in _snapshot); an empty
+//	17 2026-10-29  the same commit scans the same, byte for byte: component
+//	               ids follow names, so graph metrics meet nodes in one
+//	               order; communities seeded; page rank and HITS converged
+//	               to 1e-12 (page rank moved in its fourth digit); cycles
+//	               numbered and furthest paths chosen by name; partial
+//	               classes merged in file order; floats kept to ten
+//	               significant digits. summary holds numbers only (the
+//	               version is engine_version in _snapshot); an empty
 //	               component_communities keeps its columns.
 const AnalysisRevision = 17

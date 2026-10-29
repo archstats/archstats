@@ -4,6 +4,7 @@ import (
 	"github.com/archstats/archstats/core"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
+	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/community"
 )
@@ -24,7 +25,10 @@ func CommunitiesView(results *core.Results) (view *core.View) {
 		}
 	}()
 
-	louvain := community.Modularize(theGraph, 1.0, nil)
+	// Louvain visits nodes in a random order. Seeded, the same graph gives the
+	// same communities on every scan; unseeded, a component changed community
+	// between two scans of one commit.
+	louvain := community.Modularize(theGraph, 1.0, rand.NewSource(1))
 
 	var rows []*core.Row
 

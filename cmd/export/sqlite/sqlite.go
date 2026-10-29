@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -528,7 +529,11 @@ func insertRowsForView(db *sql.DB, name string, columns []*core.Column, rows []*
 					position := row.Data[column.Name].(*file.Position)
 					valueArgs = append(valueArgs, fmt.Sprintf("%d:%d", position.Line, position.CharInLine))
 				default:
-					valueArgs = append(valueArgs, row.Data[column.Name])
+					value := row.Data[column.Name]
+					if f, ok := value.(float64); ok {
+						value = stableFloat(f)
+					}
+					valueArgs = append(valueArgs, value)
 				}
 
 			}
@@ -593,6 +598,20 @@ func columnsDDL(view *core.View) string {
 
 func columnDDL(column *core.Column) string {
 	return "`" + column.Name + "` " + columnTypeDDL(column)
+}
+
+// stableFloat keeps ten significant digits. Sums over the same numbers in
+// another order differ in the last bits, and a snapshot of the same commit
+// should read the same, byte for byte, whichever order a map gave.
+func stableFloat(f float64) float64 {
+	if f == 0 || math.IsInf(f, 0) || math.IsNaN(f) {
+		return f
+	}
+	rounded, err := strconv.ParseFloat(strconv.FormatFloat(f, 'g', 10, 64), 64)
+	if err != nil {
+		return f
+	}
+	return rounded
 }
 
 func columnTypeDDL(column *core.Column) string {

@@ -65,6 +65,76 @@ func TestSnapshotSchema(t *testing.T) {
 	assert.Equal(t, string(expected), actual, "the snapshot schema changed; if that was meant, run with UPDATE_GOLDEN=1 and review the diff")
 }
 
+// Two scans of the same tree write the same snapshot, row for row: map order
+// used to decide component ids, communities, which cycle and which path were
+// shown, and the last digits of every centrality.
+func TestSnapshot_SameTreeSameSnapshot(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	root := schemaWorkspace(t)
+	scan := func() string {
+		results, err := engine.Analyze(engine.Options{Root: root})
+		require.NoError(t, err)
+		var views []*core.View
+		for _, factory := range results.GetViewFactories() {
+			view, err := results.RenderView(factory.Name)
+			require.NoError(t, err)
+			views = append(views, view)
+		}
+		dbFile := filepath.Join(t.TempDir(), "same.db")
+		require.NoError(t, sqlite.SaveToDB(&sqlite.SqlOptions{DatabaseName: dbFile, ReportId: "same", ScanTime: time.Unix(0, 0)}, results, views))
+		return dumpSchema(t, dbFile) + dumpRows(t, dbFile)
+	}
+	first := scan()
+	for i := 0; i < 3; i++ {
+		require.Equal(t, first, scan(), "scan %d differs from the first", i+2)
+	}
+}
+
+// dumpRows is every row of every table, sorted, leaving out when the scan ran.
+func dumpRows(t *testing.T, dbFile string) string {
+	t.Helper()
+	db, err := sql.Open("sqlite3", dbFile)
+	require.NoError(t, err)
+	defer db.Close()
+
+	tables, err := db.Query("SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY name")
+	require.NoError(t, err)
+	var names []string
+	for tables.Next() {
+		var name string
+		require.NoError(t, tables.Scan(&name))
+		names = append(names, name)
+	}
+	require.NoError(t, tables.Close())
+
+	var b strings.Builder
+	for _, name := range names {
+		rows, err := db.Query(fmt.Sprintf("SELECT * FROM `%s`", name))
+		require.NoError(t, err)
+		columns, err := rows.Columns()
+		require.NoError(t, err)
+		var lines []string
+		for rows.Next() {
+			values := make([]interface{}, len(columns))
+			pointers := make([]interface{}, len(columns))
+			for i := range values {
+				pointers[i] = &values[i]
+			}
+			require.NoError(t, rows.Scan(pointers...))
+			if name == "_snapshot" && fmt.Sprint(values[1]) == "scanned_at" {
+				continue
+			}
+			lines = append(lines, fmt.Sprintf("%v", values))
+		}
+		require.NoError(t, rows.Close())
+		sort.Strings(lines)
+		fmt.Fprintf(&b, "== %s\n%s\n", name, strings.Join(lines, "\n"))
+	}
+	return b.String()
+}
+
 // schemaWorkspace copies the architecture, enterprise and directory coupling
 // fixtures (the last has cycles), adds Go,
 // a pipeline and a container, and commits it all in two commits.
