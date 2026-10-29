@@ -565,16 +565,16 @@ return [
 
 func TestTemplatesAndMatching(t *testing.T) {
 	for in, want := range map[string]string{
-		"/orders/{id}":                   "/orders/{}",
-		"/orders/:id/":                   "/orders/{}",
-		"orders/<int:pk>/edit":           "/orders/{}/edit",
-		"^orders/(?P<pk>[0-9]+)/$":       "/orders/{}",
-		"/blog/[...slug]":                "/blog/{}",
-		"https://api.acme.nl/v1/x?y=1":   "/v1/x",
-		"/files/{name}.json":             "/files/{}.json",
-		"/api/orders/${id}/lines":        "/api/orders/{}/lines",
-		"{var:id}/x":                     "/{}/x",
-		"/items/{id:int}":                "/items/{}",
+		"/orders/{id}":                 "/orders/{}",
+		"/orders/:id/":                 "/orders/{}",
+		"orders/<int:pk>/edit":         "/orders/{}/edit",
+		"^orders/(?P<pk>[0-9]+)/$":     "/orders/{}",
+		"/blog/[...slug]":              "/blog/{}",
+		"https://api.acme.nl/v1/x?y=1": "/v1/x",
+		"/files/{name}.json":           "/files/{}.json",
+		"/api/orders/${id}/lines":      "/api/orders/{}/lines",
+		"{var:id}/x":                   "/{}/x",
+		"/items/{id:int}":              "/items/{}",
 	} {
 		assert.Equal(t, want, pathTemplate(in), in)
 	}
