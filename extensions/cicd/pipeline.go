@@ -74,6 +74,10 @@ type pipelineFact struct {
 	folded        []*imageBuild
 	foldedDeploys []*deployHit
 
+	// A workflow outside .github/workflows: a template to copy, which never
+	// runs where it is, so its flags are about nothing that happens.
+	copyOnly bool
+
 	// Whether permissions are set for every job (GitHub Actions).
 	permissions bool
 	flags       []flagHit
@@ -96,7 +100,9 @@ type pipelineFact struct {
 type flagHit struct {
 	Rule, Detail string
 	// The job it is about, when it is about one.
-	Job  string
+	Job string
+	// The file the line is in, when it is not the pipeline's own.
+	File string
 	Line int
 }
 
@@ -106,11 +112,11 @@ func (p *pipelineFact) flag(rule, detail, job string, line int) {
 		job = p.cj.ID
 	}
 	for _, f := range p.flags {
-		if f.Rule == rule && f.Line == line && f.Detail == detail {
+		if f.Rule == rule && f.Line == line && f.Detail == detail && f.File == p.curFile {
 			return
 		}
 	}
-	p.flags = append(p.flags, flagHit{Rule: rule, Detail: detail, Job: job, Line: line})
+	p.flags = append(p.flags, flagHit{Rule: rule, Detail: detail, Job: job, File: p.curFile, Line: line})
 }
 
 type unresolvedHit struct {
@@ -168,7 +174,9 @@ type handoffFact struct {
 	Target string
 	Ref    string
 	Pinned string // sha, version, branch, none, implicit
-	Line   int
+	// The file it is written in, when it is not the pipeline's own.
+	File string
+	Line int
 	// The pipeline it resolves to inside the workspace, when it does.
 	Local string
 	// For a library step: the library it comes from.
@@ -189,9 +197,11 @@ type deployHit struct {
 	Environment     string
 	// The image a step sets, when it names one (kubectl set image).
 	Image ImageName
-	Line  int
-	Job   string
-	Step  int
+	// The file it is written in, when it is not the pipeline's own.
+	File string
+	Line int
+	Job  string
+	Step int
 }
 
 type runtimeHit struct {
@@ -292,7 +302,7 @@ func (p *pipelineFact) trigger(event, filter string, line int) {
 }
 
 func (p *pipelineFact) handoff(kind, target, ref string, line int) *handoffFact {
-	h := &handoffFact{Kind: kind, Target: target, Ref: ref, Pinned: pinOf(ref), Line: line}
+	h := &handoffFact{Kind: kind, Target: target, Ref: ref, Pinned: pinOf(ref), File: p.curFile, Line: line}
 	if p.cj != nil {
 		h.Job = p.cj.ID
 	}
@@ -339,6 +349,7 @@ func (p *pipelineFact) addBuild(b *imageBuild) {
 
 // addDeploy records a deploy in the current job and step.
 func (p *pipelineFact) addDeploy(d *deployHit) {
+	d.File = p.curFile
 	if p.cj != nil {
 		d.Job = p.cj.ID
 		if d.Environment == "" {
@@ -459,6 +470,9 @@ func (p *pipelineFact) stepCount() int {
 var (
 	shaRef     = regexp.MustCompile(`^[0-9a-f]{40}$|^[0-9a-f]{64}$`)
 	versionRef = regexp.MustCompile(`^v?\d+(\.\d+)*([-+.][0-9A-Za-z.-]+)?$|^~?\d`)
+	// A version tag kept per action in a repository of several: dns/v1,
+	// selfserv_v1.0.0, deploy-v2.3.
+	prefixedVersionRef = regexp.MustCompile(`[/_-]v\d+(\.\d+)*([-+.][0-9A-Za-z.-]+)?$`)
 )
 
 // pinOf says how firmly a reference names what it uses: a commit, a version,
@@ -471,7 +485,7 @@ func pinOf(ref string) string {
 		return "implicit"
 	case shaRef.MatchString(ref):
 		return "sha"
-	case versionRef.MatchString(ref):
+	case versionRef.MatchString(ref), prefixedVersionRef.MatchString(ref):
 		return "version"
 	}
 	return "branch"

@@ -244,7 +244,7 @@ func readRancherPipeline(file string, content []byte) *pipelineFact {
 				}
 				p.addBuild(&imageBuild{Names: []ImageName{NormalizeImage(tag)}, RawTags: []string{tag}, BuiltBy: "pipeline", File: file, Line: ln,
 					Context: joinPath(p.root, ctx), Dockerfile: joinPath(p.root, df)})
-				p.pushed = append(p.pushed, pushHit{Raw: tag, Line: ln, Job: j.ID})
+				p.pushed = append(p.pushed, pushHit{Raw: tag, File: p.curFile, Line: ln, Job: j.ID})
 			case get(step, "applyYamlConfig") != nil:
 				c := get(step, "applyYamlConfig")
 				path := str(get(c, "path"))

@@ -42,8 +42,10 @@ assertions:
 
   - name: "No image runs as root"
     description: >
-      A final stage without USER runs as the base image's user, which is root
-      unless the base image sets one.
+      A final stage without USER, in it or in the stage it is built from,
+      runs as the base image's user, which is root unless the base image sets
+      one. Images that say they do not (a :nonroot tag, Bitnami, Grafana,
+      Prometheus) and Dockerfiles named for development are left out.
     query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'runs_as_root'
     expect: 0
 
@@ -76,8 +78,9 @@ assertions:
 
   - name: "Every Jenkins shared library is pinned"
     description: >
-      A library loaded without @ref, or at a branch, changes under every
-      pipeline that loads it.
+      A library loaded at a branch changes under every pipeline that loads
+      it. One loaded without @ref gets the version set on the Jenkins
+      server, which the file cannot show, so it is left out.
     query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'library_unpinned'
     expect: 0
 
@@ -98,7 +101,8 @@ assertions:
   - name: "Every GitHub workflow sets its permissions"
     description: >
       Without a permissions block, a workflow's token gets the repository's
-      default, which is often write to everything.
+      default, which is often write to everything. A workflow only ever
+      called runs with its caller's token and is left out.
     query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'no_permissions_block'
     expect: 0
 
@@ -132,7 +136,9 @@ assertions:
     description: >
       A deploy to an environment named prod, production, prd or live with no
       manual step, approval or deployment environment in front of it ships
-      every change that reaches it.
+      every change that reaches it. A deploy handed to a workflow outside
+      the workspace may hold its gate there, and a Fleet target's gate is
+      the merge, so neither is counted.
     query: SELECT subject, detail, file, line FROM cicd_flags WHERE rule = 'ungated_prod_deploy'
     expect: 0
 

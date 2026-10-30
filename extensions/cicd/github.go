@@ -38,7 +38,11 @@ func readGitHubWorkflow(file string, content []byte) *pipelineFact {
 		on = get(doc, "true")
 	}
 	prTarget := false
+	// A workflow only ever called runs with its caller's token, so its
+	// caller's permissions are the ones that count.
+	events, called := 0, 0
 	ghEvent := func(name string, v *yaml.Node, ln int) {
+		events++
 		var filter []string
 		for _, k := range []string{"branches", "branches-ignore", "tags", "tags-ignore", "paths", "paths-ignore", "types", "workflows"} {
 			if vs := strs(get(v, k)); len(vs) > 0 {
@@ -75,6 +79,7 @@ func readGitHubWorkflow(file string, content []byte) *pipelineFact {
 		case "workflow_dispatch":
 			p.trigger("manual", "", ln)
 		case "workflow_call":
+			called++
 			p.Kind = "reusable_workflow"
 			p.trigger("called", "", ln)
 		case "workflow_run":
@@ -207,12 +212,14 @@ func readGitHubWorkflow(file string, content []byte) *pipelineFact {
 			continue
 		}
 		workdir := str(at(j, "defaults", "run", "working-directory"))
-		p.readGitHubSteps(items(get(j, "steps")), combos, jobEnv, workdir, prTarget)
+		p.readGitHubSteps(items(get(j, "steps")), combos, jobEnv, workdir, prTarget && !botAuthorOnly.MatchString(str(get(j, "if"))))
 	}
 	if allJobsPermitted {
 		p.permissions = true
 	}
-	if !p.permissions && len(p.Jobs) > 0 {
+	if !p.permissions && len(p.Jobs) > 0 && (events == 0 || called < events) {
+		// About the workflow, not the job read last.
+		p.cj = nil
 		p.flag("no_permissions_block", "", "", 1)
 	}
 	p.finish()
@@ -227,6 +234,11 @@ func (p *pipelineFact) deployByName(s *stepFact, target string, ln int) {
 		s.Verb = "deploy"
 	}
 }
+
+// A job that runs only for pull requests a bot opened: the code it checks
+// out is the bot's, which is the guard pull_request_target needs. The
+// author cannot be spoofed the way github.actor can.
+var botAuthorOnly = regexp.MustCompile(`^[^|]*github\.event\.pull_request\.user\.login\s*==\s*'[A-Za-z0-9-]+\[bot\]'[^|]*$`)
 
 func runnerOf(n *yaml.Node) string {
 	if n == nil {

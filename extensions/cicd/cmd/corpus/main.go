@@ -27,6 +27,7 @@ func main() {
 	verbose := flag.Bool("v", false, "list every partial and unread pipeline")
 	jobs := flag.Bool("jobs", false, "print each pipeline's jobs and steps")
 	only := flag.String("system", "", "only this system")
+	flags := flag.Bool("flags", false, "print every hygiene flag with the line it points at, tab-separated")
 	flag.Parse()
 	type stat struct{ files, full, partial, none, jobs, steps int }
 	stats := map[string]*stat{}
@@ -76,6 +77,17 @@ func main() {
 		}
 		in.Remotes = cicd.Remotes(root, in.AllFiles, in.RepoOf)
 		m := cicd.Build(in)
+		if *flags {
+			for _, f := range m.Flags {
+				text := ""
+				if b, err := os.ReadFile(filepath.Join(root, f.File)); err == nil {
+					if lines := strings.Split(string(b), "\n"); f.Line >= 1 && f.Line <= len(lines) {
+						text = strings.TrimSpace(lines[f.Line-1])
+					}
+				}
+				fmt.Printf("%s\t%s\t%s:%d\t%s\t%s\t%.160s\n", f.Rule, root, f.File, f.Line, f.Subject, f.Detail, text)
+			}
+		}
 		unread := map[string][]*cicd.UnreadRow{}
 		for _, u := range m.Unread {
 			unread[u.Pipeline] = append(unread[u.Pipeline], u)

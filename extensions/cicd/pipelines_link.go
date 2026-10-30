@@ -39,6 +39,7 @@ func (b *builder) readPipeline(f, kind string, content []byte) *pipelineFact {
 		if workflowShape.Match(content) {
 			p := readGitHubWorkflow(f, content)
 			p.Kind = "template"
+			p.copyOnly = true
 			return p
 		}
 		return readOtherCI(f, sys)
@@ -307,7 +308,7 @@ func (b *builder) resolvePipelines() {
 				}
 				for _, d := range r.Deploys {
 					c := *d
-					c.Job, c.Step = job, 0
+					c.Job, c.Step, c.File = job, 0, firstNonEmpty(d.File, r.File)
 					p.foldedDeploys = append(p.foldedDeploys, &c)
 				}
 				if r.BuildTool && !p.BuildTool {
@@ -331,7 +332,7 @@ func (b *builder) resolvePipelines() {
 					}
 					for _, d := range q.Deploys {
 						c := *d
-						c.Job, c.Step = h.Job, 0
+						c.Job, c.Step, c.File = h.Job, 0, firstNonEmpty(d.File, q.File)
 						if c.Environment == "" {
 							if j := p.jobByID(h.Job); j != nil {
 								c.Environment = j.Environment
@@ -420,7 +421,7 @@ func (b *builder) outputs() {
 					ctx, platform = proj, "rancher"
 				}
 			}
-			base := OutputRow{Job: dh.Job, Step: dh.Step, Kind: "deploy", Platform: platform, Environment: dh.Environment, Target: firstNonEmpty(dh.Target, dh.Kind), Server: dh.Server, Context: ctx, Line: dh.Line}
+			base := OutputRow{Job: dh.Job, Step: dh.Step, Kind: "deploy", Platform: platform, Environment: dh.Environment, Target: firstNonEmpty(dh.Target, dh.Kind), Server: dh.Server, Context: ctx, File: dh.File, Line: dh.Line}
 			if len(ids) == 0 {
 				add(&base)
 				continue
@@ -718,7 +719,7 @@ func (b *builder) pipelineRows() {
 		}
 		for _, h := range p.Handoffs {
 			m.Handoffs = append(m.Handoffs, &HandoffRow{Pipeline: p.ID, Job: h.Job, Kind: h.Kind, Target: h.Target, Ref: h.Ref,
-				Pinned: h.Pinned, Via: h.Via, LocalPipeline: h.Local, File: p.File, Line: h.Line})
+				Pinned: h.Pinned, Via: h.Via, LocalPipeline: h.Local, File: firstNonEmpty(h.File, p.File), Line: h.Line})
 		}
 	}
 }
@@ -763,9 +764,20 @@ func (b *builder) hasDockerignore(dockerfile string) bool {
 	dirs := []string{dirOf(dockerfile)}
 	for _, d := range b.m.Artifacts {
 		for _, bd := range d.builds {
-			if bd.Dockerfile == dockerfile && bd.Context != "" {
+			// A Dockerfile's own build only guesses its folder.
+			if bd.Dockerfile == dockerfile && bd.Context != "" && bd.BuiltBy != "dockerfile" {
 				dirs = append(dirs, bd.Context)
 			}
+		}
+	}
+	if len(dirs) == 1 {
+		// No build here says which folder is the context: it is the
+		// Dockerfile's own or one above it, often the repository's root
+		// (docker build -f docker/app/Dockerfile .).
+		repo := b.repoDir(dockerfile)
+		for d := dirOf(dockerfile); d != "" && d != "." && d != repo; {
+			d = dirOf(d)
+			dirs = append(dirs, d)
 		}
 	}
 	base := stdpath.Base(dockerfile)

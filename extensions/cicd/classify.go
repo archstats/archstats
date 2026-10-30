@@ -215,12 +215,18 @@ func (p *pipelineFact) readShell(script string, line int, dir string) {
 		p.addBuild(b)
 	}
 	for _, m := range dockerPushCmd.FindAllStringSubmatch(script, -1) {
+		// An image that can be pushed names its registry or namespace, a
+		// tag or digest, or comes from a variable; `docker push to save
+		// quota` in an echo does none of these.
+		if !strings.ContainsAny(m[1], "/:@$%") {
+			continue
+		}
 		if p.cs != nil && p.cs.Target == "" {
 			if n := NormalizeImage(p.expand(m[1])); n.Repo != "" {
 				p.cs.Target = n.String()
 			}
 		}
-		p.pushed = append(p.pushed, pushHit{Raw: m[1], Line: line, Job: p.jobID()})
+		p.pushed = append(p.pushed, pushHit{Raw: m[1], File: p.curFile, Line: line, Job: p.jobID()})
 	}
 	for _, m := range helmDeployCmd.FindAllStringSubmatch(script, -1) {
 		args := splitShellArgs(m[1])
@@ -312,6 +318,7 @@ func (p *pipelineFact) readShell(script string, line int, dir string) {
 
 type pushHit struct {
 	Raw  string
+	File string
 	Line int
 	Job  string
 }

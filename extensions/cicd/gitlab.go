@@ -493,15 +493,15 @@ func (r *gitlabReader) read() {
 			if v == nil {
 				continue
 			}
-			p.curFile = f
-			if f == p.File {
-				p.curFile = ""
-			}
 			label := ""
 			if key != "script" {
 				label = key
 			}
 			for _, cmd := range r.scriptLines(v, 0) {
+				p.curFile = firstNonEmpty(cmd.file, f)
+				if p.curFile == p.File {
+					p.curFile = ""
+				}
 				p.step(label, cmd.text, cmd.line)
 				p.readShell(p.expand(cmd.text), cmd.line, p.root)
 			}
@@ -521,6 +521,8 @@ func (r *gitlabReader) read() {
 type scriptLine struct {
 	text string
 	line int
+	// The file a !reference brought it from; "" for the script's own.
+	file string
 }
 
 // scriptLines flattens a script: nested lists, anchors and !reference tags.
@@ -539,15 +541,22 @@ func (r *gitlabReader) scriptLines(n *yaml.Node, depth int) []scriptLine {
 			path := strs(n)
 			if len(path) >= 2 {
 				var v *yaml.Node
+				file := ""
 				defs := r.top[path[0]]
 				if len(defs) > 0 {
-					v = defs[len(defs)-1].node
+					v, file = defs[len(defs)-1].node, defs[len(defs)-1].file
 					for _, k := range path[1:] {
 						v = get(v, k)
 					}
 				}
 				if v != nil {
-					return r.scriptLines(v, depth+1)
+					out := r.scriptLines(v, depth+1)
+					for i := range out {
+						if out[i].file == "" {
+							out[i].file = file
+						}
+					}
+					return out
 				}
 				r.p.unresolvedRef("!reference "+strings.Join(path, "."), n.Line, "reference_not_found")
 			}

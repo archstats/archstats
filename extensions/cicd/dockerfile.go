@@ -65,6 +65,10 @@ type Copy struct {
 	From string
 	// ADD of a URL or a git repository: nothing from the context.
 	Remote bool
+	// What a remote ADD fetches, as written.
+	RemoteSources []string
+	// --checksum: what the fetched file must hash to.
+	Checksum string
 }
 
 var (
@@ -298,11 +302,12 @@ func parseCopy(rest string, isAdd bool, line int, st *Stage, global map[string]s
 		return nil
 	}
 	args := mergeArgs(global, st.Args)
-	c := &Copy{Line: line, Dest: substitute(parts[len(parts)-1], args), From: strings.ToLower(substitute(flags["from"], args))}
+	c := &Copy{Line: line, Dest: substitute(parts[len(parts)-1], args), From: strings.ToLower(substitute(flags["from"], args)), Checksum: flags["checksum"]}
 	for _, s := range parts[:len(parts)-1] {
 		s = substitute(s, args)
 		if isAdd && (strings.Contains(s, "://") || strings.HasPrefix(s, "git@")) {
 			c.Remote = true
+			c.RemoteSources = append(c.RemoteSources, s)
 			continue
 		}
 		c.Sources = append(c.Sources, s)

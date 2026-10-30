@@ -136,4 +136,17 @@ package core
 //	               calls, route_reach and route_targets trace every entry
 //	               point member by member to the tables and calls it
 //	               reaches.
-const AnalysisRevision = 18
+//	19 2026-10-30  cicd_flags reports only what the files show is a risk:
+//	               a port is not a URL password, a localhost check is not
+//	               TLS turned off, placeholders are not secrets; a workflow
+//	               only ever called, one kept outside .github/workflows, a
+//	               bot-only pull_request_target, a deploy in a workflow
+//	               outside the workspace, Fleet targets, a library loaded
+//	               without a ref, dev Dockerfiles, USER set in an earlier
+//	               stage or by a :nonroot base, scratch export stages,
+//	               ADD --checksum and a .dockerignore at the build context
+//	               raise nothing; dns/v1-style refs are versions; docker
+//	               push needs an image. Flags, handoffs and deploys name
+//	               the file their line is in (GitLab includes and
+//	               !reference), and a flag is reported once.
+const AnalysisRevision = 19

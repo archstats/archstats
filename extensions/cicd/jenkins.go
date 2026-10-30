@@ -1013,7 +1013,7 @@ func (r *jenkinsReader) stepNode(n *gNode, ctx *jctx, label string) {
 	case last == "push" && len(n.Chain) > 1:
 		s := p.step(label, n.Name+"("+argsText(n.Args)+")", n.Line)
 		s.Verb, s.Tool, s.sure = "publish", "docker", true
-		p.pushed = append(p.pushed, pushHit{Raw: argOf(n.Args, "", 0).text(), Line: n.Line, Job: p.jobID()})
+		p.pushed = append(p.pushed, pushHit{Raw: argOf(n.Args, "", 0).text(), File: p.curFile, Line: n.Line, Job: p.jobID()})
 	case len(n.Block) > 0 && (jenkinsWrappers[last] || last == "inside" || last == "withRegistry" || last == "withRun"):
 		sub := *ctx
 		if name == "dir" {
