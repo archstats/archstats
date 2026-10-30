@@ -57,12 +57,14 @@ func Plugin() r.Plugin {
 				}
 				return nil
 			},
-			MainEntries: mainEntries,
-			AuthMarks:   []string{"login_required", "permission_required", "user_passes_test", "staff_member_required", "superuser_required", "jwt_required", "auth_required", "requires_auth"},
-			DocMarks:    []string{"extend_schema", "swagger_auto_schema"},
-			Entities:    entities,
-			Accesses:    accesses,
-			ModelBase:   modelBase,
+			MainEntries:   mainEntries,
+			MethodsByName: classViewMethods,
+			MemberMethods: viewDecoratorMethods,
+			AuthMarks:     []string{"login_required", "permission_required", "user_passes_test", "staff_member_required", "superuser_required", "jwt_required", "auth_required", "requires_auth"},
+			DocMarks:      []string{"extend_schema", "swagger_auto_schema"},
+			Entities:      entities,
+			Accesses:      accesses,
+			ModelBase:     modelBase,
 			Declared: func(s *r.Source, sy *r.Symbols) {
 				r.ColonTypes(s, sy)
 				for _, m := range withAs.FindAllStringSubmatch(s.Code, -1) {
@@ -420,4 +422,78 @@ var outRules = []r.OutRule{
 	{Re: regexp.MustCompile(`\bgrpc\s*\.\s*(?:aio\s*\.\s*)?(?:insecure|secure)_channel\s*\(`), Kind: "grpc", Client: "grpcio", Arg: 0},
 	{Re: regexp.MustCompile(`\b\w+_pb2_grpc\s*\.\s*(\w+)Stub\s*\(`), Kind: "grpc", Client: "grpcio", Arg: -1},
 	{Re: regexp.MustCompile(`\bzeep\s*\.\s*(?:Client|AsyncClient)\s*\(|\bClient\s*\(\s*(?:wsdl\s*=\s*)?['"][^'"]+\?wsdl`), Kind: "soap", Client: "zeep", Arg: 0, Key: "wsdl"},
+}
+
+// A Django class view answers a method with the method of its name: get()
+// answers GET. Django's generic views and Django REST framework's answer
+// theirs from the base, so a ListView with no get() of its own still
+// answers GET. A function view, or a class whose base is the project's own,
+// takes any method as far as the code says.
+var viewMethods = map[string]string{"get": "GET", "post": "POST", "put": "PUT", "patch": "PATCH", "delete": "DELETE", "head": "HEAD", "options": "OPTIONS"}
+
+var genericViews = map[string][]string{
+	"TemplateView": {"GET"}, "ListView": {"GET"}, "DetailView": {"GET"}, "ArchiveIndexView": {"GET"},
+	"YearArchiveView": {"GET"}, "MonthArchiveView": {"GET"}, "WeekArchiveView": {"GET"}, "DayArchiveView": {"GET"},
+	"TodayArchiveView": {"GET"}, "DateDetailView": {"GET"},
+	"FormView": {"GET", "POST"}, "CreateView": {"GET", "POST"}, "UpdateView": {"GET", "POST"}, "DeleteView": {"GET", "POST"},
+	"ListAPIView": {"GET"}, "RetrieveAPIView": {"GET"}, "CreateAPIView": {"POST"}, "DestroyAPIView": {"DELETE"},
+	"UpdateAPIView": {"PUT", "PATCH"}, "ListCreateAPIView": {"GET", "POST"}, "RetrieveUpdateAPIView": {"GET", "PUT", "PATCH"},
+	"RetrieveDestroyAPIView": {"GET", "DELETE"}, "RetrieveUpdateDestroyAPIView": {"GET", "PUT", "PATCH", "DELETE"},
+}
+
+// A Django function view's decorators restrict its methods: @require_POST,
+// @require_http_methods(["GET", "POST"]), and Django REST framework's
+// @api_view, which answers GET alone when it lists nothing.
+var requireMethods = map[string]string{"require_GET": "GET", "require_POST": "POST", "require_safe": "GET,HEAD"}
+
+func viewDecoratorMethods(d r.Decl) string {
+	if m := d.Has("api_view", "require_http_methods"); m != nil {
+		var verbs []string
+		for _, v := range regexp.MustCompile(`['"]([A-Za-z]+)['"]`).FindAllStringSubmatch(strings.Join(m.Args, ","), -1) {
+			if v := strings.ToUpper(v[1]); httpVerbs[v] && !r.Contains(verbs, v) {
+				verbs = append(verbs, v)
+			}
+		}
+		if len(verbs) == 0 && m.Name == "api_view" {
+			return "GET"
+		}
+		return strings.Join(verbs, ",")
+	}
+	for _, m := range d.Marks {
+		if v, ok := requireMethods[m.Name]; ok {
+			return v
+		}
+	}
+	return ""
+}
+
+var classBases = regexp.MustCompile(`^\s*class\s+\w+\s*\(([^)]*)\)`)
+
+func classViewMethods(h r.Handler) []r.MemberMethod {
+	if h.Framework != "django" || !strings.HasPrefix(strings.TrimSpace(h.Declaration), "class ") {
+		return nil
+	}
+	var out []r.MemberMethod
+	seen := map[string]bool{}
+	for _, m := range h.Members {
+		if v, ok := viewMethods[m]; ok && !seen[v] {
+			seen[v] = true
+			out = append(out, r.MemberMethod{Method: v, Member: m})
+		}
+	}
+	if b := classBases.FindStringSubmatch(h.Declaration); b != nil {
+		for _, base := range strings.Split(b[1], ",") {
+			name := r.LastName(strings.TrimSpace(base))
+			if h.Declared(name) {
+				continue
+			}
+			for _, v := range genericViews[name] {
+				if !seen[v] {
+					seen[v] = true
+					out = append(out, r.MemberMethod{Method: v})
+				}
+			}
+		}
+	}
+	return out
 }

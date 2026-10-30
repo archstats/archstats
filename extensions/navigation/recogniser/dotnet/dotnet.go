@@ -40,6 +40,7 @@ func Plugin() r.Plugin {
 			CallEntries:     minimalAPIRoutes,
 			MainEntries:     mainEntries,
 			Convention:      &r.Convention{Framework: "aspnet-conventional", Completes: "aspnet", Route: conventionalRoute},
+			MethodsByName:   webAPIMethod,
 			AuthMarks:       []string{"Authorize", "AllowAnonymous"},
 			DocMarks:        []string{"SwaggerOperation", "ProducesResponseType", "OpenApiOperation"},
 			Entities:        entities,
@@ -110,7 +111,20 @@ func memberEntries(s *r.Source, d r.Decl, class r.ClassContext, e r.Entry) []r.E
 		sig := s.Code[s.Lines[d.Line-1]:min(len(s.Code), s.LineEnd(min(len(s.Lines), d.Line+6)))]
 		switch {
 		case strings.Contains(sig, "HttpTrigger"):
+			// HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = …):
+			// the methods it lists, any when it lists none.
 			x.Kind, x.Method = r.KindHTTP, "ANY"
+			if t := regexp.MustCompile(`HttpTrigger\s*\(([^)]*)\)`).FindStringSubmatch(sig); t != nil {
+				var verbs []string
+				for _, v := range regexp.MustCompile(`"([A-Za-z]+)"`).FindAllStringSubmatch(regexp.MustCompile(`Route\s*=\s*"[^"]*"`).ReplaceAllString(t[1], ""), -1) {
+					if v := strings.ToUpper(v[1]); webAPIVerbIs(v) && !r.Contains(verbs, v) {
+						verbs = append(verbs, v)
+					}
+				}
+				if len(verbs) > 0 {
+					x.Method = strings.Join(verbs, ",")
+				}
+			}
 			if rt := regexp.MustCompile(`Route\s*=\s*"([^"]*)"`).FindStringSubmatch(sig); rt != nil {
 				x.Path = r.JoinRoute("/api", rt[1])
 			}
@@ -122,6 +136,40 @@ func memberEntries(s *r.Source, d r.Decl, class r.ClassContext, e r.Entry) []r.E
 		add(x)
 	}
 	return out
+}
+
+// ASP.NET Web API 2 (System.Web.Http.ApiController) reads an action's
+// method from the start of its name where no attribute says it: GetOrders
+// answers GET, and a name that starts with no method answers POST. ASP.NET
+// Core dropped the rule; its actions with no attribute take any method. A
+// project's own base named ApiController is not Web API's.
+var webAPIBase = regexp.MustCompile(`:\s*(?:[\w.]*\.)?ApiController\b`)
+
+var webAPIVerbs = []string{"Get", "Post", "Put", "Delete", "Patch", "Head", "Options"}
+
+func webAPIVerbIs(v string) bool {
+	for _, w := range webAPIVerbs {
+		if strings.EqualFold(v, w) {
+			return true
+		}
+	}
+	return false
+}
+
+func webAPIMethod(h r.Handler) []r.MemberMethod {
+	if h.Framework != "aspnet" && h.Framework != "aspnet-conventional" || len(h.Members) != 1 || !webAPIBase.MatchString(h.Declaration) {
+		return nil
+	}
+	if !strings.Contains(h.Declaration, "System.Web.Http.") && h.Declared("ApiController") {
+		return nil
+	}
+	name := h.Members[0]
+	for _, v := range webAPIVerbs {
+		if len(name) >= len(v) && strings.EqualFold(name[:len(v)], v) {
+			return []r.MemberMethod{{Method: strings.ToUpper(v), Member: name}}
+		}
+	}
+	return []r.MemberMethod{{Method: "POST", Member: name}}
 }
 
 // routeOf joins a member's route to its class's, with ASP.NET's [controller]

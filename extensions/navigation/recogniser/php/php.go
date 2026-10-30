@@ -182,7 +182,7 @@ func laravelRoutes(s *r.Source) []r.Entry {
 			method = strings.ToUpper(strings.Join(regexp.MustCompile(`[A-Za-z]+`).FindAllString(args[0], -1), ","))
 			args = args[1:]
 		}
-		if verb == "resource" || verb == "apiResource" || verb == "any" {
+		if verb == "any" {
 			method = "ANY"
 		}
 		if len(args) < 1 {
@@ -192,12 +192,80 @@ func laravelRoutes(s *r.Source) []r.Entry {
 		if len(args) > 1 {
 			e.Handler = r.LastName(args[1])
 		}
-		if mw := r.Rx(`^\s*->\s*middleware\s*\(([^()]*)\)`).FindStringSubmatch(s.Code[end:min(len(s.Code), end+200)]); mw != nil && r.Authish.MatchString(mw[1]) {
+		tail := s.Code[end:min(len(s.Code), end+300)]
+		if mw := r.Rx(`^(?:\s*->\s*\w+\s*\([^()]*\))*?\s*->\s*middleware\s*\(([^()]*)\)`).FindStringSubmatch(tail); mw != nil && r.Authish.MatchString(mw[1]) {
 			e.Auth = "middleware(" + strings.Join(strings.Fields(mw[1]), " ") + ")"
+		}
+		if verb == "resource" || verb == "apiResource" {
+			out = append(out, resourceRoutes(e, verb == "apiResource", tail)...)
+			continue
 		}
 		out = append(out, e)
 	}
 	return out
+}
+
+// A Laravel resource route is its controller's standard actions, each
+// answering its method by its name: index and show GET, store POST, update
+// PUT or PATCH, destroy DELETE, and for a web resource create and edit GET.
+// ->only() and ->except() narrow them.
+type resourceAction struct{ name, method, path string }
+
+var resourceActions = []resourceAction{
+	{"index", "GET", ""}, {"create", "GET", "/create"}, {"store", "POST", ""}, {"show", "GET", "/{id}"},
+	{"edit", "GET", "/{id}/edit"}, {"update", "PUT,PATCH", "/{id}"}, {"destroy", "DELETE", "/{id}"},
+}
+
+func resourceRoutes(e r.Entry, api bool, tail string) []r.Entry {
+	names := func(call string) map[string]bool {
+		m := r.Rx(`^(?:\s*->\s*\w+\s*\([^()]*\))*?\s*->\s*` + call + `\s*\(([^()]*)\)`).FindStringSubmatch(tail)
+		if m == nil {
+			return nil
+		}
+		set := map[string]bool{}
+		for _, n := range regexp.MustCompile(`['"](\w+)['"]`).FindAllStringSubmatch(m[1], -1) {
+			set[n[1]] = true
+		}
+		return set
+	}
+	only, except := names("only"), names("except")
+	// photos.comments is /photos/{photo}/comments/{comment}.
+	segs := strings.Split(strings.Trim(e.Path, "/"), ".")
+	base, param := "", ""
+	for i, seg := range segs {
+		param = singular(path.Base(seg))
+		if i < len(segs)-1 {
+			base += "/" + seg + "/{" + param + "}"
+		} else {
+			base += "/" + seg
+		}
+	}
+	var out []r.Entry
+	for _, a := range resourceActions {
+		if api && (a.name == "create" || a.name == "edit") || only != nil && !only[a.name] || except[a.name] {
+			continue
+		}
+		x := e
+		x.Method = a.method
+		x.Path = r.JoinRoute("", base+strings.ReplaceAll(a.path, "{id}", "{"+param+"}"))
+		if e.Handler != "" {
+			x.Handler = e.Handler + "." + a.name
+		}
+		out = append(out, x)
+	}
+	return out
+}
+
+func singular(w string) string {
+	switch {
+	case strings.HasSuffix(w, "ies") && len(w) > 3:
+		return w[:len(w)-3] + "y"
+	case strings.HasSuffix(w, "sses"), strings.HasSuffix(w, "xes"), strings.HasSuffix(w, "ches"), strings.HasSuffix(w, "shes"):
+		return w[:len(w)-2]
+	case strings.HasSuffix(w, "s") && !strings.HasSuffix(w, "ss"):
+		return w[:len(w)-1]
+	}
+	return w
 }
 
 // Symfony routes written in YAML: a name, then an indented block with a path,

@@ -50,6 +50,8 @@ type facts struct {
 	classAuth map[string]string
 	// resMarks are the resilience marks on the member declared on a line.
 	resMarks map[int]string
+	// methods are the methods a member's marks restrict it to, by its name.
+	methods map[string]string
 }
 
 type extension struct {
@@ -178,6 +180,7 @@ func (e *extension) AnalyzeFile(f file.File) *file.Results {
 		fx.doc = document(s)
 	} else {
 		fx.entries = entries(s)
+		fx.methods = memberMethods(s)
 		for _, rec := range lang.Recognisers() {
 			if rec.Routes != nil {
 				routes, imports := rec.Routes(s)
@@ -265,7 +268,9 @@ func componentOf(results *core.Results, f string) string {
 
 // linker holds the lookups every fact is linked through.
 type linker struct {
-	results   *core.Results
+	results *core.Results
+	// marked are the methods a function's marks restrict it to, by file and name.
+	marked    map[string]map[string]string
 	functions map[string][]*file.Function
 	units     map[string][]*unit.Unit
 	byName    map[string][]*unit.Unit
@@ -527,6 +532,12 @@ func (e *extension) linkEntries(l *linker, files map[string]*facts, paths []stri
 		return false
 	}
 	prefix := e.routePrefixes(files, paths)
+	l.marked = map[string]map[string]string{}
+	for p, fx := range files {
+		if len(fx.methods) > 0 {
+			l.marked[clean(p)] = fx.methods
+		}
+	}
 	seen := map[string]bool{}
 	for _, p := range paths {
 		if !own(l.results, p) {
@@ -604,16 +615,116 @@ func (e *extension) linkEntries(l *linker, files map[string]*facts, paths []stri
 			if row.Handler == "" && fn != nil {
 				row.Handler = fn.Name
 			}
-			key := strings.Join([]string{row.Kind, row.Method, row.Path, row.File, itoa(row.Line)}, "\x00")
-			if seen[key] {
-				continue
+			for _, row := range l.methodsByName(files[p].lang, row, u, fn) {
+				key := strings.Join([]string{row.Kind, row.Method, row.Path, row.File, itoa(row.Line)}, "\x00")
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				e.entryRows = append(e.entryRows, row)
 			}
-			seen[key] = true
-			e.entryRows = append(e.entryRows, row)
 		}
 	}
 	e.conventionalActions(l, files, paths, seen)
 	sortEntries(e.entryRows)
+}
+
+// methodsByName is an HTTP route that takes any method as the methods its
+// framework reads from its handler's names, one row each; any other route as
+// it is. The language's recognisers say which names answer which method.
+func (l *linker) methodsByName(lang *r.Language, row entryRow, u *unit.Unit, fn *file.Function) []entryRow {
+	if lang == nil || row.Kind != kindHTTP || row.Method != "ANY" && row.Method != "" {
+		return []entryRow{row}
+	}
+	declaration, from := "", row.File
+	if u != nil && u.Kind == unit.KindType {
+		declaration, from = u.Signature, clean(firstFile(u))
+	}
+	// A routed function whose own marks name its methods.
+	if fn != nil {
+		short := fn.Name[strings.LastIndexByte(fn.Name, '.')+1:]
+		in := []string{row.File}
+		if u != nil {
+			in = u.Files
+		}
+		for _, f := range in {
+			if m := l.marked[clean(f)][short]; m != "" {
+				row.Method = m
+				return []entryRow{row}
+			}
+		}
+	}
+	// The members that may answer: the routed function, else the handler
+	// type's own functions, else the route file's top-level ones.
+	type member struct {
+		fn   *file.Function
+		file string
+	}
+	full := map[string]member{}
+	var members []string
+	add := func(f *file.Function, in string) {
+		short := f.Name[strings.LastIndexByte(f.Name, '.')+1:]
+		if _, ok := full[short]; !ok {
+			full[short] = member{f, in}
+			members = append(members, short)
+		}
+	}
+	switch {
+	case fn != nil:
+		add(fn, row.File)
+	case u != nil && u.Kind == unit.KindType:
+		for _, f := range u.Files {
+			for _, x := range l.functions[clean(f)] {
+				if i := strings.LastIndexByte(x.Name, '.'); i > 0 && (x.Name[:i] == u.Name || strings.HasSuffix(x.Name[:i], "."+u.Name)) {
+					add(x, clean(f))
+				}
+			}
+		}
+	default:
+		for _, x := range l.functions[row.File] {
+			if !strings.Contains(x.Name, ".") {
+				add(x, row.File)
+			}
+		}
+	}
+	for _, rec := range lang.Recognisers() {
+		if rec.MethodsByName == nil {
+			continue
+		}
+		found := rec.MethodsByName(r.Handler{Framework: row.Framework, Declaration: declaration, Members: members, Declared: func(name string) bool { return l.declaresType(name, from) }})
+		if len(found) == 0 {
+			continue
+		}
+		out := make([]entryRow, 0, len(found))
+		for _, m := range found {
+			x := row
+			x.Method = m.Method
+			if f, ok := full[m.Member]; ok && m.Member != "" {
+				x.Function = f.fn.Name
+				if fn == nil {
+					x.Handler = strings.TrimPrefix(row.Handler+"."+m.Member, ".")
+					if f.file == row.File {
+						x.Line = f.fn.Begin
+					}
+				}
+			}
+			out = append(out, x)
+		}
+		return out
+	}
+	return []entryRow{row}
+}
+
+// declaresType is whether a file's code can see a type of the name the
+// workspace declares: in its own component or one its component uses.
+func (l *linker) declaresType(name, from string) bool {
+	comp := componentOf(l.results, from)
+	for _, u := range l.byName[name] {
+		if u.Kind == unit.KindType && (u.Component == comp || l.uses[comp][u.Component]) {
+			return true
+		}
+	}
+	return false
 }
 
 // conventionalActions are actions routed by convention rather than by a
@@ -656,12 +767,14 @@ func (e *extension) conventionalActions(l *linker, files map[string]*facts, path
 				}
 				u := l.unitOfFunction(p, fn)
 				row := entryRow{Kind: kindHTTP, Method: "ANY", Path: conventional, Framework: conv.Framework, Handler: fn.Name, Unit: idOf(u), Function: fn.Name, Component: componentOf(l.results, p), File: p, Line: fn.Begin}
-				key := strings.Join([]string{row.Kind, row.Method, row.Path, row.File, itoa(row.Line)}, "\x00")
-				if seen[key] {
-					continue
+				for _, row := range l.methodsByName(lang, row, u, fn) {
+					key := strings.Join([]string{row.Kind, row.Method, row.Path, row.File, itoa(row.Line)}, "\x00")
+					if seen[key] {
+						continue
+					}
+					seen[key] = true
+					e.entryRows = append(e.entryRows, row)
 				}
-				seen[key] = true
-				e.entryRows = append(e.entryRows, row)
 			}
 		}
 	}

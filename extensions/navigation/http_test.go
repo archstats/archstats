@@ -429,8 +429,8 @@ DATABASES = {
 	assert.Equal(t, []string{
 		"  ",
 		"ANY /account login_required",
-		"ANY /basket permission_classes(IsAuthenticated)",
 		"GET /api/v1/orders/{order_id} ",
+		"GET /basket permission_classes(IsAuthenticated)",
 		"POST /api/v1/orders/{order_id}/ship ",
 	}, rows(t, r, "entry_points", "method", "path", "auth"))
 	assert.Contains(t, rows(t, r, "entry_points", "path", "documented"), "/api/v1/orders/{order_id} framework")

@@ -392,3 +392,113 @@ func TestUnitsCarryLineSignatureAndRank(t *testing.T) {
 	assert.Greater(t, ranks["Money"], ranks["A"])
 	assert.Zero(t, ranks["MoneyTest"], "a test is not ranked")
 }
+
+// Frameworks that read a route's method from its handler's names: a Django
+// class view's get(), a Next.js or SvelteKit route file's exported GET, an
+// ASP.NET Web API 2 action's name, a Laravel resource's actions. Where they
+// do not (a function view, ASP.NET Core, a project's own base) the route
+// takes any method.
+func TestMethodsByName(t *testing.T) {
+	r := scan(t, map[string]string{
+		"shop/urls.py": `from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("orders/", views.OrderView.as_view()),
+    path("products/", views.ProductList.as_view()),
+    path("ping/", views.ping),
+    path("stats/", views.stats),
+    path("hook/", views.hook),
+]
+`,
+		"shop/views.py": `from django.views import View
+from django.views.generic import ListView
+
+class OrderView(View):
+    def get(self, request):
+        return None
+
+    def post(self, request):
+        return None
+
+class ProductList(ListView):
+    model = None
+
+def ping(request):
+    return None
+
+@api_view()
+def stats(request):
+    return None
+
+@require_http_methods(["GET", "POST"])
+def hook(request):
+    return None
+`,
+		"Functions/Orders.cs": `namespace Functions;
+
+public static class Orders {
+    [FunctionName("ListOrders")]
+    public static IActionResult Run([HttpTrigger(AuthorizationLevel.Function, "get", Route = "orders")] HttpRequest req) { return null; }
+}
+`,
+		"next.config.js": "module.exports = {}\n",
+		"app/api/orders/route.ts": `export async function GET(request: Request) { return Response.json([]) }
+export async function POST(request: Request) { return Response.json({}) }
+function helper() {}
+`,
+		"Legacy/Controllers/OrdersController.cs": `using System.Web.Http;
+namespace Legacy.Controllers;
+
+public class OrdersController : ApiController {
+    [Route("api/orders")]
+    public IHttpActionResult GetAll() { return null; }
+
+    [Route("api/orders/cancel")]
+    public IHttpActionResult Cancel() { return null; }
+}
+`,
+		"Core/Controllers/ApiController.cs": `namespace Core.Controllers;
+
+public abstract class ApiController : ControllerBase {}
+`,
+		"Core/Controllers/StockController.cs": `namespace Core.Controllers;
+
+public class StockController : ApiController {
+    [Route("api/stock")]
+    public IActionResult GetLevels() { return null; }
+}
+`,
+		"routes/web.php": `<?php
+Route::resource('photos', PhotoController::class);
+Route::apiResource('albums', AlbumController::class)->only(['index', 'show']);
+`,
+	}, &python.Extension{}, &typescript.Extension{}, &csharp.Extension{}, &php.Extension{})
+	got := rows(t, r, "entry_points", "method", "path", "framework", "handler")
+	for _, want := range []string{
+		"GET /orders django OrderView.get",
+		"POST /orders django OrderView.post",
+		"GET /products django ProductList",
+		"ANY /ping django ping",
+		"GET /stats django stats",
+		"GET,POST /hook django hook",
+		"GET /api/orders azure-functions Orders.Run",
+		"GET /api/orders next GET",
+		"POST /api/orders next POST",
+		"GET /api/orders aspnet OrdersController.GetAll",
+		"POST /api/orders/cancel aspnet OrdersController.Cancel",
+		"ANY /api/stock aspnet StockController.GetLevels",
+		"GET /photos laravel PhotoController.index",
+		"GET /photos/create laravel PhotoController.create",
+		"POST /photos laravel PhotoController.store",
+		"GET /photos/{photo} laravel PhotoController.show",
+		"PUT,PATCH /photos/{photo} laravel PhotoController.update",
+		"DELETE /photos/{photo} laravel PhotoController.destroy",
+		"GET /albums laravel AlbumController.index",
+		"GET /albums/{album} laravel AlbumController.show",
+	} {
+		assert.Contains(t, got, want)
+	}
+	assert.NotContains(t, strings.Join(got, "\n"), "AlbumController.store")
+	assert.NotContains(t, strings.Join(got, "\n"), "helper")
+}

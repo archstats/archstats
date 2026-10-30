@@ -59,6 +59,28 @@ func entries(s *source) []entry {
 	return out
 }
 
+// memberMethods are the methods each member's marks restrict it to, by name.
+func memberMethods(s *source) map[string]string {
+	var out map[string]string
+	for _, rec := range s.Language().Recognisers() {
+		if rec.MemberMethods == nil {
+			continue
+		}
+		for _, d := range s.Decls() {
+			if d.Class {
+				continue
+			}
+			if m := rec.MemberMethods(d); m != "" {
+				if out == nil {
+					out = map[string]string{}
+				}
+				out[d.Name] = m
+			}
+		}
+	}
+	return out
+}
+
 // classContexts are the types in a file with what their marks say about the
 // members below them, in order of declaration.
 func classContexts(s *source, decls []decl) []classContext {

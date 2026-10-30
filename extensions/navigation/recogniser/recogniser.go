@@ -96,6 +96,17 @@ type Recogniser struct {
 	RouteConfigs map[string][]string
 	// Convention routes measured functions by name and signature alone.
 	Convention *Convention
+	// MethodsByName reads a route's methods from its handler's names where
+	// the framework leaves them there and the route says none: a Django
+	// class view answers GET with get(), a Next.js route file with its
+	// exported GET, an ASP.NET Web API action named GetOrders answers GET.
+	// Nil, or nothing returned, leaves the route taking any method.
+	MethodsByName func(h Handler) []MemberMethod
+	// MemberMethods are the methods a member's own marks restrict it to,
+	// comma-joined, where its route says none: Django's @require_POST, or
+	// Django REST framework's @api_view, which is GET when it lists none.
+	// "" says nothing.
+	MemberMethods func(d Decl) string
 	// AuthMarks name the marks that say who may call a route, beyond those
 	// whose names say so; DocMarks the marks that describe a route for its
 	// contract.
@@ -183,6 +194,22 @@ type Convention struct {
 	// Route is the function's conventional path, if it has one.
 	Route func(function, signature string) (string, bool)
 }
+
+// A Handler is what MethodsByName reads: the route's framework, the
+// handler's type as declared (its signature; "" for a file), the names of
+// the members that may answer (the type's or the file's functions, or the
+// one function routed), and whether the workspace declares a type of a name,
+// so a base the project wrote itself is not taken for the framework's.
+type Handler struct {
+	Framework, Declaration string
+	Members                []string
+	Declared               func(typeName string) bool
+}
+
+// A MemberMethod is a method a handler answers and the member that answers
+// it; an empty member is the handler itself (a Django ListView's GET, from
+// its base).
+type MemberMethod struct{ Method, Member string }
 
 // An OutRule reads one spelling of an outbound call by pattern.
 type OutRule struct {

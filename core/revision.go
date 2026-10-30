@@ -149,4 +149,13 @@ package core
 //	               push needs an image. Flags, handoffs and deploys name
 //	               the file their line is in (GitLab includes and
 //	               !reference), and a flag is reported once.
-const AnalysisRevision = 19
+//	20 2026-10-30  entry_points read a route's methods where its framework
+//	               leaves them to names or defaults: a Django class view's
+//	               get()/post() and generic or REST framework bases, a
+//	               function view's @require_*/@api_view (GET when it lists
+//	               none), a Next.js or SvelteKit route file's exported GET,
+//	               an ASP.NET Web API 2 action's name (POST when none fits),
+//	               Azure Functions' HttpTrigger methods; a Laravel resource
+//	               is its seven (or five) actions, ->only/->except applied.
+//	               One row per method where a handler answers several.
+const AnalysisRevision = 20

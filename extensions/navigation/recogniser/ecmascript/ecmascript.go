@@ -47,8 +47,9 @@ func Plugin() r.Plugin {
 			CallEntries: func(s *r.Source) []r.Entry {
 				return append(serverRoutes(s), pageRoutes(s)...)
 			},
-			MainEntries: mainEntries,
-			FileEntries: fileRoutes,
+			MainEntries:   mainEntries,
+			FileEntries:   fileRoutes,
+			MethodsByName: exportedMethods,
 			RouteConfigs: map[string][]string{
 				"next":      {"next.config.js", "next.config.mjs", "next.config.ts", "next.config.cjs"},
 				"nuxt":      {"nuxt.config.ts", "nuxt.config.js", "nuxt.config.mjs"},
@@ -278,6 +279,28 @@ var (
 	nuxtServer = regexp.MustCompile(`(?:^|/)server/(api|routes)/(.+?)(?:\.(get|post|put|patch|delete))?\.(?:ts|js)$`)
 	svelteKit  = regexp.MustCompile(`(?:^|/)routes/((?:[^/]+/)*)\+(page|server)\.(?:svelte|ts|js)$`)
 )
+
+// A Next.js route file and a SvelteKit +server file answer each method with
+// the function they export under its name: GET answers GET. SvelteKit's
+// fallback answers the rest. A Next.js pages/api handler exports none, and
+// takes any method.
+var exportedVerbs = map[string]bool{"GET": true, "POST": true, "PUT": true, "PATCH": true, "DELETE": true, "HEAD": true, "OPTIONS": true}
+
+func exportedMethods(h r.Handler) []r.MemberMethod {
+	if h.Framework != "next" && h.Framework != "sveltekit" {
+		return nil
+	}
+	var out []r.MemberMethod
+	for _, m := range h.Members {
+		switch {
+		case exportedVerbs[m]:
+			out = append(out, r.MemberMethod{Method: m, Member: m})
+		case m == "fallback" && h.Framework == "sveltekit":
+			out = append(out, r.MemberMethod{Method: "ANY", Member: m})
+		}
+	}
+	return out
+}
 
 // fileRoutes are routes a framework reads from where a file is: Next.js's
 // app and pages directories, Nuxt's pages and server routes, SvelteKit's
