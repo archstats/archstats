@@ -1,50 +1,87 @@
-# Architectural Characteristics
+# Architecture
 
-To accompany Archstats functional goal of creating actionable insights for codebases, the following architectural
-characteristics are chosen to drive decision making:
+## Characteristics
 
-- Extensibility - The ability to extend the system with new functionality. To support this characteristic, Archstats is
-  designed to be modular and pluggable, through a microkernel style architecture.
-- Interoperability - The ability to work with other systems. To support this characteristic, Archstats CLI & Archstats UI is designed to
-  support a variety of input and output formats, such as: JSON, CSV, SQLite, etc.
-- User-friendliness - Archstats is designed to make software architecture as approachable as possible. To support this
-  characteristic, Archstats is designed to be easy & pleasant to use.
+These drive the decisions recorded in [docs/adr](docs/adr):
 
+- **Truthfulness**: a number in a snapshot is either right or says why it cannot be. An edge archstats could not resolve is reported as unresolved, not dropped (ADR 0019), and the same commit scans the same, byte for byte.
+- **Extensibility**: a new language or ecosystem is an extension, and core does not change (ADR 0001, ADR 0025).
+- **Interoperability**: everything a scan finds is in one SQLite file, readable by any tool that speaks SQL.
+- **Approachability**: architecture should be something a junior developer can read, so metrics carry definitions and the tables say what they hold.
 
-# Domain Model
+## How a scan runs
 
-## Views
+```
+engine.Analyze(Options)
+  │  Select: always-enabled extensions + the optional ones the files call for
+  │  Initializer(settings) builds each extension fresh for this scan
+  ▼
+core.Analyze
+  1. Init            each extension registers file analyzers, editors, views, definitions
+  2. Walk + analyze  every file not ignored, read in parallel by every FileAnalyzer
+  3. Edit files      FileResultsEditors: component linkers resolve imports to components
+  4. Aggregate       core folds files into components, directories, modules and units,
+                     and builds the component graph
+  5. Edit results    ResultsEditors: git, code health, CI/CD, mobile, navigation
+  ▼
+Results ── RenderView(name) ──▶ View (columns + rows) ──▶ SQLite / CSV / JSON / table
+```
 
-Views are the primary data outputs of Archstats. They are the results of analyzing a codebase.
+Views render lazily, when an exporter asks for them, and every one reads the finished `Results`. Extensions run in the order of the catalogue in [engine/catalog.go](engine/catalog.go). No results editor reads another's output today. If one ever needs to, give extensions declared dependencies first, rather than relying on slice order.
 
-Views consist of Columns and Rows, which are used to display data in a tabular format.
+## The model
 
-## Definitions
+| Grain | What it is | Where |
+|---|---|---|
+| File | a path the walker read, with its role (source, test, config…), system kind, third-party and generated flags | `core/file` |
+| Component | where the code says it lives: a package, namespace or directory | `core/component` |
+| Module | what the project builds and publishes, read from its manifests | `core/module` |
+| Unit | a named thing: type, function, module-level constant; folded across files | `core/unit` |
+| Snippet | an observation: text of a type at a position, with no identity | `core/file` |
 
-Every column in a view has a definition. A definition is used to provide semantic meaning to the column. Definitions are
-used by Archstats to provide a consistent user-friendly experience across Archstats CLI & Archstats UI.
+Edges are typed (ADR 0018), and run between components and between units. Core owns this model and the order it is built in, and knows no ecosystem: language packs register their manifest readers, file conventions and import resolvers in `Init`, and core applies them where it always did (ADR 0025). Languages, metrics, history and views live in `extensions/`.
 
-## Snippets
+## Extensions
 
-Snippets are the smallest units of code that can be analyzed in Archstats. They are references to the _architecturally
-significant_
-parts of a file. These snippets are then aggregated to create insights for a codebase.
+An extension implements `core.Extension` and registers what it contributes in `Init`. A front end sees it as a `plugin.Descriptor`:
+- its name;
+- the arguments it takes, with defaults;
+- a discovery trigger;
+- an `Initializer` that reads its arguments from `plugin.Settings`.
 
-Every snippet has a type, which is used to provide semantic meaning to the snippet. Snippet types are normalized to be
-lowercase.
+The CLI passes its flag set as the settings, and anything else passes `plugin.Values`. Extensions never import `cmd/`.
 
-## Built-in snippet types
+Extensions keep per-scan state, so each scan builds fresh instances.
 
-Archstats has several built-in snippet types. These types are used to help provide semantic meaning to standard snippets
-across codebases.
+## The snapshot is a contract
 
-| Type                    | Description                                                                                                                                                                                                                                                                                                                                                    |
-|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `component:declaration` | A component declaration is a snippet that defines a component within a file. It's usually something like a package/namespace/module declaration. More on components [here](#faq). An example of a java `componentDeclaration` is something like `package com.example.my.cool.package` where `com.example.my.cool.package` is the actual `componentDeclaration` |
-| `component:import`      | A component import is a snippet that defines the import of a component. It's usually an import/using statement in most languages. In java it looks like this `import com.example.my.cool.package.MyCoolClass` where `com.example.my.cool.package` is the actual `componentImport`                                                                              |                                                                              |
-| `function`              | A function is a snippet that defines a function. It's usually a function declaration. In java it looks like this `public void myFunction()` where `myFunction` is the actual `function`                                                                                                                                                                        |
-| `type:abstract`         | An abstract type is an interface or abstract class. In java it looks like this `public abstract class MyAbstractClass` where `MyAbstractClass` is the actual `abstractElement`                                                                                                                                                                                 |
-| `type`                  | A type is a snippet that defines a class. It's usually a class declaration. In java it looks like this `public class MyClass` where `MyClass` is the actual `class`                                                                                                                                                                                            |
+The desktop app, `archstats assert`, reports and Ask all query snapshot tables by name, so the schema is a public interface:
 
-Most of the built-in snippet types are used to support [metrics](https://en.wikipedia.org/wiki/Software_package_metrics)
-such as coupling, abstractness and instability.
+- Views declare their columns. `View.Check` reports a row value with no column, which is never exported, and a value of the wrong type.
+- `e2eTest/testdata/snapshot_schema.golden` records every table and column of a fixture scan. Regenerate it with `UPDATE_GOLDEN=1` and review the diff.
+- Anything that changes what a scan produces for the same source bumps `core.AnalysisRevision`, so readers can flag snapshots older than the engine.
+- Scans are deterministic:
+  - graph ids follow component names;
+  - randomised algorithms are seeded;
+  - ties are broken by name;
+  - floats keep ten significant digits.
+
+  `TestSnapshot_SameTreeSameSnapshot` holds this.
+
+[DESCRIPTION.md](DESCRIPTION.md) documents every table and column.
+
+## Packages
+
+| Package | Role |
+|---|---|
+| `main.go`, `cmd/` | the CLI: flags, `view`, `export`, `assert`, `definitions` |
+| `engine` | the composition root: which extensions exist, which a workspace needs, run a scan |
+| `core` | the pipeline, `Results`, views and the shared model |
+| `core/plugin` | how an extension is described and configured |
+| `extensions/treesitter/*` | one language pack per language: its parser, manifest readers, file conventions and import resolver; `jvm`, `ecmascript` and `apple` are shared by a language family, `common` by all |
+| `extensions/components`, `declbased` | component resolution, coupling, cycles, centrality |
+| `extensions/git`, `matrix` | history, co-change, authorship |
+| `extensions/codesmells` | code health and hotspots |
+| `extensions/cicd`, `mobile`, `navigation` | how the workspace ships, what a mobile app declares, what an architect navigates by; cicd reads build tools through `cicd/buildtool/<tool>` plug-ins, navigation reads languages through `navigation/recogniser/<family>` plug-ins |
+| `extensions/rules` | architecture rules scoped by ecosystem |
+| `e2eTest` | end-to-end tests on fixtures and real projects |

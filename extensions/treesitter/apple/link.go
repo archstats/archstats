@@ -30,7 +30,8 @@ import (
 // language pack, so the edges it adds are not resolved a second time. Both
 // packs register it; the second run finds nothing left to do.
 type Linker struct {
-	Root string
+	// Modules is the scan's module map, asked for once the walk is done.
+	Modules func() *module.Map
 }
 
 type declared struct {
@@ -40,9 +41,7 @@ type declared struct {
 
 func (l *Linker) EditFileResults(all []*file.Results) {
 	var sources []*file.Results
-	var names []string
 	for _, fr := range all {
-		names = append(names, strings.TrimPrefix(fr.Name, "./"))
 		if IsAppleSource(fr.Name) && hasPlaceholder(fr) {
 			sources = append(sources, fr)
 		}
@@ -50,7 +49,7 @@ func (l *Linker) EditFileResults(all []*file.Results) {
 	if len(sources) == 0 {
 		return
 	}
-	mods := module.ReadFrom(l.Root, names)
+	mods := l.Modules()
 	targetOf := map[*file.Results]string{}
 	for _, fr := range sources {
 		targetOf[fr] = target(mods, fr.Name)

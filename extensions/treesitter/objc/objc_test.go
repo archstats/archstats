@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/module"
 	"github.com/archstats/archstats/core/unit"
 	"github.com/archstats/archstats/extensions/treesitter/apple"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ func analyse(t *testing.T, files map[string]string) (map[string]*file.Results, m
 		all = append(all, res)
 		byName[p] = res
 	}
-	(&apple.Linker{Root: t.TempDir()}).EditFileResults(all)
+	(&apple.Linker{Modules: func() *module.Map { return module.New() }}).EditFileResults(all)
 	// Folded across files as the engine folds them: a header's @interface
 	// and its .m's @implementation are one unit.
 	var raw []*unit.Unit

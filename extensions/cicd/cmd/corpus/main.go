@@ -14,11 +14,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/engine"
 	"github.com/archstats/archstats/extensions/cicd"
 )
 
 var skipDirs = map[string]bool{"node_modules": true, ".git": true, "vendor": true, "target": true, "build": true, "dist": true, ".gradle": true, ".idea": true, ".venv": true, "venv": true, "__pycache__": true, ".claude": true}
+
+// classifier judges files by every pack's conventions, as a scan would.
+var classifier = engine.Classifier()
 
 func main() {
 	verbose := flag.Bool("v", false, "list every partial and unread pipeline")
@@ -29,7 +32,7 @@ func main() {
 	stats := map[string]*stat{}
 	reasons := map[string]map[string]int{}
 	for _, root := range flag.Args() {
-		in := &cicd.Input{Files: map[string][]byte{}, Kinds: map[string]string{}, Roles: map[string]string{}, Components: map[string]string{}}
+		in := &cicd.Input{Tools: engine.BuildTools(), Files: map[string][]byte{}, Kinds: map[string]string{}, Roles: map[string]string{}, Components: map[string]string{}}
 		_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
@@ -51,8 +54,8 @@ func main() {
 				return nil
 			}
 			in.AllFiles = append(in.AllFiles, rel)
-			in.Roles[rel] = file.Role(rel, false, false)
-			if kind, keep := cicd.KindOf(rel, content); keep {
+			in.Roles[rel] = classifier.Role(rel, false, false, classifier.SystemKind(rel, content))
+			if kind, keep := cicd.KindOf(rel, content, engine.BuildTools()); keep {
 				in.Files[rel] = content
 				if kind != "" {
 					in.Kinds[rel] = kind

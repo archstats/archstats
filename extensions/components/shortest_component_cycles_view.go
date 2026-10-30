@@ -1,6 +1,8 @@
 package components
 
 import (
+	"sort"
+
 	"github.com/archstats/archstats/core"
 )
 
@@ -9,9 +11,18 @@ func ShortestCyclesView(results *core.Results) *core.View {
 
 	cycles := theGraph.ShortestCycles()
 
+	// Numbered in the order of their text, not of the map holding them, so a
+	// cycle keeps its number between two scans of the same commit.
+	keys := make([]string, 0, len(cycles))
+	for key := range cycles {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
 	var rows []*core.Row
 	cycleNr := 0
-	for cycleKey, cycle := range cycles {
+	for _, cycleKey := range keys {
+		cycle := cycles[cycleKey]
 		cycleNr++
 		for _, cmpnt := range cycle.Components() {
 			rows = append(rows, &core.Row{

@@ -25,24 +25,29 @@ import (
 
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/extensions/cicd/buildtool"
 )
 
 type extension struct {
+	tools []buildtool.Tool
 	mu    sync.Mutex
 	files map[string][]byte
 	kinds map[string]string
 	model *Model
 }
 
-// Extension reads deployables. It costs nothing on a workspace that has no
-// build, pipeline or deployment files: every view is empty.
-func Extension() core.Extension {
-	return &extension{files: map[string][]byte{}, kinds: map[string]string{}}
+// Extension reads pipelines and what they deliver. It costs nothing on a
+// workspace that has no build, pipeline or deployment files: every view is
+// empty. The tools are the build tools whose manifests it reads (see
+// buildtool); with none, it reads pipelines, containers and deployments only.
+func Extension(tools ...buildtool.Tool) core.Extension {
+	return &extension{tools: tools, files: map[string][]byte{}, kinds: map[string]string{}}
 }
 
 func (e *extension) Init(a core.Analyzer) error {
 	// A desktop app scans many times with one set of extensions.
 	e.files, e.kinds, e.model = map[string][]byte{}, map[string]string{}, nil
+	a.RegisterConventions(Conventions())
 	a.RegisterFileAnalyzer(e)
 	a.RegisterResultsEditor(e)
 	for _, v := range []*core.ViewFactory{
@@ -70,9 +75,8 @@ var (
 	// A Jenkins shared library's global step: vars/name.groovy.
 	jenkinsVar = regexp.MustCompile(`(^|/)vars/[A-Za-z0-9_]+\.groovy$`)
 	// Files a pipeline may include or load: YAML and Groovy.
-	includable   = regexp.MustCompile(`\.(ya?ml|groovy|gvy|jenkinsfile)$`)
-	aspireMarker = []byte("DistributedApplication.CreateBuilder")
-	sbomName     = regexp.MustCompile(`(?i)(\.cdx\.json|^bom\.json|^sbom[^/]*\.json|\.bom\.json)$`)
+	includable = regexp.MustCompile(`\.(ya?ml|groovy|gvy|jenkinsfile)$`)
+	sbomName   = regexp.MustCompile(`(?i)(\.cdx\.json|^bom\.json|^sbom[^/]*\.json|\.bom\.json)$`)
 )
 
 // AnalyzeFile keeps the content of the files the linker reads. It records no
@@ -80,7 +84,7 @@ var (
 func (e *extension) AnalyzeFile(f file.File) *file.Results {
 	p := strings.TrimPrefix(f.Path(), "./")
 	content := f.Content()
-	kind, keep := KindOf(f.Path(), content)
+	kind, keep := KindOf(f.Path(), content, e.tools)
 	if !keep {
 		return nil
 	}
@@ -96,12 +100,12 @@ func (e *extension) AnalyzeFile(f file.File) *file.Results {
 }
 
 // KindOf says what a file is to this extension, and whether to keep its
-// content: system files by their kind; Jenkins library steps, Fleet bundles,
-// app hosts and SBOMs by their own; YAML and Groovy a pipeline may include
-// or load with no kind at all.
-func KindOf(path string, content []byte) (kind string, keep bool) {
+// content: system files by their kind; Jenkins library steps, Fleet bundles
+// and SBOMs by their own; files a build tool reads by the tool's (an app
+// host); YAML and Groovy a pipeline may include or load with no kind at all.
+func KindOf(path string, content []byte, tools []buildtool.Tool) (kind string, keep bool) {
 	p := strings.TrimPrefix(path, "./")
-	kind = file.SystemKind(path, content)
+	kind = SystemKind(path, content)
 	base := strings.ToLower(filepath.Base(p))
 	switch {
 	case jenkinsVar.MatchString(p):
@@ -113,11 +117,15 @@ func KindOf(path string, content []byte) (kind string, keep bool) {
 	}
 	if kind == "" {
 		switch {
-		case strings.HasSuffix(base, ".cs") && bytes.Contains(content, aspireMarker):
-			kind = "aspire"
 		case sbomName.MatchString(base) && bytes.Contains(content, []byte("CycloneDX")):
 			kind = "sbom"
 		}
+	}
+	for _, t := range tools {
+		if kind != "" {
+			break
+		}
+		kind = t.Kind(p, content)
 	}
 	if kind == "" {
 		return "", len(content) < 512*1024 && includable.MatchString(strings.ToLower(p))
@@ -141,6 +149,7 @@ func (e *extension) EditResults(results *core.Results) {
 	sort.Strings(all)
 	repoOf := repositories(results.RootDirectory)
 	e.model = Build(&Input{
+		Tools:      e.tools,
 		Files:      e.files,
 		Kinds:      e.kinds,
 		AllFiles:   all,

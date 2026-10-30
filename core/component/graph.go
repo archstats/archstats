@@ -1,6 +1,8 @@
 package component
 
 import (
+	"sort"
+
 	"github.com/samber/lo"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/topo"
@@ -103,8 +105,14 @@ func CreateGraph(graphName string, includedComponents []string, connectionsUnpur
 	allComponents := make(map[int64]*componentNode, amountOfComponents)
 	connectionsFromToUnique := getConnectionsWithCount(connections)
 
+	// Ids follow the names, so every gonum algorithm meets the nodes in the
+	// same order on every scan. Map order used to number them, and with it
+	// PageRank, the communities, the cycle picked among ties and a float's
+	// last digits changed between two scans of the same commit.
+	names := lo.Keys(componentIndex)
+	sort.Strings(names)
 	var curId int64
-	for componentName := range componentIndex {
+	for _, componentName := range names {
 		idMapping[componentName] = curId
 		allComponents[curId] = &componentNode{
 			id:   curId,
@@ -139,7 +147,7 @@ func CreateGraph(graphName string, includedComponents []string, connectionsUnpur
 
 	return &Graph{
 		Name:            graphName,
-		Components:      lo.Keys(componentIndex),
+		Components:      names,
 		Connections:     connections,
 		ConnectionsFrom: componentConnectionsByFrom,
 		ConnectionsTo:   componentConnectionsByTo,
@@ -156,7 +164,10 @@ func getConnectionsWithCount(theConnections []*Connection) []*connectionWithCoun
 		return connection.From + " -> " + connection.To
 	})
 
-	for connectionName, groupedConnections := range grouped {
+	keys := lo.Keys(grouped)
+	sort.Strings(keys)
+	for _, connectionName := range keys {
+		groupedConnections := grouped[connectionName]
 		connections = append(connections, &connectionWithCount{
 			name:  connectionName,
 			count: len(groupedConnections),
@@ -225,9 +236,9 @@ func (g *Graph) Node(id int64) graph.Node {
 }
 
 func (g *Graph) Nodes() graph.Nodes {
-	nodes := make([]graph.Node, 0, len(g.components))
-	for _, node := range g.components {
-		nodes = append(nodes, node)
+	nodes := make([]graph.Node, len(g.components))
+	for id, node := range g.components {
+		nodes[id] = node
 	}
 	return nodeListOf(nodes)
 }

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/archstats/archstats/core/unit"
-	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	"github.com/archstats/archstats/extensions/treesitter/javascript"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,8 +76,8 @@ func analyzeApp(t *testing.T, files map[string]string) app {
 			}
 			res := pack.AnalyzeFileContent(p, src)
 			require.NotNil(t, res, p)
-			common.KeepReactOnlyWhereUsed(p, res)
-			units = common.JSUnitsFrom(p, src, res)
+			ecmascript.KeepReactOnlyWhereUsed(p, res)
+			units = ecmascript.UnitsFrom(p, src, res)
 		}
 		all = append(all, units...)
 	}

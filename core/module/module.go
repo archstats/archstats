@@ -13,10 +13,10 @@
 // is 60 composer packages, and the whole design rests on Component not
 // knowing about Bundle.
 //
-// `extensions/components/declbased/aliases.go` already reads package.json and
-// tsconfig for JavaScript, because guessing at a monorepo's own import names
-// does not work. This package is that idea, for every ecosystem, and kept in
-// core because components, units and rules all need the same answer.
+// Core owns the model -- what a module is and which file it owns -- and the
+// order manifests are read in. It knows no ecosystem: each language pack
+// registers the readers for its own manifests (ADR 0025), and a scan reads
+// only with the readers of the packs it runs.
 package module
 
 import (
@@ -35,7 +35,7 @@ type Module struct {
 	Dir string
 	// Repo-relative path of the manifest that declared it.
 	Manifest string
-	// Which reader found it: dotnet, composer, gradle, node, maven, go, django.
+	// Which reader found it, by the reader's Kind.
 	Kind string
 	// Modules this one declares a dependency on, by the name the manifest
 	// used. Not every ecosystem records these, and a name here need not
@@ -90,31 +90,16 @@ type Reader interface {
 	Read(root, path string) []*Module
 }
 
-// Readers is every manifest reader, in the order they are tried. A file
-// claimed by two readers yields two modules; the longest directory still
-// wins, and a tie is broken by this order.
-var Readers = []Reader{
-	dotnetReader{},
-	composerReader{},
-	nodeReader{},
-	gradleReader{},
-	mavenReader{},
-	goReader{},
-	djangoReader{},
-	swiftpmReader{},
-	xcodeReader{},
-	pubReader{},
+// A Finisher is a Reader with work to do once every manifest is read: a
+// dependency named the way the build tool names it, resolved against the
+// modules the other manifests declared. It may change a module's DependsOn
+// and Type, never its Name or Dir.
+type Finisher interface {
+	Finish(m *Map, root string, paths []string)
 }
 
-// skipDir keeps the walk to a project's own source. Shared with the JS alias
-// reader's list, for the same reason: a vendored copy of a package declares
-// the same names as the real one and would outrank nothing usefully.
-var skipDir = map[string]bool{
-	"node_modules": true, ".git": true, "dist": true, "build": true,
-	"out": true, "target": true, "vendor": true, ".next": true, ".nuxt": true,
-	"coverage": true, "__pycache__": true, ".venv": true, "venv": true,
-	"bin": true, "obj": true, ".gradle": true, ".idea": true,
-}
+// skipDir keeps Read, the walk for tests, out of version control.
+var skipDir = map[string]bool{".git": true}
 
 // ReadFrom builds the map from files the analysis has already discovered.
 //
@@ -127,14 +112,18 @@ var skipDir = map[string]bool{
 // MediatR's -- instead of the 3 go.mod files it actually has.
 //
 // Paths are repo-relative, as the walker and file.Results.Name give them.
-func ReadFrom(root string, paths []string) *Map {
+//
+// Readers are tried in the order given. A file claimed by two readers yields
+// two modules; the longest directory still wins, and a tie goes to the
+// reader given first.
+func ReadFrom(root string, paths []string, readers []Reader) *Map {
 	m := &Map{byName: map[string]*Module{}}
 	if root == "" {
 		return m
 	}
 	for _, rel := range paths {
 		base := filepath.Base(rel)
-		for _, r := range Readers {
+		for _, r := range readers {
 			if !r.Claims(base) {
 				continue
 			}
@@ -148,16 +137,18 @@ func ReadFrom(root string, paths []string) *Map {
 		}
 	}
 	m.index()
-	resolveGradleAccessors(m)
-	typeGradleConventions(m, root, paths)
+	for _, r := range readers {
+		if f, ok := r.(Finisher); ok {
+			f.Finish(m, root, paths)
+		}
+	}
 	return m
 }
 
 // Read walks a checkout itself. For tests and for callers with no file list
-// in hand; the engine uses ReadFrom. The skip list below is a coarse stand-in
-// for the walker's ignore handling and is deliberately not relied on
-// anywhere that matters.
-func Read(root string) *Map {
+// in hand; the engine uses ReadFrom. It honours no ignore file, so nothing
+// that matters relies on it.
+func Read(root string, readers ...Reader) *Map {
 	if root == "" {
 		return &Map{byName: map[string]*Module{}}
 	}
@@ -177,7 +168,7 @@ func Read(root string) *Map {
 		}
 		return nil
 	})
-	return ReadFrom(root, paths)
+	return ReadFrom(root, paths, readers)
 }
 
 // New builds a Map from modules already in hand. For tests, and for callers
@@ -257,8 +248,8 @@ func (m *Map) Kinds() map[string]int {
 	return out
 }
 
-// relDir gives a manifest's directory relative to the root, "" at the root.
-func relDir(root, manifestPath string) string {
+// RelDir gives a manifest's directory relative to the root, "" at the root.
+func RelDir(root, manifestPath string) string {
 	rel, err := filepath.Rel(root, filepath.Dir(manifestPath))
 	if err != nil {
 		return ""
@@ -270,8 +261,8 @@ func relDir(root, manifestPath string) string {
 	return rel
 }
 
-// relFile gives a manifest's own path relative to the root.
-func relFile(root, manifestPath string) string {
+// RelFile gives a manifest's own path relative to the root.
+func RelFile(root, manifestPath string) string {
 	rel, err := filepath.Rel(root, manifestPath)
 	if err != nil {
 		return filepath.ToSlash(manifestPath)
@@ -279,10 +270,35 @@ func relFile(root, manifestPath string) string {
 	return filepath.ToSlash(rel)
 }
 
-func readFile(path string) (string, bool) {
+// ReadFile reads a manifest, reporting whether it could.
+func ReadFile(path string) (string, bool) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return "", false
 	}
 	return string(raw), true
+}
+
+// Keys lists a manifest's dependency map, sorted, so a module's DependsOn is
+// the same on every scan.
+func Keys(m map[string]string) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// AppendUnique appends v unless the list already holds it.
+func AppendUnique(list []string, v string) []string {
+	for _, existing := range list {
+		if existing == v {
+			return list
+		}
+	}
+	return append(list, v)
 }

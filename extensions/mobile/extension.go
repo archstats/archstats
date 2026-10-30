@@ -36,6 +36,7 @@ type declaration struct {
 func (e *extension) Init(a core.Analyzer) error {
 	// A desktop app scans many times with one set of extensions.
 	e.files, e.rows = map[string][]byte{}, nil
+	a.RegisterConventions(Conventions())
 	a.RegisterFileAnalyzer(e)
 	a.RegisterResultsEditor(e)
 	a.RegisterView(&core.ViewFactory{Name: "app_declarations", CreateViewFunc: e.view})
@@ -48,7 +49,7 @@ func (e *extension) Init(a core.Analyzer) error {
 func (e *extension) AnalyzeFile(f file.File) *file.Results {
 	p := strings.TrimPrefix(f.Path(), "./")
 	base := strings.ToLower(path.Base(p))
-	keep := file.SystemKind(f.Path(), nil) == file.SystemKindAppManifest || base == "build.gradle" || base == "build.gradle.kts"
+	keep := SystemKind(f.Path(), nil) == file.SystemKindAppManifest || base == "build.gradle" || base == "build.gradle.kts"
 	if !keep {
 		return nil
 	}
@@ -232,4 +233,21 @@ func walkerName(p string) string {
 		return "./" + p
 	}
 	return p
+}
+
+// Conventions name the files an app declares to the platform it installs on.
+func Conventions() file.Conventions {
+	return file.Conventions{Name: "mobile", SystemKind: SystemKind}
+}
+
+// SystemKind is app_manifest for AndroidManifest.xml, Info.plist, an
+// entitlements file or a privacy manifest, and "" for anything else.
+func SystemKind(filePath string, _ []byte) string {
+	base := strings.ToLower(path.Base(filePath))
+	switch {
+	case base == "androidmanifest.xml", base == "info.plist", strings.HasSuffix(base, "-info.plist"),
+		path.Ext(base) == ".entitlements", base == "privacyinfo.xcprivacy":
+		return file.SystemKindAppManifest
+	}
+	return ""
 }

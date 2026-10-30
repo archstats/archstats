@@ -54,8 +54,11 @@ func createComponentInGraphMetrics(graph *component.Graph) map[string]*Component
 			pageRankIndex[componentId] = 0
 		}
 	} else {
-		hubAuthorityHITSIndex = network.HITS(graph, 0.00001)
-		pageRankIndex = network.PageRank(graph, 0.85, 0.00001)
+		// Converged well past the digits a snapshot keeps: stopped at 1e-5,
+		// page rank moved in its fourth digit with the order nodes were met.
+		// The sparse PageRank holds edges, not an n-by-n matrix.
+		hubAuthorityHITSIndex = network.HITS(graph, 1e-12)
+		pageRankIndex = network.PageRankSparse(graph, 0.85, 1e-12)
 	}
 	log.Debug().Msgf("PageRank and HITS calculated")
 
@@ -114,6 +117,22 @@ func createSubGraph(components []string, graph *component.Graph) *component.Grap
 func setGraphMetricsOnRow(row *core.Row, metrics *ComponentInGraphMetrics) {
 	setGraphMetricsOnRowWithPrefix(row, metrics, "")
 }
+
+// graphMetricColumns are the columns setGraphMetricsOnRowWithPrefix writes,
+// declared so that a view with no rows still has them: an empty
+// component_communities used to be a table with no columns at all, and every
+// query naming one failed.
+func graphMetricColumns(prefix string) []*core.Column {
+	var columns []*core.Column
+	for _, name := range []string{Dependents, Dependencies, ShortCycleCount, ShortCycleSizeMax, AfferentCouplings, EfferentCouplings} {
+		columns = append(columns, core.IntColumn(prefix+name))
+	}
+	for _, name := range []string{ShortCycleSizeAvg, Betweenness, PageRank, HubScore, AuthorityScore, HarmonicCentrality, FarnessCentrality, ResidualCloseness} {
+		columns = append(columns, core.FloatColumn(prefix+name))
+	}
+	return columns
+}
+
 func setGraphMetricsOnRowWithPrefix(row *core.Row, metrics *ComponentInGraphMetrics, prefix string) {
 	row.Data[prefix+Dependents] = metrics.Dependents
 	row.Data[prefix+Dependencies] = metrics.Dependencies

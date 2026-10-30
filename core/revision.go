@@ -118,7 +118,16 @@ package core
 //	               replace deployables; dockerfiles and dockerfile_stages;
 //	               cicd_flags; the runtime links, environments, config
 //	               values and dependencies tables are gone.
-//	17 2026-10-29  HTTP and outbound: entry_points gain id, template, auth
+//	17 2026-10-29  the same commit scans the same, byte for byte: component
+//	               ids follow names, so graph metrics meet nodes in one
+//	               order; communities seeded; page rank and HITS converged
+//	               to 1e-12 (page rank moved in its fourth digit); cycles
+//	               numbered and furthest paths chosen by name; partial
+//	               classes merged in file order; floats kept to ten
+//	               significant digits. summary holds numbers only (the
+//	               version is engine_version in _snapshot); an empty
+//	               component_communities keeps its columns.
+//	18 2026-10-29  HTTP and outbound: entry_points gain id, template, auth
 //	               and documented; api_operations and api_findings read
 //	               OpenAPI 3 / Swagger 2 contracts and the NLGov API design
 //	               rules; outbound_calls, outbound_systems and
@@ -127,4 +136,4 @@ package core
 //	               calls, route_reach and route_targets trace every entry
 //	               point member by member to the tables and calls it
 //	               reaches.
-const AnalysisRevision = 17
+const AnalysisRevision = 18

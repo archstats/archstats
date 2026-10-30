@@ -4,6 +4,7 @@ package core
 // DESCRIPTION.md documents each one, and a test holds it to that.
 var KnownSnapshotKeys = []string{
 	"analysis_revision",
+	"engine_version",
 	"scanned_at",
 	"report_id",
 	"git_head_commit",

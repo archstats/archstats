@@ -16,31 +16,38 @@ func TestModuleUnitResolvesRelativeImports(t *testing.T) {
 	}
 }
 
-// An import that spells out the file's extension names the module without
-// it: `./ChatPanel.vue` is the only way to import a Vue component, and ESM
-// TypeScript writes `./reader.js` for `reader.ts`.
-func TestAnImportSpellingOutItsExtensionResolves(t *testing.T) {
+// A pack may say what a module is as a path, and under the project's own
+// alias; resolution uses those, and the edge keeps what the source wrote.
+func TestRefPathAndUnaliasedResolve(t *testing.T) {
 	units := []*Unit{
-		{ID: "src/app#", Kind: KindModule, Files: []string{"src/app.ts"}, Refs: []Ref{
-			{Module: "./reader.js", Name: "parse"},
-			{Module: "./components/index.js", Name: "Button"},
-			{Module: "~/components/ChatPanel.vue", Name: "ChatPanel"},
+		{ID: "src/app#", Kind: KindModule, Files: []string{"src/app.x"}, Refs: []Ref{
+			{Module: "./reader.x", Path: "./reader", Name: "parse"},
+			{Module: "$/components/Panel.x", Path: "$/components/Panel", Unaliased: "components/Panel", Name: "Panel"},
 		}},
-		{ID: "src/reader#parse", Kind: KindFunction, Name: "parse", Files: []string{"src/reader.ts"}},
-		{ID: "src/components#Button", Kind: KindFunction, Name: "Button", Files: []string{"src/components/index.ts"}},
-		{ID: "src/components/ChatPanel#ChatPanel", Kind: KindType, Name: "ChatPanel", Files: []string{"src/components/ChatPanel.vue"}},
+		{ID: "src/reader#parse", Kind: KindFunction, Name: "parse", Files: []string{"src/reader.x"}},
+		{ID: "src/components/Panel#Panel", Kind: KindType, Name: "Panel", Files: []string{"src/components/Panel.x"}},
 	}
-	got := map[string]bool{}
+	via := map[string]string{}
 	for _, c := range Connections(units) {
-		got[c.To] = true
+		via[c.To] = c.Via
 	}
-	for _, want := range []string{"src/reader#parse", "src/components#Button", "src/components/ChatPanel#ChatPanel"} {
-		if !got[want] {
-			t.Errorf("no edge to %s; got %v", want, got)
+	if via["src/reader#parse"] != "./reader.x" || via["src/components/Panel#Panel"] != "$/components/Panel.x" {
+		t.Errorf("got %v", via)
+	}
+}
+
+// A qualified id splits before its name, whatever separator the language
+// writes between them.
+func TestSplitID(t *testing.T) {
+	for _, c := range []struct{ id, name, module string }{
+		{`Acme\Order\Order`, "Order", `Acme\Order`},
+		{"com.acme.Order", "Order", "com.acme"},
+		{"lib/router.go#Engine.ServeHTTP", "ServeHTTP", "lib/router.go"},
+		{"src/app#", "app", "src/app"},
+		{"fooBar", "Bar", ""},
+	} {
+		if m, _ := splitID(&Unit{ID: c.id, Name: c.name}); m != c.module {
+			t.Errorf("%s: module %q, want %q", c.id, m, c.module)
 		}
-	}
-	// A dotted name is not a file path, and keeps its last segment.
-	if withoutSourceExtension("acme.js") != "acme.js" {
-		t.Errorf("a dotted module name was treated as a file")
 	}
 }

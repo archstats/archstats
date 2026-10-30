@@ -1,38 +1,16 @@
 package cicd
 
+import "github.com/archstats/archstats/extensions/cicd/buildtool"
+
 // Readers turn one file into facts; the linker joins facts across files into
 // deployables. Paths inside facts are clean and repository-relative ("a/b",
 // "." for the root); the walker's own names ("./x" at the root) are only
 // restored when rows are written, so the snapshot's file columns match
 // files.name.
 
-// An imageBuild is a declaration that an image is built: a compose service
-// with `build:`, a Skaffold artifact, a docker step in a pipeline, a Jib or
-// Spring Boot image plugin, or a Dockerfile standing on its own.
-type imageBuild struct {
-	Names   []ImageName
-	Aliases []string // other names it answers to: a compose service name
-	// The build context and the Dockerfile inside it. Dockerfile is empty
-	// for builds that use none (Jib, buildpacks, Spring Boot build-image).
-	Context    string
-	Dockerfile string
-	Target     string
-	// For Jib and Spring Boot: the module the image is built from.
-	Module  string
-	BuiltBy string
-	File    string
-	Line    int
-	// A compose service that names both `build:` and `image:` in one block
-	// states the join outright.
-	Declared bool
-	// The workload this build belongs to (compose), if any.
-	Workload string
-	// The pipeline job and step that build it, for a pipeline build.
-	Job  string
-	Step int
-	// Tags as written, for the push-only-latest flag.
-	RawTags []string
-}
+// An imageBuild is a declaration that an image is built, as the build tools
+// declare theirs.
+type imageBuild = buildtool.Image
 
 // An imageRef is something that runs an image.
 type imageRef struct {

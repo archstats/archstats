@@ -5,13 +5,18 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/archstats/archstats/core/component"
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/module/moduletest"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
+	"github.com/archstats/archstats/extensions/treesitter/golang"
+	"github.com/archstats/archstats/extensions/treesitter/python"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestComponentLinker_DeclaredStrategy(t *testing.T) {
-	linker := &componentLinker{Strategy: "declared"}
+	linker := &componentLinker{resolvers: languages, Strategy: "declared"}
 
 	fileResults := []*file.Results{
 		{
@@ -41,7 +46,7 @@ func TestComponentLinker_DeclaredStrategy(t *testing.T) {
 }
 
 func TestComponentLinker_JS_TS_RelativeImports(t *testing.T) {
-	linker := &componentLinker{Strategy: "directory"}
+	linker := &componentLinker{resolvers: languages, Strategy: "directory"}
 
 	fileResults := []*file.Results{
 		{
@@ -120,7 +125,7 @@ func TestComponentLinker_JS_TS_RelativeImports(t *testing.T) {
 }
 
 func TestComponentLinker_Python_DotImports(t *testing.T) {
-	linker := &componentLinker{Strategy: "directory"}
+	linker := &componentLinker{resolvers: languages, Strategy: "directory"}
 
 	fileResults := []*file.Results{
 		{
@@ -179,7 +184,7 @@ func TestComponentLinker_Python_DotImports(t *testing.T) {
 }
 
 func TestComponentLinker_FallbackStrategy_Detailed(t *testing.T) {
-	linker := &componentLinker{Strategy: "fallback"}
+	linker := &componentLinker{resolvers: languages, Strategy: "fallback"}
 
 	fileResults := []*file.Results{
 		{
@@ -232,7 +237,7 @@ func TestComponentLinker_FallbackStrategy_Detailed(t *testing.T) {
 }
 
 func TestComponentLinker_Python_MultiLevelRelativeImports(t *testing.T) {
-	linker := &componentLinker{Strategy: "directory"}
+	linker := &componentLinker{resolvers: languages, Strategy: "directory"}
 
 	fileResults := []*file.Results{
 		{
@@ -267,7 +272,7 @@ func TestComponentLinker_Python_MultiLevelRelativeImports(t *testing.T) {
 }
 
 func TestComponentLinker_JS_TS_Alias_Ambiguation(t *testing.T) {
-	linker := &componentLinker{Strategy: "directory"}
+	linker := &componentLinker{resolvers: languages, Strategy: "directory"}
 
 	fileResults := []*file.Results{
 		{
@@ -310,7 +315,7 @@ func TestComponentLinker_JS_TS_Alias_Ambiguation(t *testing.T) {
 func TestComponentLinker_Go_ModulePrefixedImports(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "go.mod", "module github.com/acme/thing\n\ngo 1.23\n")
-	linker := &componentLinker{Strategy: "fallback", root: root}
+	linker := &componentLinker{resolvers: languages, Strategy: "fallback", root: root}
 
 	fileResults := []*file.Results{
 		{Name: "./go.mod", Directory: "."},
@@ -355,7 +360,7 @@ func TestComponentLinker_Go_ModulePrefixedImports(t *testing.T) {
 func TestComponentLinker_Go_ThirdPartyImportDoesNotMatchLocalDirectory(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "go.mod", "module example.com/app\n\ngo 1.23\n")
-	linker := &componentLinker{Strategy: "fallback", root: root}
+	linker := &componentLinker{resolvers: languages, Strategy: "fallback", root: root}
 
 	fileResults := []*file.Results{
 		{Name: "./go.mod", Directory: "."},
@@ -388,7 +393,7 @@ func TestComponentLinker_Go_SeveralModules(t *testing.T) {
 	write(t, root, "go.mod", "module example.com/app\n")
 	write(t, root, "tools/go.mod", "module example.com/app/tools\n")
 	write(t, root, "lib/go.mod", "module \"example.com/lib\" // quoted\n")
-	linker := &componentLinker{Strategy: "fallback", root: root}
+	linker := &componentLinker{resolvers: languages, Strategy: "fallback", root: root}
 
 	fileResults := []*file.Results{
 		{Name: "./go.mod", Directory: "."},
@@ -429,7 +434,7 @@ func TestComponentLinker_Go_ScanBelowModuleRoot(t *testing.T) {
 	write(t, outer, "go.mod", "module example.com/mono\n")
 	root := filepath.Join(outer, "services", "api")
 	require.NoError(t, os.MkdirAll(root, 0o755))
-	linker := &componentLinker{Strategy: "fallback", root: root}
+	linker := &componentLinker{resolvers: languages, Strategy: "fallback", root: root}
 
 	fileResults := []*file.Results{
 		{
@@ -456,7 +461,7 @@ func TestComponentLinker_Go_TestdataModuleIsNotAModule(t *testing.T) {
 	write(t, root, "go.mod", "module example.com/app\n")
 	write(t, root, "core/module/testdata/gomod/go.mod", "module example.com/app\n")
 	write(t, root, "_old/go.mod", "module example.com/app\n")
-	linker := &componentLinker{Strategy: "fallback", root: root}
+	linker := &componentLinker{resolvers: languages, Strategy: "fallback", root: root}
 
 	fileResults := []*file.Results{
 		{Name: "core/module/testdata/gomod/go.mod", Directory: "core/module/testdata/gomod"},
@@ -482,7 +487,7 @@ func TestComponentLinker_Go_DuplicateModulePath(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "a/go.mod", "module example.com/app\n")
 	write(t, root, "b/go.mod", "module example.com/app\n")
-	linker := &componentLinker{Strategy: "fallback", root: root}
+	linker := &componentLinker{resolvers: languages, Strategy: "fallback", root: root}
 
 	fileResults := []*file.Results{
 		{Name: "a/go.mod", Directory: "a"},
@@ -508,8 +513,19 @@ func TestShortestDirEndingInIsDeterministic(t *testing.T) {
 		"c.py": "vendor/x/src/oscar/apps/catalogue/reviews",
 	}
 	for i := 0; i < 50; i++ {
-		if got := newDirIndex(dirs).shortestEndingIn("reviews"); got != "src/oscar/apps/catalogue/reviews" {
+		if got := component.NewDirIndex(dirs).ShortestEndingIn("reviews"); got != "src/oscar/apps/catalogue/reviews" {
 			t.Fatalf("got %q", got)
 		}
 	}
+}
+
+// languages are the resolvers the packs that write these imports register,
+// fresh for each scan as a pack's Init makes them.
+func languages() []component.ImportResolver {
+	return []component.ImportResolver{golang.ImportResolver(), ecmascript.ImportResolver(), python.ImportResolver()}
+}
+
+func write(t *testing.T, root, rel, content string) {
+	t.Helper()
+	moduletest.Write(t, root, rel, content)
 }

@@ -1,140 +1,81 @@
 [![Go](https://github.com/archstats/archstats/actions/workflows/ci.yml/badge.svg)](https://github.com/archstats/archstats/actions/workflows/ci.yml)
 
-# Archstats CLI
+# Archstats
 
-Archstats is a tool that assists in
-generating insights for codebases, such
-as [the traditional package metrics for software projects](https://en.wikipedia.org/wiki/Software_package_metrics).
+Archstats reads a codebase and writes down its architecture: the components and modules it is made of, the units (types, functions) inside them, every dependency between them, how they changed together in git, how complex and how healthy they are, and how the workspace is built and shipped.
 
-**Archstats also has an open-source visualization tool called [Archstats UI](https://app.archstats.io).**
+It writes all of it to one SQLite file, the **snapshot**. Everything else reads that file: the Archstats desktop app, `archstats assert`, reports, and any SQL you write yourself. The tables are documented in [DESCRIPTION.md](DESCRIPTION.md).
 
-
-This is the CLI tool for Archstats. It is used to generate insights for codebases and provide DB files to be used
-with [Archstats UI](https://app.archstats.io).
-
-It helps in answering questions like this:
-
-- How many packages/components are there in the project?
-- What are the afferent/efferent couplings between components/packages?
-- How many functions/fields/classes/interfaces are there per component/file/directory?
-- How many occurences of this _custom regex pattern_ are there per component/file/directory?
-- How many lines of code are there per component/file/directory?
-- How tightly coupled are the components/packages from a code perspective, and from a historical perspective (git
-  commits)?
-- What are the most complex components/packages/files/directories?
-- _etc._ See more in the Examples section
-
-
-# Installation
-
-Archstats is distributed as a [Go module](https://go.dev/blog/using-go-modules). It can be installed like this:
+## Install
 
 ```shell
 go install github.com/archstats/archstats@latest
 ```
 
-Make sure that installed Go binaries are on your `PATH`. You can do so by running `go help install` and following the
-instructions.
+Binaries for macOS, Linux and Windows are on the [releases page](https://github.com/archstats/archstats/releases).
 
-Archstats is also available as a binary for Windows, Linux and MacOS. You can download the latest release from the [releases page](https://github.com/archstats/archstats/releases).
+## Use
 
-## MacOS Installation
-To install the latest release on MacOS, run the following command:
-```shell
-LATEST=$(curl -s https://api.github.com/repos/archstats/archstats/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-curl -L "https://github.com/archstats/archstats/releases/download/$LATEST/archstats-$LATEST-darwin-amd64.tar.gz" | sudo tar -xz -C /usr/local/bin
-```
-
-# Usage
-
-For instructions on how to use Archstats and the available options, run:
+Write a snapshot of a codebase:
 
 ```shell
-archstats --help
+archstats -f path/to/project export sqlite snapshot.db
 ```
 
-Here's a simple example. It gets a count of all functions, per component, in the project.
+Archstats switches on what the workspace needs by looking at its files: a language pack for each language it finds, and git history when the folder is a repository, or holds several. Name extensions with `-e` to choose them yourself.
+
+Look at one view in the terminal:
 
 ```shell
-archstats -f path/to/project view components --snippet "function (?P<functions>.*)\(.*\)" -e php -c name,abstractness,instability,functions,coupling:efferent:count --sorted-by abstractness
+archstats -f path/to/project view components -c name,modularity__coupling__afferent,modularity__coupling__efferent,modularity__instability --sorted-by modularity__instability
 ```
 
-This might output something like this:
+`archstats definitions` lists every metric and what it means. `-o csv`, `-o json` and `-o tsv` change the output format.
+
+Hold a codebase to rules written as SQL against the snapshot:
 
 ```shell
-NAME                                                                                  ABSTRACTNESS          INSTABILITY            FUNCTIONS  EFFERENT_COUPLINGS
-App\Mail\Base                                                                         1                     0.03571428571428571    0          1
-App\Http\Controllers\Api\Business\v1                                                  1                     0.1674641148325359     17         35
-App\Main\Repositories\Interfaces                                                      1                     0.07915831663326653    304        158
-App\Main\Models\Collections\Base                                                      1                     0                      3          0
-App\Http\Controllers                                                                  1                     0.11023622047244094    17         28
-App\Main\Models\Interfaces                                                            1                     0.012319355602937692   3500       52
-App\Http\Controllers\Api\Admin\v1                                                     1                     0.13333333333333333    2          4
-App\Main\Automations\Actions                                                          1                     0.36                   11         9
-App\Main\Algolia\Indeces                                                              1                     0.16666666666666666    8          1
-App\Main\Models\Collections\Interfaces                                                1                     0.4666666666666667     11         7
-... More Rows
+archstats assert -r rules.yml -f path/to/project
 ```
 
-## Components
+```yaml
+assertions:
+  - name: "The domain does not depend on the web layer"
+    query: |
+      SELECT "from", "to", file FROM component_connections_direct
+      WHERE "from" LIKE 'shop/domain%' AND "to" LIKE 'shop/web%'
+    expect: 0
+```
 
-The term 'component' is loosely defined within the software industry. For the sake of alignment I chose to go with the
-following definition by world-renowned
-architect [Mark Richards](https://www.developertoarchitect.com/mark-richards.html):
-> A component is the physical manifestation of a software module. They are the packages of your software system. They
-> are the building blocks of your system.
+[docs/rules](docs/rules) has templates.
 
-For more information, see [this video](https://www.youtube.com/watch?v=jrohK2unyE8).
+## What it reads
 
-## Extensions
+| Languages | Read with |
+|---|---|
+| Java, Kotlin, C#, Go, Python, PHP, JavaScript, TypeScript (with Vue and Svelte), Swift, Objective-C, Dart | tree-sitter: units, imports resolved to components and modules, cognitive complexity per function |
+| Scala | regular expressions: packages and imports |
 
-Archstats supports a number of _optional_ extensions. These extensions are used to assist users in getting started with
-Archstats. They pre-configure Archstats with built-in snippet types for specified languages and frameworks. They can be
-configured with the `--extensions` or `-e` option.
+Modules come from the project's own manifests: go.mod, Maven, Gradle, npm workspaces, Composer, .csproj, SwiftPM, Xcode and pubspec. CI/CD comes from GitHub Actions, GitLab, Jenkins, Azure, Bitbucket, CircleCI and Rancher pipelines, and from Dockerfiles. [docs/ecosystems.md](docs/ecosystems.md) says what each ecosystem looks like and why it is read the way it is. [docs/metrics.md](docs/metrics.md) explains the metrics.
 
-Supported extensions are:
+Files are left out the way git leaves them out: `.gitignore` and `.archstatsignore` anywhere in the tree, plus `--ignore` patterns.
 
-- `indentations` - Adds support for indentation based metrics, in order to measure complexity.
-- `lines` - Adds support for line count based metrics, in order to measure number of lines in codebase per file or
-  component.
-- `php` - Adds support for PHP namespaces as components.
-- `java` - Adds support for Java packages as components.
-- `scala`- Adds support for Scala packages as components.
-- `kotlin` - Adds support for Kotlin packages as components.
-- `csharp` - Adds support for C# namespaces as components.
-- `git` - Adds support for git log based views.
-- `cycles` - Adds support for cycle detection views. _Be wary, this can be computationally expensive for large
-  codebases. Avoid using this extension_
+## Use it as a library
 
-## Ignoring files
+```go
+results, err := engine.Analyze(engine.Options{Root: "path/to/project"})
+```
 
-Archstats can be configured to ignore certain files. This is useful when there are files that you don't want to include
-in analysis.
-Archstats recursively looks for `.gitignore`/`.archstatsignore` files throughout the project and ignores files &
-directories according to the [.gitignore format](https://git-scm.com/docs/gitignore).
+`engine.Options` takes ignore patterns, the extensions to run and their settings (`plugin.Values` reads them from a map, with the declared defaults for anything left out). The results render to the same views the CLI exports. [ARCHITECTURE.md](ARCHITECTURE.md) explains how a scan runs.
 
-# Examples
-
-### In my PHP project, I want to count how many statements there are in each component/namespace.
+## Develop
 
 ```shell
-archstats -f path/to/project view components --extension php --snippet "(?P<statements>.*;)" --sorted-by statements
+go test ./...
 ```
 
-### In my PHP project, I want to know how many functions are in each file.
+The end-to-end tests in `e2eTest` clone a few real projects the first time they run. Two of them guard the snapshot itself:
+- `TestSnapshotSchema` compares every table and column with `e2eTest/testdata/snapshot_schema.golden`;
+- `TestSnapshot_SameTreeSameSnapshot` checks that two scans of one commit write the same rows.
 
-```shell
-archstats -f path/to/project view files --extension php --snippet "function (?P<functions>.*)\(.*\)" --sorted-by functions
-```
-
-### In my PHP project, I want to see the connections (afferent/efferent couplings) between components.
-
-```shell
-archstats -f path/to/project view component-connections --extension php
-```
-
-### In my PHP project, I want to recursively count the number of Laravel routes per directory
-
-```shell
-archstats -f path/to/project view directories-recursive --extension php --snippet "(?P<routes>Route::(.*))" --sorted-by routes
-```
+A change to what a scan produces bumps `core.AnalysisRevision` ([core/revision.go](core/revision.go)), so readers can tell an older snapshot from a newer one. Decisions are recorded in [docs/adr](docs/adr).

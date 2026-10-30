@@ -107,7 +107,7 @@ func (a *pythonAnalyzer) AnalyzeFile(f file.File) *file.Results {
 }
 
 func unitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit {
-	module := common.ModuleOf(filePath)
+	module := common.ModuleOf(filePath, "__init__")
 	clean := path.Clean(filePath)
 	base := strings.TrimSuffix(path.Base(clean), ".py")
 	dir := path.Base(path.Dir(clean))
@@ -240,7 +240,7 @@ func unitsFrom(filePath string, content []byte, res *file.Results) []*unit.Unit 
 	var declaredBy []*file.Snippet
 	declaredBy = append(declaredBy, classes...)
 	declaredBy = append(declaredBy, functions...)
-	moduleRefs := common.AttachRefs(out, declaredBy, content, bindings, pathLikeSources(sources), importSpans, declSpans)
+	moduleRefs := common.AttachRefs(out, declaredBy, content, bindings, pathLikeSources(sources), importSpans, declSpans, importedRef)
 	if mu := common.ModuleUnit(module, filePath, moduleRefs); mu != nil {
 		out = append(out, mu)
 	}
@@ -301,4 +301,10 @@ func relativeToPath(spec string) string {
 		return strings.TrimSuffix(prefix, "/")
 	}
 	return prefix + rest
+}
+
+// importedRef is the reference a use of an imported name makes: the name, in
+// the module the import named.
+func importedRef(source, binding string) unit.Ref {
+	return unit.Ref{Module: source, Name: binding}
 }

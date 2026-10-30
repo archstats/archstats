@@ -4,6 +4,7 @@ import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	typescript "github.com/tree-sitter/tree-sitter-typescript/bindings/go"
 )
@@ -12,6 +13,11 @@ type Extension struct {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
+	settings.RegisterImportResolver(ecmascript.ImportResolver())
+	settings.RegisterConventions(ecmascript.Conventions())
+	for _, r := range ecmascript.ManifestReaders() {
+		settings.RegisterModuleReader(r)
+	}
 	settings.RegisterFileAnalyzer(&tsAnalyzer{lp: createTypeScriptLanguagePack(false)}) // regular typescript
 	settings.RegisterFileAnalyzer(&tsAnalyzer{lp: createTypeScriptLanguagePack(true)})  // TSX
 	settings.RegisterFileAnalyzer(newSFCAnalyzer())                                     // .vue and .svelte script blocks
@@ -32,8 +38,8 @@ func (a *tsAnalyzer) AnalyzeFile(f file.File) *file.Results {
 	if res == nil {
 		return nil
 	}
-	common.KeepReactOnlyWhereUsed(f.Path(), res)
-	res.Units = common.JSUnitsFrom(f.Path(), f.Content(), res)
+	ecmascript.KeepReactOnlyWhereUsed(f.Path(), res)
+	res.Units = ecmascript.UnitsFrom(f.Path(), f.Content(), res)
 	return res
 }
 
@@ -51,7 +57,7 @@ func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
 
 	template := &common.LanguagePackTemplate{
 		FileGlob:   globPattern,
-		Complexity: common.JSComplexity,
+		Complexity: ecmascript.Complexity,
 		Language:   language,
 		QueriesForStats: []string{
 			// Imports, split by whether the compiler keeps them.
@@ -122,7 +128,7 @@ func createTypeScriptLanguagePack(isTsx bool) *common.LanguagePack {
 		// TypeScript names a class with a type_identifier, JavaScript with a
 		// plain identifier, and a query naming the wrong node compiles to
 		// nothing rather than failing.
-		QueriesForSnippets: common.JSUnitQueries("type_identifier", true),
+		QueriesForSnippets: ecmascript.UnitQueries("type_identifier", true),
 		SnippetTransformers: map[string]func(*file.Snippet) *file.Snippet{
 			file.ComponentImport:         stripQuotes,
 			file.ComponentImportTypeOnly: stripQuotes,

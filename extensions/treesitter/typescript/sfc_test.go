@@ -6,7 +6,7 @@ import (
 
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/unit"
-	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -114,16 +114,16 @@ func TestAVueComponentIsAUnitThatUsesWhatItsTemplateNames(t *testing.T) {
 	require.NotNil(t, cw, "the component is named for its file")
 	assert.Equal(t, unit.KindType, cw.Kind)
 	assert.True(t, cw.HasMarker("vue_component"))
-	assert.Contains(t, cw.Refs, unit.Ref{Module: "~/components/chat/ChatPanel.vue", Name: "ChatPanel"},
+	assert.Contains(t, cw.Refs, ecmascript.ImportedRef("~/components/chat/ChatPanel.vue", "ChatPanel"),
 		"used as <ChatPanel /> in the template")
-	assert.Contains(t, cw.Refs, unit.Ref{Module: "@/components/UserAvatar.vue", Name: "UserAvatar"},
+	assert.Contains(t, cw.Refs, ecmascript.ImportedRef("@/components/UserAvatar.vue", "UserAvatar"),
 		"used as <user-avatar> in the template")
 	assert.NotContains(t, byID, "app/components/ChatWindow#", "the component stands where the module unit would")
 
 	onSend := byID["app/components/ChatWindow#onSend"]
 	require.NotNil(t, onSend)
 	assert.Equal(t, cw.ID, onSend.Owner, "a function of <script setup> is the component's")
-	assert.Contains(t, onSend.Refs, unit.Ref{Module: "~/utils/dates", Name: "formatDate"})
+	assert.Contains(t, onSend.Refs, ecmascript.ImportedRef("~/utils/dates", "formatDate"))
 }
 
 // End to end through the resolver: `~/` and `@/` are aliases for the source
@@ -144,7 +144,7 @@ func TestVueImportsResolveToUnits(t *testing.T) {
 	} {
 		res := ts.lp.AnalyzeFileContent(path, []byte(src))
 		require.NotNil(t, res)
-		units = append(units, common.JSUnitsFrom(path, []byte(src), res)...)
+		units = append(units, ecmascript.UnitsFrom(path, []byte(src), res)...)
 	}
 
 	edges := map[string]bool{}
@@ -185,11 +185,11 @@ export default {
 
 	inbox := byID["src/views/Inbox#Inbox"]
 	require.NotNil(t, inbox)
-	assert.Contains(t, inbox.Refs, unit.Ref{Module: "./ChatPanel.vue", Name: "ChatPanel"})
+	assert.Contains(t, inbox.Refs, ecmascript.ImportedRef("./ChatPanel.vue", "ChatPanel"))
 	refresh := byID["src/views/Inbox#refresh"]
 	require.NotNil(t, refresh)
 	assert.Equal(t, inbox.ID, refresh.Owner)
-	assert.Contains(t, refresh.Refs, unit.Ref{Module: "../api", Name: "load"})
+	assert.Contains(t, refresh.Refs, ecmascript.ImportedRef("../api", "load"))
 }
 
 func TestASvelteComponentsScriptIsRead(t *testing.T) {
@@ -211,7 +211,7 @@ func TestASvelteComponentsScriptIsRead(t *testing.T) {
 	home := unitsByID(res.Units)["src/routes/Home#Home"]
 	require.NotNil(t, home)
 	assert.True(t, home.HasMarker("svelte_component"))
-	assert.Contains(t, home.Refs, unit.Ref{Module: "$lib/Panel.svelte", Name: "Panel"})
+	assert.Contains(t, home.Refs, ecmascript.ImportedRef("$lib/Panel.svelte", "Panel"))
 }
 
 // A template-only component still exists and can be imported.

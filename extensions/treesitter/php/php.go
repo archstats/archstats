@@ -17,6 +17,10 @@ import (
 type Extension struct{}
 
 func (e *Extension) Init(settings core.Analyzer) error {
+	settings.RegisterConventions(Conventions())
+	for _, r := range ManifestReaders() {
+		settings.RegisterModuleReader(r)
+	}
 	settings.RegisterFileAnalyzer(&phpAnalyzer{lp: createPHPLanguagePack()})
 	return nil
 }

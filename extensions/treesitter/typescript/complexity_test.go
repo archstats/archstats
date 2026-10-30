@@ -3,13 +3,13 @@ package typescript
 import (
 	"testing"
 
-	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	typescript "github.com/tree-sitter/tree-sitter-typescript/bindings/go"
 )
 
 func TestTypeScriptCognitiveComplexity(t *testing.T) {
-	stats, fns := common.JSComplexity.MeasureByName(tree_sitter.NewLanguage(typescript.LanguageTypescript()), `import { a } from "./a"
+	stats, fns := ecmascript.Complexity.MeasureByName(tree_sitter.NewLanguage(typescript.LanguageTypescript()), `import { a } from "./a"
 import type { B } from "./b"
 const legacy = require("legacy")
 

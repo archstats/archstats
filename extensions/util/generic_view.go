@@ -2,12 +2,10 @@ package util
 
 import (
 	"github.com/archstats/archstats/core"
-	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
 	"github.com/samber/lo"
 	"sort"
 	"strings"
-	"time"
 )
 
 const (
@@ -15,23 +13,18 @@ const (
 )
 
 func GenericView(allColumns []string, group stats.StatsGroup) *core.View {
-	// First, detect types for allColumns
+	// A column's type is read from every value it has, not the first one
+	// met: a `break` in the switch used to leave the loop running, so the
+	// type was whichever value map order visited last. Text outranks a date,
+	// a date a float and a float an integer, so one float among integers
+	// makes the column REAL rather than truncating it.
+	rank := map[core.ColumnType]int{core.Integer: 0, core.Float: 1, core.PositionInFile: 2, core.Date: 3, core.String: 4}
 	columnTypes := make(map[string]core.ColumnType)
 	for _, column := range allColumns {
 		cType := core.Integer
 		for _, statsRef := range group {
-			if val, exists := (*statsRef)[column]; exists && val != nil {
-				switch val.(type) {
-				case string:
-					cType = core.String
-				case float64:
-					cType = core.Float
-				case time.Time:
-					cType = core.Date
-				case file.Position:
-					cType = core.PositionInFile
-				}
-				break
+			if t, ok := core.ColumnTypeOf((*statsRef)[column]); ok && rank[t] > rank[cType] {
+				cType = t
 			}
 		}
 		columnTypes[column] = cType

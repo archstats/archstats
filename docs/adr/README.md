@@ -21,7 +21,7 @@ This script will:
 
 | ID | Title | Status | Date |
 |----|-------|--------|------|
-| 0001 | [Microkernel Architecture](0001-microkernel-architecture.md) | Accepted | 2026-06-01 |
+| 0001 | [Microkernel Architecture](0001-microkernel-architecture.md) | Accepted, amended by 0023 | 2026-06-01 |
 | 0002 | [Tree-Sitter for AST Parsing](0002-tree-sitter-parsing.md) | Accepted | 2026-06-01 |
 | 0003 | [Cobra CLI Command Framework](0003-cobra-cli-framework.md) | Accepted | 2026-06-01 |
 | 0004 | [Snippet-Based Code Analysis](0004-snippet-based-analysis.md) | Accepted | 2026-06-01 |
@@ -44,4 +44,6 @@ This script will:
 | 0020 | [Unit as a First-Class Concept](0020-unit-first-class-concept.md) | Accepted | 2026-09-21 |
 | 0021 | [Deployables](0021-deployables.md) | Superseded by 0022 | 2026-09-27 |
 | 0022 | [CI/CD](0022-cicd.md) | Accepted | 2026-10-29 |
-| 0023 | [HTTP Routes, Contracts and Outbound Connections](0023-http-and-outbound.md) | Accepted | 2026-10-29 |
+| 0023 | [The Kernel Owns the Shared Model; `engine` Runs a Scan](0023-kernel-boundary-and-engine.md) | Accepted, point 1 superseded by 0025 | 2026-10-29 |
+| 0024 | [HTTP Routes, Contracts and Outbound Connections](0024-http-and-outbound.md) | Accepted | 2026-10-29 |
+| 0025 | [Core Knows No Ecosystem; Extensions Take Ecosystems as Plug-ins](0025-core-knows-no-ecosystem.md) | Accepted | 2026-10-29 |

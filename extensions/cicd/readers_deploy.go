@@ -1,38 +1,18 @@
 package cicd
 
 import (
-	stdpath "path"
 	"strings"
 
+	"github.com/archstats/archstats/extensions/cicd/buildtool"
 	"gopkg.in/yaml.v3"
 )
 
 // joinPath resolves a path written in a file against that file's directory,
 // clean and repository-relative. A path that climbs out of the workspace is
 // returned as "".
-func joinPath(dir, p string) string {
-	p = strings.TrimSpace(p)
-	if p == "" {
-		return dir
-	}
-	if strings.HasPrefix(p, "/") {
-		// Absolute paths in a repository file are not about this checkout.
-		return ""
-	}
-	j := stdpath.Clean(stdpath.Join(dir, p))
-	if j == ".." || strings.HasPrefix(j, "../") {
-		return ""
-	}
-	return j
-}
+func joinPath(dir, p string) string { return buildtool.JoinPath(dir, p) }
 
-func dirOf(p string) string {
-	d := stdpath.Dir(p)
-	if d == "" {
-		return "."
-	}
-	return d
-}
+func dirOf(p string) string { return buildtool.DirOf(p) }
 
 // ---------------------------------------------------------------------------
 // docker compose
@@ -534,3 +514,5 @@ func looksLikeImage(s string) bool {
 	}
 	return true
 }
+
+func lineOf(content, needle string) int { return buildtool.LineOf(content, needle) }

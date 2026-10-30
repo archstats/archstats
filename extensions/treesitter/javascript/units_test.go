@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/archstats/archstats/core/unit"
-	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +26,7 @@ const handlers = { onClick() {} };
 	res := createJavaScriptLanguagePack().AnalyzeFileContent("assets/controllers/ProductTaxonTreeController.js", []byte(src))
 	require.NotNil(t, res)
 	byID := map[string]*unit.Unit{}
-	for _, u := range common.JSUnitsFrom("assets/controllers/ProductTaxonTreeController.js", []byte(src), res) {
+	for _, u := range ecmascript.UnitsFrom("assets/controllers/ProductTaxonTreeController.js", []byte(src), res) {
 		byID[u.ID] = u
 	}
 	cls := byID["assets/controllers/ProductTaxonTreeController#ProductTaxonTreeController"]

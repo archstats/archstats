@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/archstats/archstats/core/unit"
-	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/ecmascript"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +13,7 @@ func tsUnits(t *testing.T, path, src string) map[string]*unit.Unit {
 	t.Helper()
 	res := createTypeScriptLanguagePack(false).AnalyzeFileContent(path, []byte(src))
 	require.NotNil(t, res)
-	return unitsByID(common.JSUnitsFrom(path, []byte(src), res))
+	return unitsByID(ecmascript.UnitsFrom(path, []byte(src), res))
 }
 
 // archstats-ui's reports.store.ts read as five interfaces and 55 loose
@@ -42,7 +42,7 @@ export const useReportsStore = defineStore("reports", {
 	save := byID["src/stores/reports.store#useReportsStore.save"]
 	require.NotNil(t, save, "an action is the store's")
 	assert.Equal(t, store.ID, save.Owner)
-	assert.Contains(t, save.Refs, unit.Ref{Module: "~/platform/api", Name: "saveReport"})
+	assert.Contains(t, save.Refs, ecmascript.ImportedRef("~/platform/api", "saveReport"))
 	assert.NotNil(t, byID["src/stores/reports.store#useReportsStore.undo"])
 	assert.Nil(t, byID["src/stores/reports.store#save"], "not a loose function of the file")
 	assert.NotNil(t, byID["src/stores/reports.store#ReportRecord"])
@@ -137,7 +137,7 @@ export const selectUsers = createSelector([(s: RootState) => s.users], (users) =
 	require.NotNil(t, thunk)
 	assert.Equal(t, unit.KindFunction, thunk.Kind)
 	assert.True(t, thunk.HasMarker("createAsyncThunk"))
-	assert.Contains(t, thunk.Refs, unit.Ref{Module: "../../lib/api/users", Name: "fetchUsers"}, "the client call inside the callback is the thunk's")
+	assert.Contains(t, thunk.Refs, ecmascript.ImportedRef("../../lib/api/users", "fetchUsers"), "the client call inside the callback is the thunk's")
 	selector := byID["src/features/users/thunks#selectUsers"]
 	require.NotNil(t, selector)
 	assert.True(t, selector.HasMarker("createSelector"))

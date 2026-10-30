@@ -3,18 +3,20 @@ package java
 import (
 	"embed"
 	"fmt"
+	"path/filepath"
+	"sort"
+	"strings"
+
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/definitions"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/stats"
 	"github.com/archstats/archstats/core/unit"
 	"github.com/archstats/archstats/extensions/treesitter/common"
+	"github.com/archstats/archstats/extensions/treesitter/jvm"
 	"github.com/samber/lo"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	java "github.com/tree-sitter/tree-sitter-java/bindings/go"
-	"path/filepath"
-	"sort"
-	"strings"
 )
 
 type Extension struct {
@@ -312,6 +314,10 @@ func withoutReferenceCaptures(snippets []*file.Snippet) []*file.Snippet {
 }
 
 func (e *Extension) Init(settings core.Analyzer) error {
+	settings.RegisterConventions(jvm.Conventions())
+	for _, r := range jvm.ManifestReaders() {
+		settings.RegisterModuleReader(r)
+	}
 	loadedDefs, err := definitions.LoadYamlFiles(javaDefs)
 	if err == nil {
 		for _, def := range loadedDefs {

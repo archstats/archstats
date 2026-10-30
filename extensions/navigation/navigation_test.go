@@ -31,7 +31,7 @@ func scan(t *testing.T, files map[string]string, exts ...core.Extension) *core.R
 		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
 		require.NoError(t, os.WriteFile(full, []byte(src), 0o644))
 	}
-	results, err := core.New(&core.Config{RootPath: root, Extensions: append([]core.Extension{basic.Extension(), Extension()}, exts...)}).Analyze()
+	results, err := core.New(&core.Config{RootPath: root, Extensions: append([]core.Extension{basic.Extension(), Extension(plugins()...)}, exts...)}).Analyze()
 	require.NoError(t, err)
 	return results
 }

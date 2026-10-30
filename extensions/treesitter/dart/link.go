@@ -26,16 +26,15 @@ import (
 // It runs after the component linker, which never sees a Dart import, so the
 // edges it adds are its own.
 type linker struct {
-	root string
+	// The scan's module map, asked for once the walk is done.
+	modules func() *module.Map
 }
 
 func (l *linker) EditFileResults(all []*file.Results) {
 	byPath := map[string]*file.Results{}
 	var dartFiles []*file.Results
-	var names []string
 	for _, fr := range all {
 		p := strings.TrimPrefix(fr.Name, "./")
-		names = append(names, p)
 		if strings.HasSuffix(p, ".dart") {
 			byPath[p] = fr
 			dartFiles = append(dartFiles, fr)
@@ -45,7 +44,7 @@ func (l *linker) EditFileResults(all []*file.Results) {
 		return
 	}
 	packages := map[string]string{} // pubspec name -> its directory
-	for _, m := range module.ReadFrom(l.root, names).Modules() {
+	for _, m := range l.modules().Modules() {
 		if m.Kind == "pub" {
 			if _, taken := packages[m.Name]; !taken {
 				packages[m.Name] = m.Dir

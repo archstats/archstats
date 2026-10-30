@@ -2,13 +2,17 @@ package core
 
 import (
 	"encoding/json"
-	"github.com/archstats/archstats/core/definitions"
-	"github.com/archstats/archstats/core/stats"
-	"github.com/archstats/archstats/core/walker"
-	"github.com/rs/zerolog/log"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/archstats/archstats/core/component"
+	"github.com/archstats/archstats/core/definitions"
+	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/module"
+	"github.com/archstats/archstats/core/stats"
+	"github.com/archstats/archstats/core/walker"
+	"github.com/rs/zerolog/log"
 )
 
 type Analyzer interface {
@@ -23,11 +27,36 @@ type Analyzer interface {
 	RegisterFileAnalyzer(analyzer FileAnalyzer)
 	RegisterFileResultsEditor(editor FileResultsEditor)
 	RegisterResultsEditor(editor ResultsEditor)
+	// RegisterModuleReader adds a reader for one ecosystem's manifests. A
+	// language pack registers the readers for its own build tools; two packs
+	// registering the same Kind (Java and Kotlin both read Gradle) register
+	// it once.
+	RegisterModuleReader(reader module.Reader)
+	// RegisterConventions adds an ecosystem's or a domain's conventions for
+	// what a file is: a test, generated, someone else's, a pipeline. Two
+	// registrations of one Name register it once.
+	RegisterConventions(conventions file.Conventions)
+	// Files is the classifier holding every registered convention. Complete
+	// once every extension's Init has run, so ask for it in AnalyzeFile or
+	// later.
+	Files() *file.Classifier
+	// RegisterImportResolver adds a language's reading of its own imports,
+	// for the component linker. Two registrations of one Name register it
+	// once.
+	RegisterImportResolver(resolver component.ImportResolver)
+	// ImportResolvers is every registered resolver, in registration order.
+	// Complete once every extension's Init has run.
+	ImportResolvers() []component.ImportResolver
+	// Modules is the module map, read from the manifests among the files the
+	// walker found. Nil until the walk is done: a file results editor may
+	// read it, an Init may not.
+	Modules() *module.Map
 }
 
 func New(config *Config) Analyzer {
 	return &analyzer{rootPath: config.RootPath, extensions: config.Extensions, ignorePatterns: config.IgnorePatterns,
 		views:       map[string]*ViewFactory{},
+		files:       file.NewClassifier(),
 		definitions: map[string]*definitions.Definition{},
 		accumulators: &stats.StatAccumulator{
 			AccumulateFunctions: make(map[string]stats.StatAccumulatorFunction),
@@ -43,6 +72,10 @@ type analyzer struct {
 	fileAnalyzers      []FileAnalyzer
 	fileResultsEditors []FileResultsEditor
 	resultsEditors     []ResultsEditor
+	moduleReaders      []module.Reader
+	modules            *module.Map
+	files              *file.Classifier
+	importResolvers    []component.ImportResolver
 	definitions        map[string]*definitions.Definition
 }
 
@@ -70,6 +103,40 @@ func (analyzer *analyzer) RegisterResultsEditor(editor ResultsEditor) {
 	analyzer.resultsEditors = append(analyzer.resultsEditors, editor)
 }
 
+func (analyzer *analyzer) RegisterModuleReader(reader module.Reader) {
+	for _, r := range analyzer.moduleReaders {
+		if r.Kind() == reader.Kind() {
+			return
+		}
+	}
+	analyzer.moduleReaders = append(analyzer.moduleReaders, reader)
+}
+
+func (analyzer *analyzer) RegisterConventions(conventions file.Conventions) {
+	analyzer.files.Add(conventions)
+}
+
+func (analyzer *analyzer) Files() *file.Classifier {
+	return analyzer.files
+}
+
+func (analyzer *analyzer) RegisterImportResolver(resolver component.ImportResolver) {
+	for _, r := range analyzer.importResolvers {
+		if r.Name() == resolver.Name() {
+			return
+		}
+	}
+	analyzer.importResolvers = append(analyzer.importResolvers, resolver)
+}
+
+func (analyzer *analyzer) ImportResolvers() []component.ImportResolver {
+	return analyzer.importResolvers
+}
+
+func (analyzer *analyzer) Modules() *module.Map {
+	return analyzer.modules
+}
+
 func (analyzer *analyzer) RootPath() string {
 	return analyzer.rootPath
 }
@@ -94,7 +161,7 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 	}
 
 	// Get Snippets and Stats from the files
-	fileResults, report, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers, walker.Options{
+	fileResults, report, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers, analyzer.files, walker.Options{
 		IgnorePatterns: analyzer.ignorePatterns,
 		Claims:         claimsOf(analyzer.fileAnalyzers),
 	})
@@ -102,6 +169,16 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 		return nil, err
 	}
 	log.Debug().Msgf("Finished collecting individual file results")
+
+	// Modules are read from the manifests among the files the walker found,
+	// so .gitignore and .archstatsignore are honoured for free (ADR 0012),
+	// and before the editors run, so a linker can ask which module owns a
+	// file.
+	names := make([]string, len(fileResults))
+	for i, fr := range fileResults {
+		names[i] = fr.Name
+	}
+	analyzer.modules = module.ReadFrom(analyzer.rootPath, names, analyzer.moduleReaders)
 
 	// Edit file results
 	// Used to set the component and directory of a snippet

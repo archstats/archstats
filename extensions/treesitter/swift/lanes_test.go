@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/archstats/archstats/core/file"
+	"github.com/archstats/archstats/core/module"
 	"github.com/archstats/archstats/core/unit"
 	"github.com/archstats/archstats/extensions/treesitter/apple"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +42,7 @@ func analyseApp(t *testing.T, manifest string, files map[string]string) (map[str
 		byName[p] = res
 	}
 	all = append(all, &file.Results{Name: "./Package.swift", Directory: "."})
-	(&apple.Linker{Root: root}).EditFileResults(all)
+	(&apple.Linker{Modules: func() *module.Map { return module.Read(root, apple.ManifestReaders()...) }}).EditFileResults(all)
 	var raw []*unit.Unit
 	for _, fr := range all {
 		raw = append(raw, fr.Units...)
