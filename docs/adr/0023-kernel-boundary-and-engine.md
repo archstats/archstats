@@ -1,6 +1,6 @@
 # 0023. The Kernel Owns the Shared Model; `engine` Runs a Scan
 
-- **Status**: Accepted
+- **Status**: Accepted; point 1 superseded by [ADR 0025](0025-core-knows-no-ecosystem.md), which moved the readers and conventions out of core
 - **Date**: 2026-10-29
 
 ## Context and Problem Statement

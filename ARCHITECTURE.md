@@ -5,7 +5,7 @@
 These drive the decisions recorded in [docs/adr](docs/adr):
 
 - **Truthfulness**: a number in a snapshot is either right or says why it cannot be. An edge archstats could not resolve is reported as unresolved, not dropped (ADR 0019), and the same commit scans the same, byte for byte.
-- **Extensibility**: a new language is an extension, and core does not change (ADR 0001, as amended by ADR 0023).
+- **Extensibility**: a new language or ecosystem is an extension, and core does not change (ADR 0001, ADR 0025).
 - **Interoperability**: everything a scan finds is in one SQLite file, readable by any tool that speaks SQL.
 - **Approachability**: architecture should be something a junior developer can read, so metrics carry definitions and the tables say what they hold.
 
@@ -39,7 +39,7 @@ Views render lazily, when an exporter asks for them, and every one reads the fin
 | Unit | a named thing: type, function, module-level constant; folded across files | `core/unit` |
 | Snippet | an observation: text of a type at a position, with no identity | `core/file` |
 
-Edges are typed (ADR 0018), and run between components and between units. Core owns this model and the readers that build it, including the ecosystem manifest readers, because every extension depends on them before it can run (ADR 0023). Languages, metrics, history and views live in `extensions/`.
+Edges are typed (ADR 0018), and run between components and between units. Core owns this model and the order it is built in, and knows no ecosystem: language packs register their manifest readers, file conventions and import resolvers in `Init`, and core applies them where it always did (ADR 0025). Languages, metrics, history and views live in `extensions/`.
 
 ## Extensions
 
@@ -78,10 +78,10 @@ The desktop app, `archstats assert`, reports and Ask all query snapshot tables b
 | `engine` | the composition root: which extensions exist, which a workspace needs, run a scan |
 | `core` | the pipeline, `Results`, views and the shared model |
 | `core/plugin` | how an extension is described and configured |
-| `extensions/treesitter/*` | one language pack per language, sharing `treesitter/common` |
+| `extensions/treesitter/*` | one language pack per language: its parser, manifest readers, file conventions and import resolver; `jvm`, `ecmascript` and `apple` are shared by a language family, `common` by all |
 | `extensions/components`, `declbased` | component resolution, coupling, cycles, centrality |
 | `extensions/git`, `matrix` | history, co-change, authorship |
 | `extensions/codesmells` | code health and hotspots |
-| `extensions/cicd`, `mobile`, `navigation` | how the workspace ships, what a mobile app declares, what an architect navigates by |
+| `extensions/cicd`, `mobile`, `navigation` | how the workspace ships, what a mobile app declares, what an architect navigates by; cicd reads build tools through `cicd/buildtool/<tool>` plug-ins |
 | `extensions/rules` | architecture rules scoped by ecosystem |
 | `e2eTest` | end-to-end tests on fixtures and real projects |
