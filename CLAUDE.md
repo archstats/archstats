@@ -15,7 +15,7 @@ Core is the model and the questions. Every answer that depends on a language, fr
   Code that two packs share goes in a family package: `treesitter/jvm`, `treesitter/ecmascript` or `treesitter/apple`. `treesitter/common` is only for what works the same in every language.
 - **A domain extension stays neutral.** cicd, navigation, mobile, rules and components may know their domain's own vocabulary: CI systems, container images, build tools' file names. Anything that parses one ecosystem's source or manifests, or branches on a language or module kind, goes in a plug-in subpackage named for that ecosystem (e.g. `extensions/cicd/buildtool/maven`). The plug-in imports a small contract package, never the extension, and `engine` wires it in.
 - **Only `engine` names every language and extension.** Packs never import domain extensions, extensions never import each other's internals, and core never imports `extensions/`. `engine/boundary_test.go` checks the imports.
-- **Known exception:** `extensions/navigation` still branches on about ten languages in one package. Don't add to it. New recognisers belong in per-language plug-ins, following ADR 0025.
+- **Navigation reads languages through recogniser plug-ins.** `extensions/navigation/recogniser` is the contract: a language's syntax (comments, strings, marks, how types are declared) and the hooks for entry points, data, wiring, symbols and outbound calls, plus the lexical toolkit they read with. `recogniser/<family>` (jvm, dotnet, golang, ecmascript, python, php, swift, dart, prisma) implements it; `engine.Recognisers` wires them. Navigation itself may name only data formats (XML, YAML, docs) and shared vocabulary such as HTTP client type names.
 
 ## Working here
 

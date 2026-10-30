@@ -39,14 +39,11 @@ var (
 	adrHeadings = regexp.MustCompile(`(?im)^#{1,4}\s*(context|decision|consequences)\b`)
 )
 
-func (s *source) document() *doc {
-	if s.lang != langMarkdown {
-		return nil
-	}
-	base := path.Base(s.path)
+func document(s *source) *doc {
+	base := path.Base(s.Path)
 	stem := strings.TrimSuffix(base, path.Ext(base))
 	upper := strings.ToUpper(stem)
-	d := &doc{File: s.path}
+	d := &doc{File: s.Path}
 	switch {
 	case strings.HasPrefix(upper, "README"):
 		d.Kind = "readme"
@@ -56,16 +53,16 @@ func (s *source) document() *doc {
 		d.Kind = "changelog"
 	case strings.HasPrefix(upper, "LICENSE") || strings.HasPrefix(upper, "LICENCE") || upper == "NOTICE" || upper == "CODE_OF_CONDUCT" || upper == "SECURITY" || upper == "AUTHORS":
 		return nil
-	case adrDir.MatchString(s.path) && adrFile.MatchString(base), adrFile.MatchString(base) && len(adrHeadings.FindAllString(s.raw, -1)) >= 2:
+	case adrDir.MatchString(s.Path) && adrFile.MatchString(base), adrFile.MatchString(base) && len(adrHeadings.FindAllString(s.Raw, -1)) >= 2:
 		d.Kind = "adr"
-	case strings.Contains(strings.ToLower(s.path), "architecture") || strings.Contains(strings.ToLower(stem), "design") || strings.Contains(strings.ToLower(stem), "overview"):
+	case strings.Contains(strings.ToLower(s.Path), "architecture") || strings.Contains(strings.ToLower(stem), "design") || strings.Contains(strings.ToLower(stem), "overview"):
 		d.Kind = "architecture"
-	case docsDir.MatchString(s.path):
+	case docsDir.MatchString(s.Path):
 		d.Kind = "guide"
 	default:
 		d.Kind = "note"
 	}
-	text := s.raw
+	text := s.Raw
 	head := text[:min(len(text), 4000)]
 	switch {
 	case mdHeading.MatchString(head):

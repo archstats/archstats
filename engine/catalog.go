@@ -22,6 +22,16 @@ import (
 	"github.com/archstats/archstats/extensions/matrix"
 	"github.com/archstats/archstats/extensions/mobile"
 	"github.com/archstats/archstats/extensions/navigation"
+	"github.com/archstats/archstats/extensions/navigation/recogniser"
+	navdart "github.com/archstats/archstats/extensions/navigation/recogniser/dart"
+	navdotnet "github.com/archstats/archstats/extensions/navigation/recogniser/dotnet"
+	"github.com/archstats/archstats/extensions/navigation/recogniser/ecmascript"
+	navgo "github.com/archstats/archstats/extensions/navigation/recogniser/golang"
+	"github.com/archstats/archstats/extensions/navigation/recogniser/jvm"
+	navphp "github.com/archstats/archstats/extensions/navigation/recogniser/php"
+	"github.com/archstats/archstats/extensions/navigation/recogniser/prisma"
+	navpython "github.com/archstats/archstats/extensions/navigation/recogniser/python"
+	navswift "github.com/archstats/archstats/extensions/navigation/recogniser/swift"
 	"github.com/archstats/archstats/extensions/regex"
 	"github.com/archstats/archstats/extensions/rules"
 	"github.com/archstats/archstats/extensions/treesitter/csharp"
@@ -167,8 +177,15 @@ func AlwaysEnabled() []*plugin.Descriptor {
 		plugin.Fixed("rules", rules.Extension()),
 		plugin.Fixed("cicd", cicd.Extension(BuildTools()...)),
 		plugin.Fixed("mobile", mobile.Extension()),
-		plugin.Fixed("navigation", navigation.Extension()),
+		plugin.Fixed("navigation", navigation.Extension(Recognisers()...)),
 	}
+}
+
+// Recognisers are the language families navigation reads, one plug-in per
+// family. JVM comes before PHP: both read XML, Hibernate and Spring before
+// Doctrine and Symfony.
+func Recognisers() []recogniser.Plugin {
+	return []recogniser.Plugin{jvm.Plugin(), navdotnet.Plugin(), navgo.Plugin(), ecmascript.Plugin(), navpython.Plugin(), navphp.Plugin(), navswift.Plugin(), navdart.Plugin(), prisma.Plugin()}
 }
 
 // BuildTools are the build tools whose manifests CI/CD reads, one per

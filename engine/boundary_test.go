@@ -45,6 +45,17 @@ func TestImportBoundaries(t *testing.T) {
 		{"cicd imports no build tool plug-in",
 			func(p string) bool { return p == "extensions/cicd" },
 			func(_, imp string) bool { return strings.HasPrefix(imp, "extensions/cicd/buildtool/") }},
+		{"a recogniser plug-in imports the contract, not navigation or another plug-in",
+			func(p string) bool { return strings.HasPrefix(p, "extensions/navigation/recogniser/") },
+			func(_, imp string) bool {
+				return imp == "extensions/navigation" || strings.HasPrefix(imp, "extensions/navigation/recogniser/")
+			}},
+		{"the recogniser contract imports neither navigation nor a plug-in",
+			func(p string) bool { return p == "extensions/navigation/recogniser" },
+			func(_, imp string) bool { return strings.HasPrefix(imp, "extensions/") }},
+		{"navigation imports no recogniser plug-in",
+			func(p string) bool { return p == "extensions/navigation" },
+			func(_, imp string) bool { return strings.HasPrefix(imp, "extensions/navigation/recogniser/") }},
 	}
 	err = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil || !d.IsDir() {

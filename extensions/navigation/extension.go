@@ -16,7 +16,6 @@ package navigation
 
 import (
 	"path"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -24,6 +23,7 @@ import (
 	"github.com/archstats/archstats/core"
 	"github.com/archstats/archstats/core/file"
 	"github.com/archstats/archstats/core/unit"
+	r "github.com/archstats/archstats/extensions/navigation/recogniser"
 )
 
 // The largest file read: a minified bundle or a generated client is neither
@@ -31,7 +31,7 @@ import (
 const maxFileSize = 1 << 20
 
 type facts struct {
-	lang     string
+	lang     *r.Language
 	entries  []entry
 	entities []entity
 	accesses []access
@@ -53,6 +53,13 @@ type facts struct {
 }
 
 type extension struct {
+	plugins []r.Plugin
+	// langs are the languages read, by file extension; recs every
+	// recogniser, in the order the plug-ins were given.
+	langs map[string]*r.Language
+	recs  []*r.Recogniser
+	rules *rules
+
 	mu    sync.Mutex
 	files map[string]*facts
 	// Filled by EditResults, read by the views.
@@ -74,13 +81,47 @@ type extension struct {
 	targetRows    []targetRow
 }
 
-// Extension reads entry points, data, wiring and docs.
-func Extension() core.Extension {
-	return &extension{}
+// Extension reads entry points, data, wiring and docs, in the languages the
+// plug-ins bring.
+func Extension(plugins ...r.Plugin) core.Extension {
+	return &extension{plugins: plugins}
+}
+
+// The formats navigation reads itself: documentation, and the XML and YAML
+// recognisers read mappings, wiring and routes from.
+func builtins() []*r.Language {
+	return []*r.Language{
+		{Name: "xml", Extensions: []string{".xml"}, Kind: r.Data, Syntax: r.Syntax{BlockComments: [][2]string{{"<!--", "-->"}}}},
+		{Name: "yaml", Extensions: []string{".yaml", ".yml"}, Kind: r.Data, Syntax: r.Syntax{LineComments: []string{"#"}}},
+		{Name: "markdown", Extensions: []string{".md", ".mdx", ".markdown", ".adoc", ".asciidoc", ".rst"}, Kind: r.Prose},
+	}
 }
 
 func (e *extension) Init(a core.Analyzer) error {
-	*e = extension{files: map[string]*facts{}}
+	*e = extension{plugins: e.plugins, files: map[string]*facts{}, langs: map[string]*r.Language{}}
+	byName := map[string]*r.Language{}
+	languages := builtins()
+	for _, p := range e.plugins {
+		languages = append(languages, p.Languages...)
+	}
+	for _, l := range languages {
+		l = l.Clone()
+		byName[l.Name] = l
+		for _, x := range l.Extensions {
+			e.langs[x] = l
+		}
+	}
+	for _, p := range e.plugins {
+		for _, rec := range p.Recognisers {
+			e.recs = append(e.recs, rec)
+			for _, name := range rec.Languages {
+				if l := byName[name]; l != nil {
+					l.Bind(rec)
+				}
+			}
+		}
+	}
+	e.rules = newRules(e.recs)
 	a.RegisterFileAnalyzer(e)
 	a.RegisterResultsEditor(e)
 	for _, v := range []*core.ViewFactory{
@@ -107,7 +148,7 @@ func (e *extension) Init(a core.Analyzer) error {
 
 func (e *extension) AnalyzeFile(f file.File) *file.Results {
 	p := clean(f.Path())
-	lang := languageOf(p)
+	lang := e.langs[strings.ToLower(path.Ext(p))]
 	content := f.Content()
 	fx := &facts{lang: lang}
 	// Contracts, configuration and build files are read whatever their
@@ -117,14 +158,14 @@ func (e *extension) AnalyzeFile(f file.File) *file.Results {
 		fx.spec = readSpec(p, content)
 	}
 	if len(content) <= maxFileSize {
-		if format := configFormat(p, lang); format != "" && fx.spec == nil {
-			if cf := readConfig(p, format, content); len(cf.entries)+len(cf.tuning)+len(cf.services) > 0 {
+		if format, rec := configFormat(p, lang); format != "" && fx.spec == nil {
+			if cf := readConfig(p, format, rec, content); len(cf.entries)+len(cf.tuning)+len(cf.services) > 0 {
 				fx.config = cf
 			}
 		}
 		fx.gens = generators(p, content)
 	}
-	if lang == langUnreadable || len(content) > maxFileSize {
+	if lang == nil || len(content) > maxFileSize {
 		if fx.spec != nil || fx.config != nil || len(fx.gens) > 0 {
 			e.mu.Lock()
 			e.files[p] = fx
@@ -132,28 +173,36 @@ func (e *extension) AnalyzeFile(f file.File) *file.Results {
 		}
 		return nil
 	}
-	s := newSource(p, lang, content)
-	if lang == langMarkdown {
-		fx.doc = s.document()
+	s := r.NewSource(p, lang, content)
+	if lang.Kind == r.Prose {
+		fx.doc = document(s)
 	} else {
-		fx.entries = append(s.entries(), fileRoutes(p)...)
-		routes, imports := s.yamlRoutes()
-		fx.entries, fx.imports = append(fx.entries, routes...), imports
-		fx.entities = s.entities()
-		fx.accesses = s.accesses()
-		fx.bindings = s.bindings()
-		fx.types = s.typeDecls()
-		if lang != langXML && lang != langYAML && lang != langPrisma {
-			sy := s.symbols()
-			fx.outs, fx.bases = s.outbound(sy)
+		fx.entries = entries(s)
+		for _, rec := range lang.Recognisers() {
+			if rec.Routes != nil {
+				routes, imports := rec.Routes(s)
+				fx.entries, fx.imports = append(fx.entries, routes...), append(fx.imports, imports...)
+			}
+		}
+		fx.entities = entities(s)
+		fx.accesses = accesses(s)
+		for _, rec := range lang.Recognisers() {
+			if rec.Bindings != nil {
+				fx.bindings = append(fx.bindings, rec.Bindings(s)...)
+			}
+		}
+		fx.types = s.TypeDecls()
+		if lang.Kind == r.Code {
+			sy := symbolsOf(s)
+			fx.outs, fx.bases = e.outbound(s, sy)
 			// Only what linking reads is kept.
-			sy.consts, sy.keys, sy.addrs = nil, nil, nil
+			sy.Consts, sy.Keys, sy.Addrs = nil, nil, nil
 			fx.syms = sy
-			fx.classAuth = s.classAuth()
+			fx.classAuth = classAuth(s)
 			// A class's own access marks, which its subclasses' routes inherit:
 			// nopCommerce's admin controllers are [AuthorizeAdmin] through
 			// their base class.
-			for _, c := range s.classContexts(s.decls()) {
+			for _, c := range classContexts(s, s.Decls()) {
 				if c.Auth != "" {
 					if fx.classAuth == nil {
 						fx.classAuth = map[string]string{}
@@ -161,12 +210,12 @@ func (e *extension) AnalyzeFile(f file.File) *file.Results {
 					fx.classAuth[c.Name] = c.Auth
 				}
 			}
-			for _, d := range s.decls() {
-				if r := resilienceOf(d.Marks); r != "" && !d.Class {
+			for _, d := range s.Decls() {
+				if res := s.ResilienceOf(d.Marks); res != "" && !d.Class {
 					if fx.resMarks == nil {
 						fx.resMarks = map[int]string{}
 					}
-					fx.resMarks[d.Line] = r
+					fx.resMarks[d.Line] = res
 				}
 			}
 		}
@@ -179,6 +228,13 @@ func (e *extension) AnalyzeFile(f file.File) *file.Results {
 	e.mu.Unlock()
 	return nil
 }
+
+// isData is whether a file is a mapping, schema or routing file, whose
+// facts count even when the file is not the codebase's own.
+func isData(fx *facts) bool { return fx.lang != nil && fx.lang.Kind == r.Data }
+
+// languageOf is the language a file is read in, or nil.
+func (e *extension) languageOf(p string) *r.Language { return e.langs[strings.ToLower(path.Ext(p))] }
 
 func clean(p string) string { return strings.TrimPrefix(p, "./") }
 
@@ -452,48 +508,46 @@ type entryRow struct {
 	Template, Auth, Documented string
 }
 
-// Frameworks that read routes from where files are only do so when their
-// config is in the workspace; a pages/ folder alone proves nothing.
-var fileRouteConfigs = map[string][]string{
-	"next":      {"next.config.js", "next.config.mjs", "next.config.ts", "next.config.cjs"},
-	"nuxt":      {"nuxt.config.ts", "nuxt.config.js", "nuxt.config.mjs"},
-	"sveltekit": {"svelte.config.js", "svelte.config.ts"},
-}
-
 func (e *extension) linkEntries(l *linker, files map[string]*facts, paths []string) {
 	configs := map[string]bool{}
 	for f := range l.results.FileRoles {
 		configs[path.Base(f)] = true
 	}
+	// Frameworks that read routes from where files are only do so when
+	// their config is in the workspace; a pages/ folder alone proves
+	// nothing.
 	present := func(framework string) bool {
-		for _, c := range fileRouteConfigs[framework] {
-			if configs[c] {
-				return true
+		for _, rec := range e.recs {
+			for _, c := range rec.RouteConfigs[framework] {
+				if configs[c] {
+					return true
+				}
 			}
 		}
 		return false
 	}
-	prefix := routePrefixes(files, paths)
+	prefix := e.routePrefixes(files, paths)
 	seen := map[string]bool{}
 	for _, p := range paths {
 		if !own(l.results, p) {
 			continue
 		}
+	entries:
 		for _, x := range files[p].entries {
-			if pre := prefix[p]; pre != "" && x.Framework == "symfony" {
+			if pre := prefix[p]; pre != "" && x.Mountable {
 				x.Path = joinRoute(pre, x.Path)
 			}
-			if x.Framework == "pages" {
-				switch {
-				case present("next"):
-					x.Framework = "next"
-				case present("nuxt"):
-					x.Framework = "nuxt"
-				default:
-					continue
+			if len(x.Candidates) > 0 {
+				x.Framework = ""
+				for _, c := range x.Candidates {
+					if present(c) {
+						x.Framework = c
+						break
+					}
 				}
-			} else if _, byPath := fileRouteConfigs[x.Framework]; byPath && x.Line == 1 && x.DeclLine == 1 && !present(x.Framework) {
-				continue
+				if x.Framework == "" {
+					continue entries
+				}
 			}
 			row := entryRow{Kind: x.Kind, Method: x.Method, Path: x.Path, Framework: x.Framework, Handler: x.Handler, Component: componentOf(l.results, p), File: p, Line: x.Line, Auth: x.Auth, Documented: x.Documented}
 			var u *unit.Unit
@@ -558,68 +612,87 @@ func (e *extension) linkEntries(l *linker, files map[string]*facts, paths []stri
 			e.entryRows = append(e.entryRows, row)
 		}
 	}
-	e.conventionalActions(l, paths, seen)
+	e.conventionalActions(l, files, paths, seen)
 	sortEntries(e.entryRows)
 }
 
-var actionResult = regexp.MustCompile(`^public\s+(?:virtual\s+|override\s+|async\s+)*(?:Task\s*<\s*)?(?:I?ActionResult|JsonResult|ViewResult|PartialViewResult|ContentResult|FileResult|RedirectResult|RedirectToActionResult|IResult)\b`)
-
-// conventionalActions are ASP.NET MVC actions routed by convention: a public
-// method returning an action result on a controller, reached at
-// /{controller}/{action} unless an attribute says otherwise. An action an
-// attribute already routed keeps that route; one with an HTTP verb attribute
-// but no template gets the conventional path.
-func (e *extension) conventionalActions(l *linker, paths []string, seen map[string]bool) {
-	routed := map[string]int{}
-	for i, r := range e.entryRows {
-		if r.Framework == "aspnet" && r.Function != "" {
-			routed[r.File+"\x00"+r.Function] = i + 1
+// conventionalActions are actions routed by convention rather than by a
+// mark: a measured function a language's convention routes by its name and
+// signature (ASP.NET MVC's /{controller}/{action}). An action a mark already
+// routed keeps that route; one whose mark has no template gets the
+// conventional path.
+func (e *extension) conventionalActions(l *linker, files map[string]*facts, paths []string, seen map[string]bool) {
+	routed := map[*r.Convention]map[string]int{}
+	for _, rec := range e.recs {
+		if conv := rec.Convention; conv != nil {
+			routed[conv] = map[string]int{}
+			for i, row := range e.entryRows {
+				if row.Framework == conv.Completes && row.Function != "" {
+					routed[conv][row.File+"\x00"+row.Function] = i + 1
+				}
+			}
 		}
 	}
 	for _, p := range paths {
-		if languageOf(p) != langCSharp || !own(l.results, p) {
+		lang := files[p].lang
+		if lang == nil || !own(l.results, p) {
 			continue
 		}
-		for _, fn := range l.functions[p] {
-			parts := strings.Split(fn.Name, ".")
-			if len(parts) < 2 || !strings.HasSuffix(parts[len(parts)-2], "Controller") || !actionResult.MatchString(fn.Signature) {
+		for _, rec := range lang.Recognisers() {
+			conv := rec.Convention
+			if conv == nil {
 				continue
 			}
-			ctrl, action := strings.TrimSuffix(parts[len(parts)-2], "Controller"), strings.TrimSuffix(parts[len(parts)-1], "Async")
-			conventional := "/" + ctrl + "/" + action
-			if i := routed[p+"\x00"+fn.Name]; i > 0 {
-				if r := &e.entryRows[i-1]; r.Path == "/" {
-					r.Path, r.Framework = conventional, "aspnet-conventional"
+			for _, fn := range l.functions[p] {
+				conventional, ok := conv.Route(fn.Name, fn.Signature)
+				if !ok {
+					continue
 				}
-				continue
+				if i := routed[conv][p+"\x00"+fn.Name]; i > 0 {
+					if row := &e.entryRows[i-1]; row.Path == "/" {
+						row.Path, row.Framework = conventional, conv.Framework
+					}
+					continue
+				}
+				u := l.unitOfFunction(p, fn)
+				row := entryRow{Kind: kindHTTP, Method: "ANY", Path: conventional, Framework: conv.Framework, Handler: fn.Name, Unit: idOf(u), Function: fn.Name, Component: componentOf(l.results, p), File: p, Line: fn.Begin}
+				key := strings.Join([]string{row.Kind, row.Method, row.Path, row.File, itoa(row.Line)}, "\x00")
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				e.entryRows = append(e.entryRows, row)
 			}
-			u := l.unitOfFunction(p, fn)
-			row := entryRow{Kind: kindHTTP, Method: "ANY", Path: conventional, Framework: "aspnet-conventional", Handler: fn.Name, Unit: idOf(u), Function: fn.Name, Component: componentOf(l.results, p), File: p, Line: fn.Begin}
-			key := strings.Join([]string{row.Kind, row.Method, row.Path, row.File, itoa(row.Line)}, "\x00")
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			e.entryRows = append(e.entryRows, row)
 		}
 	}
 }
 
 // routePrefixes is the prefix every routing file's routes are mounted under,
 // joined through the files that import it.
-func routePrefixes(files map[string]*facts, paths []string) map[string]string {
+func (e *extension) routePrefixes(files map[string]*facts, paths []string) map[string]string {
 	type edge struct{ from, prefix string }
 	parents := map[string][]edge{}
 	var routing []string
 	for _, p := range paths {
-		if isRoutingFile(p) {
-			routing = append(routing, p)
+		for _, rec := range e.recs {
+			if rec.RoutingFile != nil && rec.RoutingFile(p) {
+				routing = append(routing, p)
+				break
+			}
 		}
 	}
 	for _, p := range paths {
-		for _, im := range files[p].imports {
-			for _, target := range importTargets(p, im.Resource, routing) {
-				parents[target] = append(parents[target], edge{p, im.Prefix})
+		if len(files[p].imports) == 0 {
+			continue
+		}
+		for _, rec := range files[p].lang.Recognisers() {
+			if rec.ImportTargets == nil {
+				continue
+			}
+			for _, im := range files[p].imports {
+				for _, target := range rec.ImportTargets(p, im.Resource, routing) {
+					parents[target] = append(parents[target], edge{p, im.Prefix})
+				}
 			}
 		}
 	}
@@ -644,47 +717,6 @@ func routePrefixes(files map[string]*facts, paths []string) map[string]string {
 	return out
 }
 
-// importTargets are the routing files a resource names: a path relative to
-// the importing file, or a bundle path (`@SyliusAdminBundle/Resources/...`)
-// matched by what follows the bundle, preferring the directory the bundle's
-// name ends with.
-func importTargets(from, resource string, routing []string) []string {
-	resource = strings.TrimSpace(resource)
-	if !strings.HasPrefix(resource, "@") {
-		want := path.Join(path.Dir(from), resource)
-		for _, r := range routing {
-			if r == want {
-				return []string{r}
-			}
-		}
-		return nil
-	}
-	slash := strings.IndexByte(resource, '/')
-	if slash < 0 {
-		return nil
-	}
-	bundle, rest := resource[1:slash], resource[slash:]
-	var matches []string
-	for _, r := range routing {
-		if strings.HasSuffix(r, rest) {
-			matches = append(matches, r)
-		}
-	}
-	if len(matches) <= 1 {
-		return matches
-	}
-	for i := 1; i < len(bundle); i++ {
-		if bundle[i] >= 'A' && bundle[i] <= 'Z' {
-			for _, r := range matches {
-				if strings.Contains(r, "/"+bundle[i:]+"/") {
-					return []string{r}
-				}
-			}
-		}
-	}
-	return nil
-}
-
 type entityRow struct {
 	Entity, Name, Table, Store, Framework, File string
 	Line                                        int
@@ -693,13 +725,6 @@ type entityRow struct {
 type accessRow struct {
 	Unit, Function, Component, Target, Entity, Access, Via, File string
 	Line                                                         int
-}
-
-// Supertypes that make a class a mapped model, by framework, for ORMs that
-// say so by inheritance rather than by annotation.
-var modelBases = map[string]string{
-	"models.Model": "django", "Model": "", "db.Model": "flask-sqlalchemy", "DeclarativeBase": "sqlalchemy",
-	"Document": "mongoengine", "SQLModel": "sqlmodel",
 }
 
 func (e *extension) linkData(l *linker, files map[string]*facts, paths []string) {
@@ -721,7 +746,7 @@ func (e *extension) linkData(l *linker, files map[string]*facts, paths []string)
 		order = append(order, key)
 	}
 	for _, p := range paths {
-		if !own(l.results, p) && files[p].lang != langXML && files[p].lang != langPrisma {
+		if !own(l.results, p) && !isData(files[p]) {
 			continue
 		}
 		for _, x := range files[p].entities {
@@ -745,7 +770,33 @@ func (e *extension) linkData(l *linker, files map[string]*facts, paths []string)
 		}
 	}
 	// Models an ORM recognises by what they inherit: Django, Eloquent,
-	// Flask-SQLAlchemy. A model's subclass is a model.
+	// Flask-SQLAlchemy, as the language's recognisers say. A model's
+	// subclass is a model.
+	modelBase := func(f, key string) (string, bool) {
+		lang := e.languageOf(f)
+		if lang == nil {
+			return "", false
+		}
+		for _, rec := range lang.Recognisers() {
+			if rec.ModelBase == nil {
+				continue
+			}
+			if fw, decided := rec.ModelBase(key, func() []string { return l.importsOf(f) }); decided {
+				return fw, true
+			}
+		}
+		return "", false
+	}
+	readsModels := func(f string) bool {
+		if lang := e.languageOf(f); lang != nil {
+			for _, rec := range lang.Recognisers() {
+				if rec.ModelBase != nil {
+					return true
+				}
+			}
+		}
+		return false
+	}
 	memo := map[string]string{}
 	var frameworkOf func(u *unit.Unit, depth int) string
 	frameworkOf = func(u *unit.Unit, depth int) string {
@@ -757,21 +808,13 @@ func (e *extension) linkData(l *linker, files map[string]*facts, paths []string)
 			return ""
 		}
 		f := firstFile(u)
-		lang := languageOf(f)
 		for _, m := range u.Markers {
 			if m.Source != unit.SourceSupertype {
 				continue
 			}
 			key := genericless(m.Key)
-			if fw, ok := modelBases[key]; ok && (lang == langPython || lang == langPHP) {
-				switch {
-				case fw != "":
-				case lang == langPHP:
-					fw = "eloquent"
-				default:
-					fw = "django"
-				}
-				if fw == "django" && lang == langPython && !strings.Contains(strings.Join(l.importsOf(f), " "), "django") && key != "models.Model" {
+			if fw, decided := modelBase(f, key); decided {
+				if fw == "" {
 					continue
 				}
 				memo[u.ID] = fw
@@ -790,8 +833,7 @@ func (e *extension) linkData(l *linker, files map[string]*facts, paths []string)
 		if u.Kind != unit.KindType {
 			continue
 		}
-		lang := languageOf(firstFile(u))
-		if lang != langPython && lang != langPHP {
+		if !readsModels(firstFile(u)) {
 			continue
 		}
 		if !own(l.results, firstFile(u)) {
@@ -946,13 +988,6 @@ func (l *linker) importsOf(f string) []string {
 	return out
 }
 
-func genericless(name string) string {
-	if i := strings.IndexAny(name, "<[("); i > 0 {
-		name = name[:i]
-	}
-	return strings.TrimSpace(name)
-}
-
 // supertypeUnit is the unit a supertype marker names: the one this unit's own
 // references resolved to, or failing that the one of that name its file or
 // component can see.
@@ -1032,7 +1067,7 @@ func (e *extension) linkWiring(l *linker, files map[string]*facts, paths []strin
 		}
 	}
 	for _, p := range paths {
-		if !own(l.results, p) && files[p].lang != langXML {
+		if !own(l.results, p) && !isData(files[p]) {
 			continue
 		}
 		for _, b := range files[p].bindings {
@@ -1061,10 +1096,20 @@ func (e *extension) linkWiring(l *linker, files map[string]*facts, paths []strin
 	}
 	// Types a container finds by scanning, bound to the interfaces in this
 	// codebase that they implement.
+	scanned := func(u *unit.Unit, key string) bool {
+		if lang := e.languageOf(firstFile(u)); lang != nil {
+			for _, rec := range lang.Recognisers() {
+				if contains(rec.Scanned, key) {
+					return true
+				}
+			}
+		}
+		return false
+	}
 	for _, u := range l.results.Units {
 		scannedBy := ""
 		for _, m := range u.Markers {
-			if m.Source == unit.SourceAnnotation && scanned[m.Key] {
+			if m.Source == unit.SourceAnnotation && scanned(u, m.Key) {
 				scannedBy = m.Key
 				break
 			}

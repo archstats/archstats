@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	r "github.com/archstats/archstats/extensions/navigation/recogniser"
 )
 
 // Where a system goes out to is rarely in the code. The code says
@@ -114,37 +116,46 @@ func environmentOf(p string) string {
 	return ""
 }
 
-// configFormat is how a file holds configuration, or "" when it does not.
-func configFormat(p, lang string) string {
+// configFormat is how a file holds configuration, or "" when it does not,
+// and the recogniser that reads it when its language's does.
+func configFormat(p string, lang *r.Language) (string, *r.Recogniser) {
 	base := strings.ToLower(path.Base(p))
 	ext := path.Ext(base)
 	switch {
 	case (strings.HasPrefix(base, "application") || strings.HasPrefix(base, "bootstrap")) && (ext == ".yml" || ext == ".yaml" || ext == ".properties"):
-		return "spring"
+		return "spring", nil
 	case strings.HasPrefix(base, "appsettings") && ext == ".json":
-		return "dotnet"
+		return "dotnet", nil
 	case ext == ".config" && (base == "web.config" || base == "app.config" || strings.HasSuffix(base, ".exe.config") || strings.HasPrefix(base, "web.") || strings.HasPrefix(base, "app.")):
-		return "dotnet_xml"
+		return "dotnet_xml", nil
 	case base == ".env" || strings.HasPrefix(base, ".env.") || ext == ".env":
-		return "dotenv"
+		return "dotenv", nil
 	case (strings.HasPrefix(base, "docker-compose") || strings.HasPrefix(base, "compose")) && (ext == ".yml" || ext == ".yaml"):
-		return "compose"
+		return "compose", nil
 	case strings.HasPrefix(base, "values") && (ext == ".yml" || ext == ".yaml"):
-		return "helm"
-	case lang == langPHP && strings.Contains("/"+p, "/config/") && !strings.Contains(p, "/vendor/"):
-		return "laravel"
-	case lang == langPython && (strings.HasPrefix(base, "settings") || strings.Contains(p, "/settings/")):
-		return "django"
-	case ext == ".json" && strings.Contains("/"+p, "/config/") && environmentOf(p) != "" || ext == ".json" && strings.Contains("/"+p, "/config/") && base == "default.json":
-		return "node"
-	case lang == langYAML:
-		return "yaml"
+		return "helm", nil
 	}
-	return ""
+	if lang != nil {
+		for _, rec := range lang.Recognisers() {
+			if rec.ConfigFormat != nil && rec.ReadConfig != nil {
+				if format := rec.ConfigFormat(p); format != "" {
+					return format, rec
+				}
+			}
+		}
+	}
+	switch {
+	case ext == ".json" && strings.Contains("/"+p, "/config/") && environmentOf(p) != "" || ext == ".json" && strings.Contains("/"+p, "/config/") && base == "default.json":
+		return "node", nil
+	case ext == ".yaml" || ext == ".yml":
+		return "yaml", nil
+	}
+	return "", nil
 }
 
-// readConfig reads one configuration file.
-func readConfig(p, format string, content []byte) *configFacts {
+// readConfig reads one configuration file, in a format of its own or one a
+// recogniser reads.
+func readConfig(p, format string, rec *r.Recogniser, content []byte) *configFacts {
 	env := environmentOf(p)
 	cf := &configFacts{}
 	add := func(key, value string, line int, envOf string) {
@@ -182,20 +193,15 @@ func readConfig(p, format string, content []byte) *configFacts {
 		readProperties(text, func(k, v string, line int) { add(strings.TrimPrefix(k, "export "), v, line, "") })
 	case "dotnet_xml":
 		readDotnetXML(text, add)
-	case "laravel":
-		readNested(text, "=>", strings.TrimSuffix(path.Base(p), ".php"), add)
-	case "django":
-		readNested(text, ":", "", add)
-		for _, m := range pyAssign.FindAllStringSubmatchIndex(text, -1) {
-			add(text[m[2]:m[3]], strings.TrimSpace(text[m[4]:m[5]]), strings.Count(text[:m[0]], "\n")+1, "")
-		}
 	case "compose", "yaml":
 		readManifests(content, cf, add)
+	default:
+		if rec != nil {
+			rec.ReadConfig(p, format, text, add)
+		}
 	}
 	return cf
 }
-
-var pyAssign = rx(`(?m)^([A-Z][A-Z0-9_]*)\s*=\s*(.+)$`)
 
 func tuningKind(key string) string {
 	k := strings.ToLower(key)
@@ -453,90 +459,10 @@ func readDotnetXML(text string, add func(k, v string, line int, env string)) {
 	}
 }
 
-// readNested reads a nested PHP array (`'url' => env('X')`) or Python dict
-// (`'HOST': os.environ.get('X')`) into dotted keys, by following the
-// brackets that open under a key.
-func readNested(text, arrow, root string, add func(k, v string, line int, env string)) {
-	keyed := regexp.MustCompile(`['"]([\w.-]+)['"]\s*` + regexp.QuoteMeta(arrow) + `\s*`)
-	var stack []string
-	depth := 0
-	pushedAt := map[int]bool{}
-	line := 1
-	i := 0
-	for i < len(text) {
-		c := text[i]
-		switch c {
-		case '\n':
-			line++
-			i++
-			continue
-		case '#':
-			if arrow == ":" {
-				end := strings.IndexByte(text[i:], '\n')
-				if end < 0 {
-					return
-				}
-				i += end
-				continue
-			}
-		case '[', '{', '(':
-			depth++
-			i++
-			continue
-		case ']', '}', ')':
-			if pushedAt[depth] {
-				pushedAt[depth] = false
-				if len(stack) > 0 {
-					stack = stack[:len(stack)-1]
-				}
-			}
-			depth--
-			i++
-			continue
-		case '\'', '"':
-			loc := keyed.FindStringSubmatchIndex(text[i:])
-			if loc != nil && loc[0] == 0 {
-				key := text[i+loc[2] : i+loc[3]]
-				j := i + loc[1]
-				if j < len(text) && (text[j] == '[' || text[j] == '{' || strings.HasPrefix(text[j:], "array(")) {
-					if strings.HasPrefix(text[j:], "array(") {
-						j += 5
-					}
-					depth++
-					pushedAt[depth] = true
-					stack = append(stack, key)
-					i = j + 1
-					continue
-				}
-				end := j
-				for end < len(text) && text[end] != ',' && text[end] != '\n' {
-					if text[end] == '(' {
-						_, e := balanced(text, end)
-						end = e
-						continue
-					}
-					end++
-				}
-				full := strings.Join(append(append([]string{}, stack...), key), ".")
-				if root != "" {
-					full = root + "." + full
-				}
-				add(full, strings.TrimSpace(text[j:end]), line, "")
-				line += strings.Count(text[i:end], "\n")
-				i = end
-				continue
-			}
-			i = skipString(text, i, langJS)
-			continue
-		}
-		i++
-	}
-}
-
 // stripJSONComments removes // and /* */ comments outside strings, which
 // .NET allows in appsettings files and JSON does not.
 func stripJSONComments(text string) string {
-	return blankComments(text, langJS)
+	return r.BlankComments(text)
 }
 
 // normKey is a configuration key as every binder sees it: Spring's relaxed

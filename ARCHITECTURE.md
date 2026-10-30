@@ -82,6 +82,6 @@ The desktop app, `archstats assert`, reports and Ask all query snapshot tables b
 | `extensions/components`, `declbased` | component resolution, coupling, cycles, centrality |
 | `extensions/git`, `matrix` | history, co-change, authorship |
 | `extensions/codesmells` | code health and hotspots |
-| `extensions/cicd`, `mobile`, `navigation` | how the workspace ships, what a mobile app declares, what an architect navigates by; cicd reads build tools through `cicd/buildtool/<tool>` plug-ins |
+| `extensions/cicd`, `mobile`, `navigation` | how the workspace ships, what a mobile app declares, what an architect navigates by; cicd reads build tools through `cicd/buildtool/<tool>` plug-ins, navigation reads languages through `navigation/recogniser/<family>` plug-ins |
 | `extensions/rules` | architecture rules scoped by ecosystem |
 | `e2eTest` | end-to-end tests on fixtures and real projects |

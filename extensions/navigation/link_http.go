@@ -193,7 +193,7 @@ func (e *extension) linkAuth(l *linker, files map[string]*facts, paths []string,
 	mounts := []string{"/"}
 	for _, p := range paths {
 		if fx := files[p]; fx.syms != nil {
-			for _, a := range fx.syms.appPaths {
+			for _, a := range fx.syms.AppPaths {
 				if b := basePath(a); !contains(mounts, b) {
 					mounts = append(mounts, b)
 				}
@@ -212,9 +212,9 @@ func (e *extension) linkAuth(l *linker, files map[string]*facts, paths []string,
 	for _, p := range paths {
 		fx := files[p]
 		if fx.syms != nil {
-			rules = append(rules, fx.syms.authRules...)
-			if len(fx.syms.authRanges) > 0 {
-				ranges[p] = fx.syms.authRanges
+			rules = append(rules, fx.syms.AuthRules...)
+			if len(fx.syms.AuthRanges) > 0 {
+				ranges[p] = fx.syms.AuthRanges
 			}
 		}
 		for cls, a := range fx.classAuth {
@@ -394,7 +394,7 @@ func (e *extension) linkOutbound(l *linker, files map[string]*facts, paths []str
 			}
 		}
 		if files[p].syms != nil {
-			for t, pre := range files[p].syms.prefixes {
+			for t, pre := range files[p].syms.Prefixes {
 				prefixes[t] = pre
 			}
 		}
@@ -548,12 +548,12 @@ func (e *extension) linkOutbound(l *linker, files map[string]*facts, paths []str
 			if fx.syms == nil || !own(l.results, p) {
 				continue
 			}
-			for _, cs := range fx.syms.calls {
+			for _, cs := range fx.syms.Calls {
 				ops, ok := consumed[cs.Name]
 				if !ok || cs.Recv == "" {
 					continue
 				}
-				t := genericless(fx.syms.vars[lastSegment(cs.Recv)])
+				t := genericless(fx.syms.Vars[lastSegment(cs.Recv)])
 				if !rx(`(Api|Client|ApiClient|Service)$`).MatchString(t) {
 					continue
 				}
@@ -1269,7 +1269,7 @@ func (t *tracer) edges(n fnNode) []traceEdge {
 		return nil
 	}
 	sy := fx.syms
-	calls := sy.calls
+	calls := sy.Calls
 	lo := sort.Search(len(calls), func(i int) bool { return int(calls[i].Line) >= n.fn.Begin })
 	own := n.fn.Name[strings.LastIndexByte(n.fn.Name, '.')+1:]
 	var out []traceEdge
@@ -1316,7 +1316,7 @@ func (t *tracer) resolve(n fnNode, c callSite, sy *symbols) []traceEdge {
 		return library
 	}
 	last := lastSegment(c.Recv)
-	if typ, ok := sy.vars[last]; ok {
+	if typ, ok := sy.Vars[last]; ok {
 		if u := t.resolveType(n, typ); u != nil {
 			if es := t.member(u, c.Name, "field"); es != nil {
 				return es
