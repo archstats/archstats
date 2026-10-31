@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -34,7 +36,32 @@ func documents(t *testing.T) []string {
 	return docs
 }
 
+// tracked lists the files git tracks and the folders that hold them. A
+// document points at those, or at a place git ignores on purpose because a
+// build or a test makes it (e2eTest/temp_testdata). Checking the disk instead
+// passed locally on folders that exist only on the machine that made them.
+func tracked(t *testing.T) map[string]bool {
+	t.Helper()
+	out, err := exec.Command("git", "ls-files").Output()
+	if err != nil {
+		t.Skip("git ls-files: ", err)
+	}
+	set := map[string]bool{}
+	for _, f := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		for p := f; p != "." && p != "/" && p != ""; p = path.Dir(p) {
+			set[p] = true
+		}
+	}
+	return set
+}
+
+func exists(set map[string]bool, p string) bool {
+	p = strings.TrimSuffix(path.Clean(filepath.ToSlash(p)), "/")
+	return set[p] || exec.Command("git", "check-ignore", "-q", p).Run() == nil
+}
+
 func TestDocumentLinksResolve(t *testing.T) {
+	files := tracked(t)
 	for _, doc := range documents(t) {
 		raw, err := os.ReadFile(doc)
 		if err != nil {
@@ -47,8 +74,8 @@ func TestDocumentLinksResolve(t *testing.T) {
 				continue
 			}
 			target, _, _ = strings.Cut(target, "#")
-			if _, err := os.Stat(filepath.Join(filepath.Dir(doc), target)); err != nil {
-				t.Errorf("%s links to %s, which does not exist", doc, m[1])
+			if !exists(files, filepath.Join(filepath.Dir(doc), target)) {
+				t.Errorf("%s links to %s, which git neither tracks nor ignores", doc, m[1])
 			}
 		}
 		// A decision record describes the code as it was when it was taken.
@@ -56,12 +83,12 @@ func TestDocumentLinksResolve(t *testing.T) {
 			continue
 		}
 		for _, m := range codePath.FindAllStringSubmatch(text, -1) {
-			path := trailings.ReplaceAllString(m[1], "")
-			if strings.ContainsAny(path, "*<{") {
+			p := trailings.ReplaceAllString(m[1], "")
+			if strings.ContainsAny(p, "*<{") {
 				continue
 			}
-			if _, err := os.Stat(path); err != nil {
-				t.Errorf("%s names %s, which does not exist", doc, m[1])
+			if !exists(files, p) {
+				t.Errorf("%s names %s, which git neither tracks nor ignores", doc, m[1])
 			}
 		}
 	}
