@@ -1,0 +1,54 @@
+name: Docs
+
+# Builds the documentation site with --strict on every push and pull request
+# that touches it, so a broken link between pages fails like a test. On main,
+# it then publishes to GitHub Pages: https://archstats.github.io/archstats/
+on:
+  push:
+    branches: [main]
+    paths: [docs/**, mkdocs.yml, DESCRIPTION.md, CHANGELOG.md, .github/workflows/docs.yml]
+  pull_request:
+    branches: [main]
+    paths: [docs/**, mkdocs.yml, DESCRIPTION.md, CHANGELOG.md, .github/workflows/docs.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          pip install "mkdocs-material==9.6.*"
+          mkdocs build --strict --site-dir _site
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

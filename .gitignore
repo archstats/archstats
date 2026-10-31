@@ -14,3 +14,7 @@ archstats
 *.db
 # Local clones and experiments
 scratch/
+
+# The documentation site, built by mkdocs
+/site/
+/_site/

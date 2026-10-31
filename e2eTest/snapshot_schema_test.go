@@ -65,6 +65,29 @@ func TestSnapshotSchema(t *testing.T) {
 	assert.Equal(t, string(expected), actual, "the snapshot schema changed; if that was meant, run with UPDATE_GOLDEN=1 and review the diff")
 }
 
+// Every table in the schema is described in DESCRIPTION.md, which the
+// documentation site publishes as the snapshot reference: a table nobody
+// described is one a reader of the snapshot cannot use.
+func TestDescriptionNamesEveryTable(t *testing.T) {
+	golden, err := os.ReadFile(schemaGolden)
+	require.NoError(t, err)
+	description, err := os.ReadFile("../DESCRIPTION.md")
+	require.NoError(t, err)
+
+	var missing []string
+	for _, line := range strings.Split(strings.ReplaceAll(string(golden), "\r\n", "\n"), "\n") {
+		name, ok := strings.CutPrefix(line, "table ")
+		if !ok {
+			continue
+		}
+		name, _, _ = strings.Cut(name, ":")
+		if !strings.Contains(string(description), "`"+name+"`") {
+			missing = append(missing, name)
+		}
+	}
+	assert.Empty(t, missing, "tables the snapshot holds but DESCRIPTION.md does not describe")
+}
+
 // Two scans of the same tree write the same snapshot, row for row: map order
 // used to decide component ids, communities, which cycle and which path were
 // shown, and the last digits of every centrality.

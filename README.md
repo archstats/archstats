@@ -6,13 +6,15 @@ Archstats reads a codebase and writes down its architecture: the components and 
 
 It writes all of it to one SQLite file, the **snapshot**. Everything else reads that file: the Archstats desktop app, `archstats assert`, reports, and any SQL you write yourself. The tables are documented in [DESCRIPTION.md](DESCRIPTION.md).
 
+The documentation, including the desktop app's guide, is at **[archstats.github.io/archstats](https://archstats.github.io/archstats/)**.
+
 ## Install
 
 ```shell
 go install github.com/archstats/archstats@latest
 ```
 
-Binaries for macOS, Linux and Windows are on the [releases page](https://github.com/archstats/archstats/releases).
+Binaries for macOS, Linux and Windows are on the [releases page](https://github.com/archstats/archstats/releases). [Install](docs/install.md) covers both the CLI and the desktop app, including opening an unsigned build.
 
 ## Use
 
@@ -79,3 +81,12 @@ The end-to-end tests in `e2eTest` clone a few real projects the first time they 
 - `TestSnapshot_SameTreeSameSnapshot` checks that two scans of one commit write the same rows.
 
 A change to what a scan produces bumps `core.AnalysisRevision` ([core/revision.go](core/revision.go)), so readers can tell an older snapshot from a newer one. Decisions are recorded in [docs/adr](docs/adr).
+
+The documentation site is built from [docs](docs) with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) (`pip install mkdocs-material && mkdocs serve`); CI builds it with `--strict` and publishes it from main. `go test .` checks that every link and source path the Markdown names still exists.
+
+## Release
+
+1. Under **Unreleased** in [CHANGELOG.md](CHANGELOG.md), write what a user would notice. Do it as changes land, not on release day.
+2. With main pushed and green, run `scripts/release.sh vX.Y.Z`. It checks CI, moves the notes under the version with the analysis revision and the commit list, commits, and makes a signed tag. `--push` pushes them.
+3. The tag builds and smoke-tests every platform and opens a draft release whose notes are that section. Check it and publish it.
+4. Pin the desktop app to the tag: `scripts/release.sh vA.B.C --engine vX.Y.Z` in [archstats-ui](https://github.com/archstats/archstats-ui).

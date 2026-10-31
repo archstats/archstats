@@ -21,4 +21,6 @@ Core is the model and the questions. Every answer that depends on a language, fr
 
 - After a change to scan output, bump `core.AnalysisRevision` and say why in `core/revision.go`. Update `e2eTest/testdata/snapshot_schema.golden` with `UPDATE_GOLDEN=1 go test ./e2eTest -run TestSnapshotSchema` only when the schema change is intended.
 - A refactor must leave scans unchanged: export snapshots of the `e2eTest/temp_testdata` checkouts with the old and new binaries and compare them table by table. Short-cycle columns and PageRank already vary between runs.
+- A change a user would notice gets a line under **Unreleased** in `CHANGELOG.md`. Releases go through `scripts/release.sh` (README, "Release").
+- Docs for users live in `docs/` and publish as the site (`mkdocs.yml`); `go test .` fails on a dead link or source path in any Markdown file.
 - No commits or pushes unless asked. Never add AI attribution anywhere.

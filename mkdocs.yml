@@ -1,0 +1,68 @@
+# The documentation site, published to https://archstats.github.io/archstats/
+# by .github/workflows/docs.yml. Build it locally with
+#   pip install mkdocs-material && mkdocs serve
+# --strict (as CI builds) fails on a broken link between pages.
+site_name: Archstats
+site_description: Reads a codebase and writes its architecture, history and pipelines to one SQLite snapshot.
+site_url: https://archstats.github.io/archstats/
+repo_url: https://github.com/archstats/archstats
+repo_name: archstats/archstats
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle: { icon: material/weather-night, name: Dark theme }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle: { icon: material/weather-sunny, name: Light theme }
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      # DESCRIPTION.md and CHANGELOG.md live at the repository root, where
+      # GitHub and agents read them; the site includes them from there.
+      base_path: ["."]
+      check_paths: true
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+
+not_in_nav: |
+  adr/*.md
+  adr/template.md
+
+nav:
+  - Home: index.md
+  - Install: install.md
+  - Desktop app:
+      - Getting started: desktop/index.md
+      - Updates and releases: desktop/updates.md
+  - CLI:
+      - Commands: cli.md
+      - Rules: rules.md
+  - Reference:
+      - Snapshot tables: snapshot.md
+      - Metrics: metrics.md
+      - Ecosystems: ecosystems.md
+      - Decisions: adr/README.md
+  - Releases: releases.md
