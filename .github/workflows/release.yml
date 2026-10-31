@@ -4,6 +4,7 @@ name: Release Archstats
 #   - Pushing a tag vX.Y.Z builds every target, smoke-tests the binaries, and
 #     attaches the archives + a SHA-256 checksums.txt to that tag's release:
 #     a DRAFT it creates, or the release already there. You publish by hand.
+#     scripts/release.sh cuts the tag; the notes come from CHANGELOG.md.
 #     (This used to wait for a published release, so a pushed tag alone, like
 #     v0.8.0, got no binaries.)
 #   - workflow_dispatch does the same build + smoke test and only uploads
@@ -130,10 +131,27 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the notes fall back to the commits since the last tag
+
       - uses: actions/download-artifact@v4
         with:
           path: out
           merge-multiple: true
+
+      # The notes are the release's section of CHANGELOG.md, which
+      # scripts/release.sh writes. A tag pushed without it gets the commit list.
+      - name: Release notes
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          scripts/changelog.sh section "$tag" > notes.md
+          if [ ! -s notes.md ]; then
+            previous="$(git describe --tags --abbrev=0 --match 'v*' "$tag^" 2>/dev/null || true)"
+            if [ -n "$previous" ]; then scripts/changelog.sh commits "$previous" "$tag" > notes.md; fi
+          fi
+          printf '\n---\n\nInstall and first steps: https://archstats.github.io/archstats/install/\n' >> notes.md
+          cat notes.md
 
       - name: Checksums
         run: |
@@ -151,5 +169,5 @@ jobs:
             gh release upload "$tag" out/* --repo "${{ github.repository }}" --clobber
           else
             gh release create "$tag" out/* --repo "${{ github.repository }}" \
-              --title "$tag" --generate-notes --draft
+              --title "$tag" --notes-file notes.md --draft
           fi
