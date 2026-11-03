@@ -1,0 +1,8 @@
+id: git__commits__recent
+name: Recent Commits
+short_description: Commits to this file or component, each counting less the older it is.
+long_description: |
+  Each commit counts 1 at the newest commit scanned and half as much for every six months before it: a commit last month counts about 0.9, one a year ago a quarter. Only changes count: the commit that added the file is left out, and so are commits touching more than the sweep limit (100 files by default), as for co-change, because a reformat reaches every file and says nothing about which one is being worked on. A component or directory counts each of its commits once.
+
+  Unlike the commit count, it tells code being worked on now from code that was busy years ago. It is the churn in debt interest (codesmells__debt_interest).
+category: "Git History & Churn"

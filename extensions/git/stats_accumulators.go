@@ -31,6 +31,22 @@ func UniqueCommits(thingsToMerge []interface{}) interface{} {
 	return len(commits)
 }
 
+// RecentCommits sums the recency weights of the group's unique commits: a
+// commit that touched three of its files counts once.
+func RecentCommits(thingsToMerge []interface{}) interface{} {
+	weights := make(map[string]float64)
+	for _, thing := range thingsToMerge {
+		for commitHash, weight := range thing.(*commits.CommitStats).RecencyWeights {
+			weights[commitHash] = weight
+		}
+	}
+	total := 0.0
+	for _, weight := range weights {
+		total += weight
+	}
+	return total
+}
+
 func UniqueFiles(thingsToMerge []interface{}) interface{} {
 	commitSlice := lo.Map(thingsToMerge, func(thing interface{}, _ int) *commits.CommitStats {
 		return thing.(*commits.CommitStats)

@@ -52,3 +52,21 @@ func TestStats(t *testing.T) {
 func daysBeforeJan12020(dayOfYear int) time.Time {
 	return time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -dayOfYear)
 }
+
+// A commit counts 1 at the anchor and half as much every six months back.
+func TestRecencyWeightHalvesEverySixMonths(t *testing.T) {
+	assert.InDelta(t, 1.0, RecencyWeight(0), 1e-9)
+	assert.InDelta(t, 0.5, RecencyWeight(RecencyHalfLifeDays), 1e-9)
+	assert.InDelta(t, 0.25, RecencyWeight(2*RecencyHalfLifeDays), 1e-9)
+}
+
+// Each unique commit carries one weight, however many of the files it touched.
+func TestStatsWeighEachCommitOnce(t *testing.T) {
+	parts := []*PartOfCommit{
+		{Commit: "a", File: "x", Time: daysBeforeJan12020(0)},
+		{Commit: "a", File: "y", Time: daysBeforeJan12020(0)},
+		{Commit: "b", File: "x", Time: daysBeforeJan12020(RecencyHalfLifeDays)},
+	}
+	stats := GetStats(daysBeforeJan12020(0), parts)
+	assert.Equal(t, map[string]float64{"a": 1, "b": 0.5}, stats.RecencyWeights)
+}

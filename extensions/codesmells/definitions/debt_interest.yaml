@@ -1,0 +1,12 @@
+id: codesmells__debt_interest
+name: Debt interest
+short_description: What a file's bad code costs while it is being worked on — its health deductions times how often it changes now.
+long_description: |
+  (1 + the file's health deductions) × log2(1 + its recent commits). It takes technical debt's metaphor at its word: bad code is the debt, and the interest is the extra effort paid on it each time the code is changed. Bad code nobody touches costs nothing yet; bad code that keeps changing costs most. The 1 is what any change costs, so healthy code that changes often still scores a little. Read it as where refactoring pays back first.
+
+  The deductions are code health's (size, coupling, complex code; deep code for a file read by its indentation), summed without health's floor, so two very large files still differ. Recent commits weigh each change by its age, halving every six months, without the commit that added the file or sweeping commits.
+
+  A component's or directory's debt interest is the sum of its files'. Files with no history have none, and neither do test files: a test changes with the code it tests.
+
+  Chosen over 19 variants and a composite of health, hotspot, complexity and size: on seven codebases scored as they stood two years earlier, it ranked later bug fixes as well as any, and found more of them per line read than size or health alone.
+category: "Code health"

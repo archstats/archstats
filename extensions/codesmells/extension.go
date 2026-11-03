@@ -34,6 +34,10 @@ const (
 	// HotspotRaw is log2(commits + 1) × lines before normalising to 0–100
 	// against the hottest file; rolled up as the hottest file's.
 	HotspotRaw = "codesmells__hotspot__raw"
+	// DebtInterest is what a file's bad code costs while it is being worked on:
+	// (1 + its health deductions) × log2(1 + recent commits). Summed over a
+	// group.
+	DebtInterest = "codesmells__debt_interest"
 )
 
 // FileOnlyReadings explain one file's score; a group carries none of them.
@@ -73,6 +77,7 @@ func (e *extension) Init(settings core.Analyzer) error {
 		settings.RegisterStatAccumulator(fileOnly, onlyOneAccumulator)
 	}
 	settings.RegisterStatAccumulator(HotspotRaw, maxAccumulator)
+	settings.RegisterStatAccumulator(DebtInterest, sumAccumulator)
 	settings.RegisterStatAccumulator(HealthWorstFile, minAccumulator)
 	settings.RegisterStatAccumulator(common.CognitiveMax, maxAccumulator)
 	settings.RegisterView(&core.ViewFactory{Name: "functions", CreateViewFunc: functionsView})
@@ -97,6 +102,11 @@ type fileMetrics struct {
 	imports      int
 	// The indentation reader's, for a file no pack parsed.
 	nonBlank, deepLines int
+
+	// recentCommits is the git extension's recency-weighted commit count;
+	// hasHistory says whether there was one to read.
+	recentCommits float64
+	hasHistory    bool
 }
 
 // calculatedMetrics holds the computed codesmell outputs for a single file.
@@ -145,6 +155,9 @@ func extractFileMetrics(fileStats *stats.Stats) fileMetrics {
 		m.codeLines = intOf(val)
 		m.complexLines = intOf((*fileStats)[common.ComplexLines])
 		m.imports = intOf((*fileStats)[common.Imports])
+	}
+	if val, exists := (*fileStats)["git__commits__recent"]; exists {
+		m.recentCommits, m.hasHistory = asFloat(val)
 	}
 	m.nonBlank = intOf((*fileStats)[indentations.NonBlank])
 	m.deepLines = intOf((*fileStats)[indentations.Deep])
@@ -197,6 +210,29 @@ func calculateStaticComplexity(m fileMetrics) float64 {
 	return float64(m.lines) * (1.0 + avg)
 }
 
+// calculateDebtInterest is a health reading's deductions -- how far the code
+// is from costing nothing extra to change -- times how often it is changed
+// now. The 1 keeps a busy file in the ranking when its code is healthy; the
+// logarithm keeps one file's hundreds of commits from outweighing how bad
+// its code is. Picked over 19 variants and the four-input composite on seven
+// codebases scored as they stood two years earlier
+// (tasks/code-health/INTEREST.md).
+func calculateDebtInterest(b healthBreakdown, recentCommits float64) float64 {
+	deductions := b.size + b.coupling + b.complexCode + b.deepCode
+	return (1 + deductions) * math.Log2(1+recentCommits)
+}
+
+// debtInterestOf is a file's debt interest, when it has one: it needs history, and a
+// test has none. A test changes with the code it tests, so its churn repeats
+// its subject's, and it is not where an architect looks for problems. Its
+// health reading stays.
+func debtInterestOf(b healthBreakdown, m fileMetrics, role string) (float64, bool) {
+	if !m.hasHistory || role == file.RoleTest {
+		return 0, false
+	}
+	return calculateDebtInterest(b, m.recentCommits), true
+}
+
 // calculateHotspotScore normalises the raw hotspot, log2(commits + 1) × lines,
 // to 0–100 against the hottest file in the snapshot.
 func calculateHotspotScore(rawHotspot, maxRawHotspot float64, hasCommits bool) float64 {
@@ -246,6 +282,9 @@ func (e *extension) EditResults(results *core.Results) {
 				&stats.Record{StatType: CodeHealth, Value: b.health},
 				&stats.Record{StatType: DeductionSize, Value: b.size},
 			)
+			if interest, ok := debtInterestOf(b, m, results.FileRoles[file]); ok {
+				records = append(records, &stats.Record{StatType: DebtInterest, Value: interest})
+			}
 			if b.fallback {
 				records = append(records, &stats.Record{StatType: DeductionDeepCode, Value: b.deepCode})
 			} else {

@@ -74,6 +74,21 @@ Rated on a scale of 1.0 (lowest) to 10.0 (highest). Deducts points for file size
 
 ---
 
+### `codesmells__debt_interest` (Debt interest)
+
+**Description:** What a file's bad code costs while it is being worked on — its health deductions times how often it changes now.
+
+**Details:**
+(1 + the file's health deductions) × log2(1 + its recent commits). It takes technical debt's metaphor at its word: bad code is the debt, and the interest is the extra effort paid on it each time the code is changed. Bad code nobody touches costs nothing yet; bad code that keeps changing costs most. The 1 is what any change costs, so healthy code that changes often still scores a little. Read it as where refactoring pays back first.
+
+The deductions are code health's (size, coupling, complex code; deep code for a file read by its indentation), summed without health's floor, so two very large files still differ. Recent commits weigh each change by its age, halving every six months, without the commit that added the file or sweeping commits.
+
+A component's or directory's debt interest is the sum of its files'. Files with no history have none, and neither do test files: a test changes with the code it tests.
+
+Chosen over 19 variants and a composite of health, hotspot, complexity and size: on seven codebases scored as they stood two years earlier, it ranked later bug fixes as well as any, and found more of them per line read than size or health alone.
+
+---
+
 ### `codesmells__hotspot_score` (Hotspot Score)
 
 **Description:** Volatility and risk index scaled between 0 and 100.
@@ -307,6 +322,17 @@ Counts how many times this file or component was modified in a git commit over t
 
 **Details:**
 Counts how many times this file or component was modified in a git commit over the last 90 days. A high count suggests a recent hot spot of activity.
+
+---
+
+### `git__commits__recent` (Recent Commits)
+
+**Description:** Commits to this file or component, each counting less the older it is.
+
+**Details:**
+Each commit counts 1 at the newest commit scanned and half as much for every six months before it: a commit last month counts about 0.9, one a year ago a quarter. Only changes count: the commit that added the file is left out, and so are commits touching more than the sweep limit (100 files by default), as for co-change, because a reformat reaches every file and says nothing about which one is being worked on. A component or directory counts each of its commits once.
+
+Unlike the commit count, it tells code being worked on now from code that was busy years ago. It is the churn in debt interest (codesmells__debt_interest).
 
 ---
 

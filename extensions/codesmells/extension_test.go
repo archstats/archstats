@@ -260,3 +260,53 @@ func excludedByRole(p string) bool {
 	files := file.NewClassifier()
 	return excluded(files, files.Role(p, false, false, ""), "", p)
 }
+
+// Debt interest is (1 + deductions) × log2(1 + recent commits): the worked
+// example's 5.5 points of deductions, edited the equivalent of 7 times now,
+// costs 6.5 × 3.
+func TestDebtInterestIsDeductionsTimesRecentChurn(t *testing.T) {
+	b := healthFor(t, fileMetrics{parsed: true, codeLines: 600, imports: 20, complexLines: 75}, "OrderService.java")
+	if got := calculateDebtInterest(b, 7); math.Abs(got-19.5) > 1e-9 {
+		t.Errorf("interest %v, want 19.5", got)
+	}
+}
+
+// A healthy file still costs something while it is worked on; a file
+// nobody touches costs nothing, however bad.
+func TestDebtInterestOfHealthyBusyAndBadQuietFiles(t *testing.T) {
+	healthy := healthFor(t, fileMetrics{parsed: true, codeLines: 100}, "a.go")
+	if got := calculateDebtInterest(healthy, 3); math.Abs(got-2) > 1e-9 {
+		t.Errorf("healthy busy file: %v, want 2", got)
+	}
+	bad := healthFor(t, fileMetrics{parsed: true, codeLines: 9600, complexLines: 2000}, "a.go")
+	if got := calculateDebtInterest(bad, 0); got != 0 {
+		t.Errorf("bad quiet file: %v, want 0", got)
+	}
+}
+
+// A test keeps its health reading but has no interest.
+func TestDebtInterestLeavesOutTests(t *testing.T) {
+	m := fileMetrics{parsed: true, codeLines: 600, complexLines: 75, recentCommits: 7, hasHistory: true}
+	b := healthFor(t, m, "tests/test_orders.py")
+	if _, ok := debtInterestOf(b, m, file.RoleTest); ok {
+		t.Error("test file: got interest, want none")
+	}
+	if got, ok := debtInterestOf(b, m, file.RoleProduction); !ok || got != calculateDebtInterest(b, 7) {
+		t.Errorf("production file: %v %v, want %v", got, ok, calculateDebtInterest(b, 7))
+	}
+	if _, ok := debtInterestOf(b, fileMetrics{}, file.RoleProduction); ok {
+		t.Error("no history: got interest, want none")
+	}
+}
+
+// Without history there is no interest reading at all, not a zero.
+func TestDebtInterestNeedsHistory(t *testing.T) {
+	m := extractFileMetrics(&stats.Stats{"complexity__lines": 10})
+	if m.hasHistory {
+		t.Error("no git stats, want no history")
+	}
+	m = extractFileMetrics(&stats.Stats{"git__commits__recent": 2.5})
+	if !m.hasHistory || m.recentCommits != 2.5 {
+		t.Errorf("got %+v, want 2.5 recent commits", m)
+	}
+}

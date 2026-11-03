@@ -32,6 +32,9 @@ const (
 	UniqueFileChangeCount      = "git__unique_file_changes"
 	UniqueComponentChangeCount = "git__unique_component_changes"
 	CommitCount                = "git__commits"
+	// RecentCommitCount is commits weighted by age, halving every six
+	// months, sweeping commits left out: how busy a file is now.
+	RecentCommitCount = "git__commits__recent"
 	Repository                 = "git__repository"
 
 	File                = "file"
@@ -155,6 +158,8 @@ func (e *extension) AnalyzeFile(fileE file.File) *file.Results {
 	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(CommitCount), Value: commitStats})
 	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(AuthorCount), Value: commitStats})
 	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: toTotalStat(UniqueFileChangeCount), Value: commitStats})
+	recentStats := commits.GetStats(e.BasedOn, recentChanges(commitsForFile, e.couplingCommits.SplitByFile()[path]))
+	recordsToReturn = append(recordsToReturn, &stats.Record{StatType: RecentCommitCount, Value: recentStats})
 
 	for days, split := range splittedByDay {
 		commitsForThisFile := split.CommitParts()
@@ -170,6 +175,35 @@ func (e *extension) AnalyzeFile(fileE file.File) *file.Results {
 	return &file.Results{
 		Stats: recordsToReturn,
 	}
+}
+
+// recentChanges is what recent churn counts of a file's history: changes to
+// it, so not the commit that added it, and not sweeps (a reformat, a licence
+// header), which reach every file at once and would make code nobody works
+// on read as busy. all is the file's every commit, countable the commits
+// left after sweeps.
+//
+// The adding commit is the file's oldest when that commit deleted nothing;
+// a history cut short starts with a change instead. Counting it put a file
+// written last month among the busiest; leaving it out ranked later fixes
+// better on six of seven codebases (tasks/code-health/INTEREST.md).
+func recentChanges(all, countable []*commits.PartOfCommit) []*commits.PartOfCommit {
+	var oldest *commits.PartOfCommit
+	for _, part := range all {
+		if oldest == nil || part.Time.Before(oldest.Time) {
+			oldest = part
+		}
+	}
+	if oldest == nil || oldest.Deletions > 0 {
+		return countable
+	}
+	changes := make([]*commits.PartOfCommit, 0, len(countable))
+	for _, part := range countable {
+		if part.Commit != oldest.Commit {
+			changes = append(changes, part)
+		}
+	}
+	return changes
 }
 
 func (e *extension) Init(settings core.Analyzer) error {
@@ -191,6 +225,7 @@ func (e *extension) Init(settings core.Analyzer) error {
 	settings.RegisterStatAccumulator(LastChangeAgeInDays, minIntMerger)
 	settings.RegisterStatAccumulator(toTotalStat(AuthorCount), UniqueAuthors)
 	settings.RegisterStatAccumulator(toTotalStat(CommitCount), UniqueCommits)
+	settings.RegisterStatAccumulator(RecentCommitCount, RecentCommits)
 	settings.RegisterStatAccumulator(toTotalStat(UniqueFileChangeCount), UniqueFiles)
 	settings.RegisterStatAccumulator(toTotalStat(AdditionCount), TotalAdditions)
 	settings.RegisterStatAccumulator(toTotalStat(DeletionCount), TotalDeletions)
@@ -368,6 +403,10 @@ func (e *extension) Init(settings core.Analyzer) error {
 func (e *extension) splitAll() {
 	e.splittedCommits = commits.Split(e.BasedOn, e.DayBuckets, e.commitParts)
 	e.couplingCommits = commits.Split(e.BasedOn, e.DayBuckets, e.couplingParts)
+	// Files are analysed in parallel and both indexes build lazily: build
+	// them here, before any file asks.
+	e.splittedCommits.SplitByFile()
+	e.couplingCommits.SplitByFile()
 }
 
 // TODO add definitions after API is stable

@@ -22,6 +22,19 @@ type CommitStats struct {
 	UniqueAuthors              []string
 	UniqueCommits              []string
 	FileChanges                []string
+	// RecencyWeights is each unique commit's weight by its age: 1 at the
+	// anchor, halving every RecencyHalfLifeDays. Summed over a group's
+	// unique commits it is the group's recent commit count.
+	RecencyWeights map[string]float64
+}
+
+// RecencyHalfLifeDays is how long a commit takes to count half as much
+// towards recent churn: about six months.
+const RecencyHalfLifeDays = 182
+
+// RecencyWeight is what a commit age days before the anchor counts for.
+func RecencyWeight(ageInDays int) float64 {
+	return math.Pow(0.5, float64(ageInDays)/RecencyHalfLifeDays)
 }
 
 // GetStats Gets the stats for a group of commits.
@@ -32,6 +45,7 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 	files := make(map[string]bool, len(commitParts))
 	directories := make(map[string]bool, len(commitParts))
 	authors := make(map[string]bool, len(commitParts))
+	weights := make(map[string]float64, len(commitParts))
 
 	totalAdditionCount := 0
 	totalDeletionCount := 0
@@ -53,6 +67,7 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 		authors[part.Author] = true
 
 		commitAge := dayDiff(basedOn, part.Time)
+		weights[part.Commit] = RecencyWeight(commitAge)
 
 		oldestCommitAgeInDays = int(math.Max(float64(commitAge), float64(oldestCommitAgeInDays)))
 		if newestCommitAgeInDays < 0 || commitAge < newestCommitAgeInDays {
@@ -73,6 +88,7 @@ func GetStats(basedOn time.Time, commitParts []*PartOfCommit) *CommitStats {
 		UniqueAuthors:              lo.Keys(authors),
 		UniqueCommits:              lo.Keys(commits),
 		FileChanges:                lo.Keys(files),
+		RecencyWeights:             weights,
 	}
 }
 

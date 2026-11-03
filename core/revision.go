@@ -158,4 +158,10 @@ package core
 //	               Azure Functions' HttpTrigger methods; a Laravel resource
 //	               is its seven (or five) actions, ->only/->except applied.
 //	               One row per method where a handler answers several.
-const AnalysisRevision = 20
+//	21 2026-11-02  debt interest: a file's health deductions times its recent
+//	               churn, summed over components and directories; recent
+//	               commits weigh each change by its age (half-life six
+//	               months), without the commit that added the file or
+//	               sweeping commits. Test files keep their health but
+//	               have no debt interest.
+const AnalysisRevision = 21
