@@ -74,11 +74,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # git history, for the co-change and ownership tables
-      - uses: actions/setup-go@v5
-        with:
-          go-version: stable
-      - run: go install github.com/archstats/archstats@latest
-      - run: archstats -f . assert -r architecture/rules.yml
+      - run: |
+          gh release download --repo archstats/archstats --pattern '*-linux-amd64.tar.gz'
+          tar -xzf archstats-*-linux-amd64.tar.gz
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: ./archstats -f . assert -r architecture/rules.yml
 ```
 
-`go install` builds with cgo, which the hosted runners have. To skip the build, download a release archive instead.
+It downloads the latest release for Linux on x86-64. Pin a version with `gh release download vX.Y.Z ...`.

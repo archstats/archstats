@@ -18,3 +18,7 @@ scratch/
 # The documentation site, built by mkdocs
 /site/
 /_site/
+
+# tree-sitter-swift's generated C, downloaded by `go generate` (see extensions/treesitter/swift/grammar/fetch.go)
+/extensions/treesitter/swift/grammar/*.c
+/extensions/treesitter/swift/grammar/tree_sitter/

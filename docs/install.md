@@ -43,13 +43,7 @@ The app tells you when a newer release is out, and shows what changed the first 
 
 ## The `archstats` CLI
 
-With Go 1.23 or later:
-
-```shell
-go install github.com/archstats/archstats@latest
-```
-
-Or download an archive for your system from the [latest release](https://github.com/archstats/archstats/releases/latest): Linux (amd64, arm64), macOS (arm64, amd64) and Windows (amd64). Unpack it and put `archstats` on your `PATH`.
+Download an archive for your system from the [latest release](https://github.com/archstats/archstats/releases/latest): Linux (amd64, arm64), macOS (arm64, amd64) and Windows (amd64). Unpack it and put `archstats` on your `PATH`.
 
 A binary downloaded with a browser on macOS is quarantined. Clear that once:
 
@@ -62,5 +56,18 @@ Check it runs:
 ```shell
 archstats --version
 ```
+
+### Build from source
+
+With Go 1.23 or later and a C compiler:
+
+```shell
+git clone https://github.com/archstats/archstats
+cd archstats
+go generate ./extensions/treesitter/swift/grammar
+go install .
+```
+
+The `go generate` step downloads the Swift grammar's generated C, which the repository does not carry. For the same reason `go install github.com/archstats/archstats@latest` does not work.
 
 Then go on to [Commands](cli.md).

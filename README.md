@@ -10,11 +10,18 @@ The documentation, including the desktop app's guide, is at **[archstats.github.
 
 ## Install
 
+Download a binary for macOS, Linux or Windows from the [releases page](https://github.com/archstats/archstats/releases), or build it with Go 1.23 or later and a C compiler:
+
 ```shell
-go install github.com/archstats/archstats@latest
+git clone https://github.com/archstats/archstats
+cd archstats
+go generate ./extensions/treesitter/swift/grammar
+go install .
 ```
 
-Binaries for macOS, Linux and Windows are on the [releases page](https://github.com/archstats/archstats/releases). [Install](docs/install.md) covers both the CLI and the desktop app, including opening an unsigned build.
+`go install github.com/archstats/archstats@latest` does not work: the Swift grammar's generated C is fetched by `go generate`, not kept in git.
+
+[Install](docs/install.md) covers both the CLI and the desktop app, including opening an unsigned build.
 
 ## Use
 
@@ -73,8 +80,11 @@ results, err := engine.Analyze(engine.Options{Root: "path/to/project"})
 ## Develop
 
 ```shell
+go generate ./extensions/treesitter/swift/grammar   # once after cloning
 go test ./...
 ```
+
+The Swift grammar's generated C (600,000 lines) is not in git. `go generate` downloads it from the pinned tree-sitter-swift commit and checks each file's sha256; without it the build stops and names that command.
 
 The end-to-end tests in `e2eTest` clone a few real projects the first time they run. Two of them guard the snapshot itself:
 - `TestSnapshotSchema` compares every table and column with `e2eTest/testdata/snapshot_schema.golden`;

@@ -25,6 +25,9 @@ jobs:
         go-version-file: go.mod
         cache: true
 
+    - name: Fetch the Swift grammar
+      run: go generate ./extensions/treesitter/swift/grammar
+
     - name: Vet
       run: go vet ./...
 

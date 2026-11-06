@@ -1,7 +1,12 @@
 // Package grammar is tree-sitter-swift by alex-pinkus (MIT, see LICENSE),
 // generated files from the 0.7.3-with-generated-files tag, commit 31d17fe.
 //
-// It is carried here rather than imported because that module's own
+// The generated C is not in git: `go generate` downloads it (fetch.go,
+// sha256-pinned). Run it once after cloning:
+//
+//	go generate ./extensions/treesitter/swift/grammar
+//
+// The binding is ours rather than imported because that module's own
 // binding test imports github.com/tree-sitter/tree-sitter-swift, a path that
 // holds no such package, and `go mod tidy` loads the tests of every
 // dependency: tidy failed in this repository and in every one that imports
@@ -12,7 +17,12 @@
 // binding printed on every build.
 package grammar
 
+//go:generate go run fetch.go
+
 // #cgo CFLAGS: -std=c11 -fPIC
+// #if !__has_include("parser.c")
+// #error "Swift grammar sources are missing: run `go generate ./extensions/treesitter/swift/grammar`"
+// #endif
 // typedef struct TSLanguage TSLanguage;
 // const TSLanguage *tree_sitter_swift(void);
 import "C"

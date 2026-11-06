@@ -54,6 +54,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Fetch the Swift grammar
+        # The fetcher runs on this machine, not the build target.
+        env: { GOOS: "", GOARCH: "" }
+        run: go generate ./extensions/treesitter/swift/grammar
+
       - name: Resolve version
         id: version
         run: |
