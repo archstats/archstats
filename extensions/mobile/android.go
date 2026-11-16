@@ -41,23 +41,25 @@ func readAndroidManifest(content []byte) *androidManifest {
 	dec := xml.NewDecoder(bytes.NewReader(content))
 	dec.Strict = false
 
+	// The component being read, and the intent filter inside it: nil
+	// outside one. A filter belongs to the component around it, and one
+	// outside any component is read and dropped.
 	var component *manifestEntry
-	var inFilter bool
-	var actions, cats []string
-	var data []map[string]string
-	flushFilter := func() {
-		if component == nil {
+	var filter *intentFilter
+	endFilter := func() {
+		f := filter
+		filter = nil
+		if f == nil || component == nil {
 			return
 		}
-		if contains(actions, "android.intent.action.MAIN") && contains(cats, "android.intent.category.LAUNCHER") {
+		if contains(f.actions, "android.intent.action.MAIN") && contains(f.cats, "android.intent.category.LAUNCHER") {
 			component.Launcher = true
 		}
-		if contains(actions, "android.intent.action.VIEW") && contains(cats, "android.intent.category.BROWSABLE") {
-			for _, link := range deepLinks(data) {
+		if contains(f.actions, "android.intent.action.VIEW") && contains(f.cats, "android.intent.category.BROWSABLE") {
+			for _, link := range deepLinks(f.data) {
 				m.Entries = append(m.Entries, manifestEntry{Kind: "deep_link", Name: component.Name, Value: link, Line: component.Line})
 			}
 		}
-		actions, cats, data = nil, nil, nil
 	}
 	var components []*manifestEntry
 	for {
@@ -94,23 +96,23 @@ func readAndroidManifest(content []byte) *androidManifest {
 				components = append(components, e)
 				component = e
 			case "intent-filter":
-				inFilter = true
+				filter = &intentFilter{}
 				if component != nil && component.Exported == "" {
 					// Before Android 12 a component with an intent filter was
 					// exported unless it said otherwise; since then it must say.
 					component.Exported = "implied"
 				}
 			case "action":
-				if inFilter {
-					actions = append(actions, attr("name"))
+				if filter != nil {
+					filter.actions = append(filter.actions, attr("name"))
 				}
 			case "category":
-				if inFilter {
-					cats = append(cats, attr("name"))
+				if filter != nil {
+					filter.cats = append(filter.cats, attr("name"))
 				}
 			case "data":
-				if inFilter {
-					data = append(data, map[string]string{"scheme": attr("scheme"), "host": attr("host"), "path": attr("path") + attr("pathPrefix") + attr("pathPattern")})
+				if filter != nil {
+					filter.data = append(filter.data, map[string]string{"scheme": attr("scheme"), "host": attr("host"), "path": attr("path") + attr("pathPrefix") + attr("pathPattern")})
 				}
 			case "uses-permission", "uses-permission-sdk-23", "uses-permission-sdk-m":
 				if name := attr("name"); name != "" {
@@ -124,8 +126,7 @@ func readAndroidManifest(content []byte) *androidManifest {
 		case xml.EndElement:
 			switch t.Name.Local {
 			case "intent-filter":
-				flushFilter()
-				inFilter = false
+				endFilter()
 			case "activity", "activity-alias", "service", "receiver", "provider":
 				component = nil
 			}
@@ -228,4 +229,10 @@ func (l lineIndex) at(offset int) int {
 		}
 	}
 	return lo + 1
+}
+
+// intentFilter is what one <intent-filter> declares.
+type intentFilter struct {
+	actions, cats []string
+	data          []map[string]string
 }

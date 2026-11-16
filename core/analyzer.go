@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"sort"
 	"strconv"
 	"strings"
@@ -63,7 +64,24 @@ func New(config *Config) Analyzer {
 		}}
 }
 
+// stage is where an analyzer is in its one run. Extensions register in
+// Init, while the analyzer is registering; from the walk on, the
+// registries are what the run reads, and one added to then would be read by
+// some files and not others.
+type stage int
+
+const (
+	registering stage = iota // extensions' Init
+	running                  // walking, reading modules, editing results
+	finished                 // Analyze has returned; an analyzer runs once
+)
+
+func (s stage) String() string {
+	return [...]string{"registering", "running", "finished"}[s]
+}
+
 type analyzer struct {
+	stage              stage
 	rootPath           string
 	ignorePatterns     []string
 	extensions         []Extension
@@ -79,7 +97,16 @@ type analyzer struct {
 	definitions        map[string]*definitions.Definition
 }
 
+// mustRegister panics when what is registered after the extensions' Init:
+// a mistake in the extension, which no input can cause.
+func (analyzer *analyzer) mustRegister(what string) {
+	if analyzer.stage != registering {
+		panic("core: " + what + " registered while the analyzer is " + analyzer.stage.String() + "; register it in Init")
+	}
+}
+
 func (analyzer *analyzer) AddDefinition(definition *definitions.Definition) {
+	analyzer.mustRegister("a definition")
 	analyzer.definitions[definition.Id] = definition
 }
 
@@ -88,22 +115,27 @@ func (analyzer *analyzer) typeAssertion() Analyzer {
 }
 
 func (analyzer *analyzer) RegisterView(factory *ViewFactory) {
+	analyzer.mustRegister("a view")
 	analyzer.views[factory.Name] = factory
 }
 
 func (analyzer *analyzer) RegisterFileAnalyzer(fileAnalyzer FileAnalyzer) {
+	analyzer.mustRegister("a file analyzer")
 	analyzer.fileAnalyzers = append(analyzer.fileAnalyzers, fileAnalyzer)
 }
 
 func (analyzer *analyzer) RegisterFileResultsEditor(editor FileResultsEditor) {
+	analyzer.mustRegister("a file results editor")
 	analyzer.fileResultsEditors = append(analyzer.fileResultsEditors, editor)
 }
 
 func (analyzer *analyzer) RegisterResultsEditor(editor ResultsEditor) {
+	analyzer.mustRegister("a results editor")
 	analyzer.resultsEditors = append(analyzer.resultsEditors, editor)
 }
 
 func (analyzer *analyzer) RegisterModuleReader(reader module.Reader) {
+	analyzer.mustRegister("a module reader")
 	for _, r := range analyzer.moduleReaders {
 		if r.Kind() == reader.Kind() {
 			return
@@ -113,6 +145,7 @@ func (analyzer *analyzer) RegisterModuleReader(reader module.Reader) {
 }
 
 func (analyzer *analyzer) RegisterConventions(conventions file.Conventions) {
+	analyzer.mustRegister("conventions")
 	analyzer.files.Add(conventions)
 }
 
@@ -121,6 +154,7 @@ func (analyzer *analyzer) Files() *file.Classifier {
 }
 
 func (analyzer *analyzer) RegisterImportResolver(resolver component.ImportResolver) {
+	analyzer.mustRegister("an import resolver")
 	for _, r := range analyzer.importResolvers {
 		if r.Name() == resolver.Name() {
 			return
@@ -146,11 +180,16 @@ func (analyzer *analyzer) IgnorePatterns() []string {
 }
 
 func (analyzer *analyzer) RegisterStatAccumulator(statType string, merger stats.StatAccumulatorFunction) {
+	analyzer.mustRegister("a stat accumulator")
 	analyzer.accumulators.AccumulateFunctions[statType] = merger
 }
 
 // Analyze analyzes the given root directory and returns the results.
 func (analyzer *analyzer) Analyze() (*Results, error) {
+	if analyzer.stage != registering {
+		return nil, errors.New("core: an analyzer runs once; make a new one for the next scan")
+	}
+	defer func() { analyzer.stage = finished }()
 
 	// Initialize extensions
 	for _, extension := range analyzer.extensions {
@@ -159,6 +198,8 @@ func (analyzer *analyzer) Analyze() (*Results, error) {
 			return nil, err
 		}
 	}
+
+	analyzer.stage = running
 
 	// Get Snippets and Stats from the files
 	fileResults, report, err := getAllFileResults(analyzer.rootPath, analyzer.fileAnalyzers, analyzer.files, walker.Options{

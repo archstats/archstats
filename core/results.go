@@ -90,10 +90,9 @@ type Results struct {
 
 	Views []*View
 
-	accumulators  *stats.StatAccumulator
-	views         map[string]*ViewFactory
-	definitions   map[string]*definitions2.Definition
-	renderedViews map[string]*View
+	accumulators *stats.StatAccumulator
+	views        map[string]*ViewFactory
+	definitions  map[string]*definitions2.Definition
 
 	unitConnections     []*unit.Connection
 	unitConnectionsOnce sync.Once
@@ -291,10 +290,9 @@ func aggregateSnippetsAndStatsIntoResults(settings *analyzer, fileResults []*fil
 		ModuleToFiles:    moduleToFiles,
 		Modules:          moduleMap,
 
-		views:         settings.views,
-		definitions:   settings.definitions,
-		renderedViews: make(map[string]*View),
-		accumulators:  theAccumulator,
+		views:        settings.views,
+		definitions:  settings.definitions,
+		accumulators: theAccumulator,
 	}
 }
 
@@ -319,9 +317,6 @@ func (r *Results) CalculateAccumulatedStatRecords(keyToStatRecords map[string][]
 func (r *Results) RenderView(viewName string) (*View, error) {
 	log.Debug().Msgf("Rendering view '%s'", viewName)
 	defer log.Debug().Msgf("Finished rendering view '%s'", viewName)
-	if view, ok := r.renderedViews[viewName]; ok {
-		return view, nil
-	}
 	if viewFactory, ok := r.views[viewName]; ok {
 		view := viewFactory.CreateViewFunc(r)
 		view.Name = viewName

@@ -44,3 +44,16 @@ func TestAnalyzeSkipsUnreadableSubdirectory(t *testing.T) {
 	assert.Contains(t, results.StatRecordsByFile, "./readable.txt")
 	assert.NotContains(t, results.StatRecordsByFile, "locked/hidden.txt")
 }
+
+// An analyzer runs once, and takes registrations only from Init: a view or
+// a convention added during the walk would be seen by some files and not
+// others, and a second run would run every analyzer and editor twice.
+func TestAnalyzerRunsOnceAndRegistersOnlyInInit(t *testing.T) {
+	a := New(&Config{RootPath: t.TempDir()})
+	_, err := a.Analyze()
+	assert.NoError(t, err)
+
+	_, err = a.Analyze()
+	assert.Error(t, err)
+	assert.Panics(t, func() { a.RegisterView(&ViewFactory{Name: "late"}) })
+}
