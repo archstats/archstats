@@ -219,7 +219,7 @@ func readGitHubWorkflow(file string, content []byte) *pipelineFact {
 	}
 	if !p.permissions && len(p.Jobs) > 0 && (events == 0 || called < events) {
 		// About the workflow, not the job read last.
-		p.cj = nil
+		p.back(cursor{})
 		p.flag("no_permissions_block", "", "", 1)
 	}
 	p.finish()

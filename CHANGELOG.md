@@ -11,6 +11,7 @@ Write a line under **Unreleased** when a change lands that a user would notice: 
 - `archstats --version`, and the `engine_version` every snapshot records, name the real release. Built outside the release workflow (by `go install`, or inside the desktop app) they used to say v0.3.1.
 - Documentation site at https://archstats.github.io/archstats/: install, the desktop app, the CLI, rules, and every snapshot table. It looks like the desktop app (its rail, toolbar, type and one orange, light and dark) and searches every page, table, metric and flag with ⌘K or /.
 - Release notes come from this changelog.
+- TypeScript path aliases (`@/…`) resolve again in projects whose tsconfig lists globs like `src/**/*.ts`, which is most Next.js projects: the comment stripper took `/*` inside a string for a comment, and the project lost every alias. A Jenkins step after a scripted `parallel` stays in its stage. An export that fails partway leaves the snapshot file as it was, instead of a file no later export could write (revision 23).
 
 ## v0.11.0 (2026-10-29)
 

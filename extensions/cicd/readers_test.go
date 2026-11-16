@@ -613,6 +613,38 @@ node('linux') {
 	}
 }
 
+// A step after a parallel inside a stage still belongs to that stage. The
+// reader cleared the current job after each branch, so `junit` landed in a
+// job named after the file.
+func TestJenkinsStepAfterNestedParallelStaysInItsStage(t *testing.T) {
+	m := Build(ws(map[string]string{
+		"Jenkinsfile": `pipeline {
+  agent any
+  stages {
+    stage('Test') {
+      steps {
+        script {
+          parallel(
+            unit: { sh './gradlew test' },
+            lint: { sh './gradlew lint' }
+          )
+        }
+        sh './gradlew jacocoTestReport'
+      }
+    }
+  }
+}
+`,
+	}))
+	jobs := jobsOf(m, "Jenkinsfile")
+	if len(jobs) != 3 {
+		t.Fatalf("a step left its stage: jobs %v", jobs)
+	}
+	if got := stepsOf(m, "Jenkinsfile", "Test"); len(got) != 1 {
+		t.Errorf("Test steps = %v", got)
+	}
+}
+
 func TestJenkinsDynamicParallelIsUnread(t *testing.T) {
 	m := Build(ws(map[string]string{
 		"Jenkinsfile": "node {\n  stage('Build') {\n    parallel(loadBranches())\n  }\n}\n",

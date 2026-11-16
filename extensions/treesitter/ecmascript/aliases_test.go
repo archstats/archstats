@@ -127,3 +127,33 @@ func TestResolve_PackageWithUnbuiltEntryPointLandsOnSource(t *testing.T) {
 	// A subpath naming a file still lands on the directory holding it.
 	assert.Equal(t, "packages/data-provider/src", m.resolve("librechat-data-provider/config", component.NewDirIndex(fileDirs)))
 }
+
+// Comment markers inside strings are text. The old regex stripper read the
+// `/*` in "@/*" as the start of a comment and the `*/` in "src/**/*.ts" as its
+// end, cut the JSON between them, and every alias of the project was lost
+// without a word. Next.js writes exactly this tsconfig.
+func TestReadTSConfig_CommentMarkersInsideStringsAreText(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "tsconfig.json", `{
+  // paths for the app
+  "compilerOptions": {
+    "baseUrl": ".", /* relative to here */
+    "paths": { "@/*": ["./src/*"], },
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "src/**/*.tsx"],
+}`)
+	m := readAliasesFrom(root, []string{"tsconfig.json"})
+	fileDirs := map[string]string{"src/ui/button.tsx": "src/ui"}
+	assert.Equal(t, "src/ui", m.resolve("@/ui/button", component.NewDirIndex(fileDirs)))
+}
+
+func TestToJSON(t *testing.T) {
+	for in, want := range map[string]string{
+		`{"a": "//not a comment", "b": 1}`: `{"a": "//not a comment", "b": 1}`,
+		`{"a": "x\"/*y"} // tail`:          `{"a": "x\"/*y"} `,
+		`[1, 2, /* c */ ]`:                 `[1, 2   ]`,
+		`{"a": [",]"],}`:                   `{"a": [",]"] }`,
+	} {
+		assert.Equal(t, want, string(toJSON([]byte(in))), in)
+	}
+}

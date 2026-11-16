@@ -37,7 +37,7 @@ const (
 var commitInfoColumns = map[string]bool{"repository": true, "commit_hash": true, "commit_time": true, "author_name": true, "author_email": true, "commit_message": true}
 
 // objectType is "table", "view" or "" for a name the file does not hold.
-func objectType(db *sql.DB, name string) (string, error) {
+func objectType(db dbtx, name string) (string, error) {
 	var kind string
 	err := db.QueryRow(`SELECT type FROM sqlite_master WHERE name = ? AND type IN ('table', 'view')`, name).Scan(&kind)
 	if err == sql.ErrNoRows {
@@ -130,7 +130,7 @@ func createCommitsView(db *sql.DB, original *core.View) error {
 
 // addReportColumns gives the tables this export created their report_id and
 // timestamp, as defaults read by every row already written.
-func addReportColumns(db *sql.DB, options *SqlOptions, fresh map[string]bool) error {
+func addReportColumns(db dbtx, options *SqlOptions, fresh map[string]bool) error {
 	reportId := sqlString(options.ReportId)
 	// The format the driver writes a time.Time in, so the default reads back
 	// exactly as a stored value would.

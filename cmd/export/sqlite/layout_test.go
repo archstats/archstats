@@ -166,3 +166,24 @@ func TestCommitsTableKeepsItsLayout(t *testing.T) {
 	assert.Equal(t, "table", kind)
 	assert.Equal(t, 3, n)
 }
+
+// An export that fails partway leaves the file as it was. Outside one
+// transaction the failed export left a table without report_id, and every
+// later export into the file failed on DELETE ... WHERE report_id.
+func TestFailedExportLeavesTheFileExportable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "snap.db")
+	bad := &core.View{
+		Name:    "files",
+		Columns: []*core.Column{core.StringColumn("name")},
+		// The driver cannot store a struct: the insert fails.
+		Rows: []*core.Row{{Data: map[string]interface{}{"name": struct{}{}}}},
+	}
+	if err := SaveToDB(&SqlOptions{DatabaseName: path, ReportId: "r"}, &core.Results{}, []*core.View{bad}); err == nil {
+		t.Fatal("the bad export succeeded")
+	}
+	export(t, path, "r", time.Now(), &core.View{
+		Name:    "files",
+		Columns: []*core.Column{core.StringColumn("name")},
+		Rows:    []*core.Row{{Data: map[string]interface{}{"name": "a.go"}}},
+	})
+}

@@ -182,29 +182,7 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 		return err
 	}
 
-	fresh, err := ensureAllTablesExist(views, db)
-	if err != nil {
-		return err
-	}
-
-	// delete all data from tables
-	err = deleteExistingReportFromAllTables(options.ReportId, views, db, fresh)
-	if err != nil {
-		return err
-	}
-
-	err = addMissingColumnsForViews(db, views)
-	if err != nil {
-		return err
-	}
-
-	err = insertRowsForAllViews(options, views, db, fresh)
-	if err != nil {
-		return err
-	}
-
-	err = addReportColumns(db, options, fresh)
-	if err != nil {
+	if err := inTx(db, func(tx *sql.Tx) error { return writeViews(tx, options, views) }); err != nil {
 		return err
 	}
 
@@ -240,6 +218,48 @@ func SaveToDB(options *SqlOptions, results *core.Results, views []*core.View) er
 	err = createIndexes(db, views)
 
 	return err
+}
+
+// dbtx is what the export writes through: the database, or a transaction.
+type dbtx interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+// inTx runs fn in one transaction, committed only when fn succeeds.
+func inTx(db *sql.DB, fn func(*sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	if err := fn(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+// writeViews replaces the report's rows in every view's table. It is one
+// step: a table this export creates is written without report_id and
+// timestamp, which it gets only at the end (addReportColumns). Stopped in
+// between, outside a transaction, it left a table no later export could
+// clear: DELETE ... WHERE report_id failed on it for good.
+func writeViews(tx dbtx, options *SqlOptions, views []*core.View) error {
+	fresh, err := ensureAllTablesExist(views, tx)
+	if err != nil {
+		return err
+	}
+	if err := deleteExistingReportFromAllTables(options.ReportId, views, tx, fresh); err != nil {
+		return err
+	}
+	if err := addMissingColumnsForViews(tx, views); err != nil {
+		return err
+	}
+	if err := insertRowsForAllViews(options, views, tx, fresh); err != nil {
+		return err
+	}
+	return addReportColumns(tx, options, fresh)
 }
 
 // saveSnapshotInfo records what the scan says about itself -- which analysis
@@ -414,7 +434,7 @@ func calculateOptimumChunkSize(rows, columns int) int {
 	return optimumChunkSize
 }
 
-func insertRowsForAllViews(options *SqlOptions, views []*core.View, db *sql.DB, fresh map[string]bool) error {
+func insertRowsForAllViews(options *SqlOptions, views []*core.View, db dbtx, fresh map[string]bool) error {
 	for _, view := range views {
 		columnCount := len(view.Columns) + 2
 		rowCount := len(view.Rows)
@@ -435,7 +455,7 @@ func insertRowsForAllViews(options *SqlOptions, views []*core.View, db *sql.DB, 
 	return nil
 }
 
-func deleteExistingReportFromAllTables(reportId string, views []*core.View, db *sql.DB, fresh map[string]bool) error {
+func deleteExistingReportFromAllTables(reportId string, views []*core.View, db dbtx, fresh map[string]bool) error {
 	for _, view := range views {
 		if fresh[view.Name] {
 			continue
@@ -447,7 +467,7 @@ func deleteExistingReportFromAllTables(reportId string, views []*core.View, db *
 	}
 	return nil
 }
-func addMissingColumnsForViews(db *sql.DB, views []*core.View) error {
+func addMissingColumnsForViews(db dbtx, views []*core.View) error {
 	for _, view := range views {
 		err := addMissingColumnsForView(db, view)
 		if err != nil {
@@ -456,7 +476,7 @@ func addMissingColumnsForViews(db *sql.DB, views []*core.View) error {
 	}
 	return nil
 }
-func addMissingColumnsForView(db *sql.DB, view *core.View) error {
+func addMissingColumnsForView(db dbtx, view *core.View) error {
 	// get existing columns
 	rows, err := db.Query("select name from pragma_table_info(?)", view.Name)
 	if err != nil {
@@ -502,7 +522,7 @@ func createDb(options *SqlOptions) (*sql.DB, error) {
 // insertRowsForView writes report_id and timestamp on each row only into a
 // table that already held a report; a table created by this export takes
 // them as defaults afterwards (addReportColumns).
-func insertRowsForView(db *sql.DB, name string, columns []*core.Column, rows []*core.Row, options *SqlOptions, withReport bool) error {
+func insertRowsForView(db dbtx, name string, columns []*core.Column, rows []*core.Row, options *SqlOptions, withReport bool) error {
 	allColumns := columns
 	if withReport {
 		allColumns = append(append([]*core.Column{}, columns...), core.StringColumn("report_id"), core.DateColumn("timestamp"))
@@ -554,7 +574,7 @@ func insertRowsForView(db *sql.DB, name string, columns []*core.Column, rows []*
 
 // ensureAllTablesExist creates the tables the file lacks and returns them:
 // those are written without report_id and timestamp until addReportColumns.
-func ensureAllTablesExist(views []*core.View, db *sql.DB) (map[string]bool, error) {
+func ensureAllTablesExist(views []*core.View, db dbtx) (map[string]bool, error) {
 	fresh := map[string]bool{}
 	for _, view := range views {
 		created, err := ensureTableExists(db, view)
@@ -567,7 +587,7 @@ func ensureAllTablesExist(views []*core.View, db *sql.DB) (map[string]bool, erro
 	}
 	return fresh, nil
 }
-func ensureTableExists(db *sql.DB, view *core.View) (bool, error) {
+func ensureTableExists(db dbtx, view *core.View) (bool, error) {
 	kind, err := objectType(db, view.Name)
 	if err != nil || kind != "" {
 		return false, err

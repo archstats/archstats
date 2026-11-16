@@ -164,4 +164,10 @@ package core
 //	               months), without the commit that added the file or
 //	               sweeping commits. Test files keep their health but
 //	               have no debt interest.
-const AnalysisRevision = 21
+//	23 2026-11-16  a tsconfig whose strings hold comment markers ("@/*"
+//	               beside "src/**/*.ts", as Next.js writes it) keeps its
+//	               path aliases; it lost them all, and imports through
+//	               them went unresolved. A Jenkins step after a parallel
+//	               inside a stage stays in that stage's job instead of a
+//	               job named after the file.
+const AnalysisRevision = 23

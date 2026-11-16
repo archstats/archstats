@@ -387,18 +387,17 @@ func (r *azureReader) template(t string, ln int, level, pool string) {
 		return
 	}
 	r.depth++
-	saved := r.p.curFile
-	r.p.curFile = path
 	doc := docs[0]
-	switch {
-	case get(doc, "stages") != nil:
-		r.stages(items(get(doc, "stages")), pool)
-	case get(doc, "jobs") != nil:
-		r.jobs(items(get(doc, "jobs")), "", nil, pool)
-	case get(doc, "steps") != nil:
-		r.steps(items(get(doc, "steps")), r.p.root)
-	}
-	r.p.curFile = saved
+	r.p.inFile(path, func() {
+		switch {
+		case get(doc, "stages") != nil:
+			r.stages(items(get(doc, "stages")), pool)
+		case get(doc, "jobs") != nil:
+			r.jobs(items(get(doc, "jobs")), "", nil, pool)
+		case get(doc, "steps") != nil:
+			r.steps(items(get(doc, "steps")), r.p.root)
+		}
+	})
 	r.depth--
 	_ = level
 }

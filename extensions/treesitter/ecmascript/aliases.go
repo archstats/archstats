@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -154,23 +153,13 @@ type tsConfig struct {
 	} `json:"compilerOptions"`
 }
 
-// tsconfig allows comments and trailing commas, which encoding/json does not.
-var (
-	blockComments = regexp.MustCompile(`(?s)/\*.*?\*/`)
-	lineComments  = regexp.MustCompile(`(?m)^\s*//.*$`)
-	trailingComma = regexp.MustCompile(`,(\s*[}\]])`)
-)
-
 func (m *aliasMap) readTSConfig(root, configPath string) {
 	raw, err := os.ReadFile(configPath)
 	if err != nil {
 		return
 	}
-	cleaned := trailingComma.ReplaceAllString(
-		lineComments.ReplaceAllString(blockComments.ReplaceAllString(string(raw), ""), ""), "$1")
-
 	var cfg tsConfig
-	if json.Unmarshal([]byte(cleaned), &cfg) != nil || len(cfg.CompilerOptions.Paths) == 0 {
+	if json.Unmarshal(toJSON(raw), &cfg) != nil || len(cfg.CompilerOptions.Paths) == 0 {
 		return
 	}
 

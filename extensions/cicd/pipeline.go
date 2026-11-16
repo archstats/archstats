@@ -88,6 +88,8 @@ type pipelineFact struct {
 	// GitLab file, a Jenkins library step.
 	curFile string
 
+	// Where steps, flags and handoffs land: the job and step being read.
+	// Readers move it with job and step, and nest with mark and back.
 	cj *jobFact
 	cs *stepFact
 	// Variables known while reading: workflow env, GitLab variables. Used to
@@ -250,6 +252,28 @@ func (p *pipelineFact) job(id, name string, line int) *jobFact {
 	p.Jobs = append(p.Jobs, j)
 	p.cj, p.cs = j, nil
 	return j
+}
+
+// cursor is the job and step a reader is in.
+type cursor struct {
+	job  *jobFact
+	step *stepFact
+}
+
+// mark is where the reader is, for back to return to once a nested job
+// (a parallel branch, a stage) is read.
+func (p *pipelineFact) mark() cursor { return cursor{p.cj, p.cs} }
+
+// back returns the reader to where mark found it.
+func (p *pipelineFact) back(c cursor) { p.cj, p.cs = c.job, c.step }
+
+// inFile reads what fn reads as lines of file (an included template, a
+// loaded script), then returns to the file read before.
+func (p *pipelineFact) inFile(file string, fn func()) {
+	outer := p.curFile
+	p.curFile = file
+	defer func() { p.curFile = outer }()
+	fn()
 }
 
 func (p *pipelineFact) jobByID(id string) *jobFact {

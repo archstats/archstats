@@ -823,6 +823,7 @@ func (r *jenkinsReader) stage(n *gNode, ctx *jctx) {
 		ctx.prev = sub.prev
 		return
 	}
+	outer := r.p.mark()
 	j := r.p.job(name, name, n.Line)
 	j.Group = ctx.group
 	j.Needs = append(j.Needs, ctx.prev...)
@@ -837,11 +838,10 @@ func (r *jenkinsReader) stage(n *gNode, ctx *jctx) {
 	sub := *ctx
 	r.block(n.Block, &sub)
 	r.envFromName(j)
+	r.p.back(outer)
 	// Whatever the stage's body started, the next statement waits for this
 	// stage.
-	r.p.cj = j
 	ctx.prev = []string{j.ID}
-	r.p.cj = nil
 }
 
 func containsParallelOf(nodes []*gNode) bool {
@@ -886,6 +886,9 @@ func (r *jenkinsReader) parallel(n *gNode, ctx *jctx) {
 		}
 	}
 	start := ctx.prev
+	// After each branch the reader returns to the job the parallel is in,
+	// so a step after it stays there.
+	outer := r.p.mark()
 	var ends []string
 	for _, b := range bs {
 		sub := *ctx
@@ -911,7 +914,7 @@ func (r *jenkinsReader) parallel(n *gNode, ctx *jctx) {
 			}
 			r.block(b.block, &sub)
 			r.envFromName(j)
-			r.p.cj = nil
+			r.p.back(outer)
 			sub.prev = []string{j.ID}
 		}
 		ends = append(ends, sub.prev...)
@@ -992,15 +995,14 @@ func (r *jenkinsReader) stepNode(n *gNode, ctx *jctx, label string) {
 		if content, ok := r.lookup(target); ok && !r.loaded[target] && len(r.loaded) < 8 {
 			r.loaded[target] = true
 			h.Local = target
-			saved := p.curFile
-			p.curFile = target
-			nodes := parseGroovy(string(content))
-			for k := range localNames(string(content)) {
-				r.locals[k] = true
-			}
-			r.collect(nodes)
-			r.block(nodes, ctx)
-			p.curFile = saved
+			p.inFile(target, func() {
+				nodes := parseGroovy(string(content))
+				for k := range localNames(string(content)) {
+					r.locals[k] = true
+				}
+				r.collect(nodes)
+				r.block(nodes, ctx)
+			})
 		}
 	case root == "docker" && (last == "build" || last == "image"):
 		if m := dockerBuildDSL.FindStringSubmatch(n.Raw + n.Name + "(" + argsText(n.Args) + ")"); m != nil {
