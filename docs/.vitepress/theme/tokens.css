@@ -1,0 +1,101 @@
+/*
+ * The desktop app's tokens (archstats-ui frontend/design/tokens.cjs), by role.
+ * Light first; the dark set is the app's re-tuned dark ramp, not an inversion.
+ * One orange for the active row, focus, caret and selection; the five data
+ * hues appear only in code colouring, never in chrome.
+ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/InterVariable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/InterVariable-Italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-SemiBold.woff2") format("woff2");
+}
+
+:root {
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --surface: #ffffff;
+  --ground: #f7f8fa;
+  --surface-hover: #eef0f4;
+  --hairline: #e3e6ec;
+  --hairline-strong: #ced3dc;
+
+  --ink: #1e2026;
+  --ink-strong: #262932;
+  --prose: #343944;
+  --ink-body: #4b515e;
+  --ink-secondary: #6c7280;
+  --ink-muted: #9aa1af;
+
+  --accent: #e08a19;
+  --accent-hover: #f2a33a;
+  --accent-pressed: #c4740f;
+  --accent-link: #9f5d0c;
+  --accent-tint: #fff6e8;
+  --accent-selection: #ffd596;
+  --accent-edge: #fbbe5f;
+  --on-accent: #1f2329;
+
+  --float: 0 8px 24px -8px rgb(15 18 28 / 0.24), 0 0 0 1px var(--hairline);
+  --scrim: rgb(30 32 38 / 0.2);
+
+  --rail-width: 248px;
+  --toolbar-height: 40px;
+}
+
+html.dark {
+  --surface: #1e2026;
+  --ground: #262932;
+  --surface-hover: #2b2f38;
+  --hairline: #363a45;
+  --hairline-strong: #444956;
+
+  --ink: #f5f6f8;
+  --ink-strong: #d5d9e0;
+  --prose: #cbd0d8;
+  --ink-body: #b0b5bf;
+  --ink-secondary: #8b919e;
+  --ink-muted: #656b79;
+
+  --accent: #f0a033;
+  --accent-hover: #c48425;
+  --accent-pressed: #f5b155;
+  --accent-link: #f8c27c;
+  --accent-tint: #3a2a12;
+  --accent-selection: #8e621c;
+  --accent-edge: #8e621c;
+  --on-accent: #1e2026;
+
+  --float: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 0 0 1px var(--hairline);
+  --scrim: rgb(0 0 0 / 0.4);
+
+  color-scheme: dark;
+}

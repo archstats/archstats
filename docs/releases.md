@@ -1,1 +1,1 @@
---8<-- "CHANGELOG.md"
+<!--@include: ../CHANGELOG.md-->

@@ -61,7 +61,7 @@ Archstats maps classic package and graph topology metrics to assess architectura
 ---
 
 ## 💾 The SQLite Data Model
-<!-- --8<-- [start:tables] -->
+<!-- #region tables -->
 
 `archstats export sqlite` writes one table per registered view, plus the
 bookkeeping tables below. Every view table carries `report_id` (the report name;
@@ -233,10 +233,10 @@ codebase answers to the name.
 
 ---
 
-<!-- --8<-- [end:tables] -->
+<!-- #endregion tables -->
 
 ## 🔬 Relational SQL Exploratory Analysis Recipes
-<!-- --8<-- [start:recipes] -->
+<!-- #region recipes -->
 
 Below are pre-written, syntactically correct SQL queries to analyze the database. Feed these to exploratory LLMs to query custom structural diagnostics:
 
@@ -323,4 +323,4 @@ FROM components
 ORDER BY graph__page_rank DESC, graph__betweenness DESC
 LIMIT 10;
 ```
-<!-- --8<-- [end:recipes] -->
+<!-- #endregion recipes -->

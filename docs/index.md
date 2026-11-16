@@ -1,12 +1,24 @@
+---
+layout: home
+title: Archstats
+---
+
 # Archstats
 
 Archstats reads a codebase and writes its architecture down: the components and modules it is made of, the types and functions inside them, every dependency between them, how they changed together in git, how complex and how healthy they are, and how the workspace is built and shipped.
 
+<StatStrip />
+
 All of it goes into one SQLite file, the **snapshot**. You read it in one of three ways:
 
-- **Archstats Desktop**, an app for macOS, Windows and Linux. You add a folder or clone a repository, it scans, and you look at the result as pictures and tables. Start with [Install](install.md), then [Getting started](desktop/index.md).
-- **The `archstats` CLI**, for scripts and CI. It writes snapshots, prints any table in the terminal, and checks rules you write in SQL. See [Commands](cli.md) and [Rules](rules.md).
-- **Your own SQL.** A snapshot is a plain SQLite file. [Snapshot tables](snapshot.md) describes every table and column.
+<WaysIn />
+
+New here? Start with [Install](install.md), then [Getting started](desktop/index.md) for the app or [Commands](cli.md) for the CLI. [Snapshot tables](snapshot.md) describes every table and column for your own SQL.
+
+```shell
+archstats -f path/to/project export sqlite snapshot.db
+sqlite3 snapshot.db "SELECT name, modularity__instability FROM components ORDER BY 2 DESC LIMIT 10"
+```
 
 ## What it reads
 

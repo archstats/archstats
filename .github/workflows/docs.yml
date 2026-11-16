@@ -1,15 +1,16 @@
 name: Docs
 
-# Builds the documentation site with --strict on every push and pull request
-# that touches it, so a broken link between pages fails like a test. On main,
-# it then publishes to GitHub Pages: https://archstats.github.io/archstats/
+# Builds the documentation site (VitePress, docs/.vitepress) on every push and
+# pull request that touches it; a link to a page that does not exist fails the
+# build like a test. On main, it then publishes to GitHub Pages:
+# https://archstats.github.io/archstats/
 on:
   push:
     branches: [main]
-    paths: [docs/**, mkdocs.yml, DESCRIPTION.md, CHANGELOG.md, .github/workflows/docs.yml]
+    paths: [docs/**, DESCRIPTION.md, CHANGELOG.md, .github/workflows/docs.yml]
   pull_request:
     branches: [main]
-    paths: [docs/**, mkdocs.yml, DESCRIPTION.md, CHANGELOG.md, .github/workflows/docs.yml]
+    paths: [docs/**, DESCRIPTION.md, CHANGELOG.md, .github/workflows/docs.yml]
   workflow_dispatch:
 
 permissions:
@@ -25,19 +26,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
 
       - name: Build
+        working-directory: docs
         run: |
-          pip install "mkdocs-material==9.6.*"
-          mkdocs build --strict --site-dir _site
+          npm ci
+          npm run build
 
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:
-          path: _site
+          path: docs/.vitepress/dist
 
   deploy:
     if: github.event_name != 'pull_request'

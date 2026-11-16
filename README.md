@@ -92,7 +92,7 @@ The end-to-end tests in `e2eTest` clone a few real projects the first time they 
 
 A change to what a scan produces bumps `core.AnalysisRevision` ([core/revision.go](core/revision.go)), so readers can tell an older snapshot from a newer one. Decisions are recorded in [docs/adr](docs/adr).
 
-The documentation site is built from [docs](docs) with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) (`pip install mkdocs-material && mkdocs serve`); CI builds it with `--strict` and publishes it from main. `go test .` checks that every link and source path the Markdown names still exists.
+The documentation site is built from [docs](docs) with [VitePress](https://vitepress.dev) and a theme of its own in `docs/.vitepress`, drawn from the desktop app's design system (`cd docs && npm ci && npm run dev`). CI builds it, failing on a link to a page that does not exist, and publishes it from main. `go test .` checks that every link and source path the Markdown names still exists.
 
 ## Release
 

@@ -15,9 +15,10 @@ archstats
 # Local clones and experiments
 scratch/
 
-# The documentation site, built by mkdocs
-/site/
-/_site/
+# The documentation site (docs/.vitepress): its packages, cache and build
+/docs/node_modules/
+/docs/.vitepress/cache/
+/docs/.vitepress/dist/
 
 # tree-sitter-swift's generated C, downloaded by `go generate` (see extensions/treesitter/swift/grammar/fetch.go)
 /extensions/treesitter/swift/grammar/*.c
