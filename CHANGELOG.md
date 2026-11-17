@@ -6,6 +6,7 @@ Write a line under **Unreleased** when a change lands that a user would notice: 
 
 ## Unreleased
 
+- Release binaries are built with Go 1.26.11 (was 1.23.4), which carries the standard library's security fixes since; govulncheck now finds no vulnerability the code reaches. Building from source still needs only Go 1.23 or later: the go command fetches 1.26.11 itself unless `GOTOOLCHAIN=local`.
 - Building from source takes one more step: `go generate ./extensions/treesitter/swift/grammar` downloads the Swift grammar's generated C (600,000 lines) that the repository no longer carries. `go install github.com/archstats/archstats@latest` stops working; use a release binary or build from a clone.
 - Debt interest (`codesmells__debt_interest`): where refactoring pays back first. A file's health deductions times how often it changes now, summed over components and directories (test files left out), so bad code nobody touches stops topping the list and bad code people keep editing rises to it. New beside it: `git__commits__recent`, commits weighted by age with a six-month half-life (revision 21).
 - `archstats --version`, and the `engine_version` every snapshot records, name the real release. Built outside the release workflow (by `go install`, or inside the desktop app) they used to say v0.3.1.

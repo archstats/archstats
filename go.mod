@@ -2,7 +2,7 @@ module github.com/archstats/archstats
 
 go 1.23.0
 
-toolchain go1.23.4
+toolchain go1.26.11
 
 require (
 	github.com/UserNobody14/tree-sitter-dart v0.0.0-20251003151139-c8e7cbbd1589
