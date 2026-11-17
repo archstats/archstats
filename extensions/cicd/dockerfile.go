@@ -36,8 +36,10 @@ type Stage struct {
 	Copies   []*Copy
 	Args     map[string]string
 	Expose   []string
-	// The last ENTRYPOINT or CMD, as written.
+	// The last ENTRYPOINT and the last CMD, as written. With both, CMD is
+	// ENTRYPOINT's default arguments, not a program of its own.
 	Entrypoint string
+	Cmd        string
 	Workdir    string
 	// The last USER, and where; "" when the stage sets none.
 	User     string
@@ -133,9 +135,13 @@ func ParseDockerfile(content []byte) *Dockerfile {
 					current.Expose = append(current.Expose, substitute(p, mergeArgs(df.GlobalArgs, current.Args)))
 				}
 			}
-		case "ENTRYPOINT", "CMD":
+		case "ENTRYPOINT":
 			if current != nil {
 				current.Entrypoint = strings.TrimSpace(rest)
+			}
+		case "CMD":
+			if current != nil {
+				current.Cmd = strings.TrimSpace(rest)
 			}
 		case "ENV":
 			if current != nil {
@@ -560,4 +566,10 @@ func envKeys(rest string) []string {
 		}
 	}
 	return out
+}
+
+// Runs is what the stage's container runs, as written: its ENTRYPOINT with
+// CMD's arguments after it, or whichever of the two it sets.
+func (st *Stage) Runs() string {
+	return strings.TrimSpace(st.Entrypoint + " " + st.Cmd)
 }

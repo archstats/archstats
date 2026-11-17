@@ -14,6 +14,7 @@ Write a line under **Unreleased** when a change lands that a user would notice: 
 - Release notes come from this changelog.
 - Three scans that went wrong now go right (revision 24): a folder where `git init` ran but nothing is committed yet scans instead of failing, and in a workspace of checkouts one such repository no longer fails them all; a folder opened through a symlink (macOS's `/tmp` is one) keeps its git history; a PHP or C# file that ends inside an unclosed attribute (`#[` or `[`) is read instead of skipped.
 - TypeScript path aliases (`@/…`) resolve again in projects whose tsconfig lists globs like `src/**/*.ts`, which is most Next.js projects: the comment stripper took `/*` inside a string for a comment, and the project lost every alias. A Jenkins step after a scripted `parallel` stays in its stage. An export that fails partway leaves the snapshot file as it was, instead of a file no later export could write (revision 23).
+- A Dockerfile's entrypoint reads as what the container runs: `ENTRYPOINT ["java", "-jar"]` followed by `CMD ["app.jar"]` is both, where the CMD alone used to replace it (revision 25).
 
 ## v0.11.0 (2026-10-29)
 

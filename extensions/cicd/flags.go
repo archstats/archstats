@@ -112,7 +112,7 @@ var devDockerfile = regexp.MustCompile(`(?i)(^|[._-])(dev|develop|development|lo
 func finalUser(df *Dockerfile) (user string, line int, base string, runs bool) {
 	st := df.Stages[len(df.Stages)-1]
 	for depth := 0; st != nil && depth < len(df.Stages); depth++ {
-		runs = runs || st.Entrypoint != ""
+		runs = runs || st.Runs() != ""
 		if st.User != "" {
 			return st.User, st.UserLine, "", runs
 		}

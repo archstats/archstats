@@ -733,7 +733,7 @@ func (b *builder) dockerfileRows() {
 			row.FinalBase, _ = df.BaseImage(last)
 			row.FinalUser = last.User
 			row.Ports = strings.Join(last.Expose, ", ")
-			row.Entrypoint = oneLine(last.Entrypoint, 200)
+			row.Entrypoint = oneLine(last.Runs(), 200)
 			if last.Healthcheck {
 				row.Healthcheck = 1
 			}

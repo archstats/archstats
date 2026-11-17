@@ -177,4 +177,8 @@ package core
 //	               file whose attribute section is left open at the end of
 //	               the file is read rather than skipped as failed. All
 //	               three found by the new fuzz and invariant tests.
-const AnalysisRevision = 24
+//	25 2026-11-17  a Dockerfile's entrypoint is its ENTRYPOINT with the
+//	               CMD's arguments after it; a CMD after an ENTRYPOINT
+//	               replaced it. A plist value with no key before it is
+//	               dropped instead of filed under the previous key.
+const AnalysisRevision = 25

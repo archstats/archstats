@@ -37,7 +37,10 @@ func readPlist(content []byte) *plistValue {
 		switch start.Name.Local {
 		case "dict":
 			v.Kind, v.Dict = "dict", map[string]*plistValue{}
-			key := ""
+			// A dict alternates <key> and value. A key waits for its value;
+			// a value with no key before it (a malformed file) is read and
+			// dropped rather than filed under the last key.
+			key, keyed := "", false
 			for {
 				off := dec.InputOffset()
 				tok, err := dec.Token()
@@ -47,10 +50,14 @@ func readPlist(content []byte) *plistValue {
 				switch t := tok.(type) {
 				case xml.StartElement:
 					if t.Name.Local == "key" {
-						key = text(dec)
+						key, keyed = text(dec), true
 						continue
 					}
 					child := parse(t, lines.at(int(off)))
+					if !keyed {
+						continue
+					}
+					keyed = false
 					if _, dup := v.Dict[key]; !dup {
 						v.Keys = append(v.Keys, key)
 					}

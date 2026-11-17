@@ -97,8 +97,8 @@ func TestDockerfileLibreChatStages(t *testing.T) {
 	if base, line := df.BaseImage(api); base != "node:20-alpine" || line != 3 {
 		t.Errorf("base = %s at %d", base, line)
 	}
-	if api.Expose[0] != "3080" || api.Entrypoint != `["node", "server/index.js"]` {
-		t.Errorf("expose %v entrypoint %q", api.Expose, api.Entrypoint)
+	if api.Expose[0] != "3080" || api.Runs() != `["node", "server/index.js"]` {
+		t.Errorf("expose %v runs %q", api.Expose, api.Runs())
 	}
 	// The data-provider stage alone holds only its own package and the root
 	// manifests it inherits.
@@ -398,5 +398,14 @@ func TestDockerfileSubstituteInCopyUsesStageArgs(t *testing.T) {
 	}
 	if df.Stages[1].Copies[0].Sources[0] != "${DIR}/src" {
 		t.Errorf("a stage ARG does not leak into the next stage: %q", df.Stages[1].Copies[0].Sources[0])
+	}
+}
+
+// CMD after ENTRYPOINT is the program's arguments. Read as one slot, the
+// CMD replaced the ENTRYPOINT and the stage seemed to run "app.jar".
+func TestDockerfileCmdIsTheEntrypointsArguments(t *testing.T) {
+	df := ParseDockerfile([]byte("FROM eclipse-temurin:21\nENTRYPOINT [\"java\", \"-jar\"]\nCMD [\"app.jar\"]\n"))
+	if got := df.Stages[0].Runs(); got != `["java", "-jar"] ["app.jar"]` {
+		t.Errorf("runs = %q", got)
 	}
 }
