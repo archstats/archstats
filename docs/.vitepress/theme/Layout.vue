@@ -10,7 +10,7 @@ import Rail from "./components/Rail.vue";
 import SearchPalette from "./components/SearchPalette.vue";
 import { useNav } from "./nav";
 
-const { page, frontmatter, isDark, site } = useData();
+const { page, frontmatter, isDark, site, theme } = useData();
 const route = useRoute();
 const router = useRouter();
 const { owner, active, prev, next, editUrl, sourcePath, href } = useNav();
@@ -55,10 +55,14 @@ function onClick(e: MouseEvent) {
 onMounted(() => {
   window.addEventListener("keydown", onKey);
   document.addEventListener("click", onClick);
-  // The MkDocs site this replaced served /install/; this one serves /install.
-  const path = window.location.pathname;
-  if (page.value.isNotFound && path.length > site.value.base.length && path.endsWith("/")) {
-    router.go(path.slice(0, -1) + window.location.hash);
+  if (page.value.isNotFound) {
+    // A page that moved: its old address goes to where its text now lives.
+    const path = window.location.pathname;
+    const key = "/" + path.slice(site.value.base.length).replace(/\.html$/, "").replace(/\/+$/, "");
+    const moved = (theme.value.moved ?? {})[key];
+    if (moved) router.go(withBase(moved));
+    // The MkDocs site this replaced served /cli/; this one serves /cli.
+    else if (path.length > site.value.base.length && path.endsWith("/")) router.go(path.slice(0, -1) + window.location.hash);
   }
 });
 onUnmounted(() => {

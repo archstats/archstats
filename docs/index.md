@@ -5,20 +5,63 @@ title: Archstats
 
 # Archstats
 
-Archstats reads a codebase and writes its architecture down: the components and modules it is made of, the types and functions inside them, every dependency between them, how they changed together in git, how complex and how healthy they are, and how the workspace is built and shipped.
+See how a codebase is really built: its layers, its tangles, the code that costs the most to keep, the endpoints it serves and the pipelines that ship it. One scan, on your own machine, into one SQLite file you own.
+
+<HomeActions />
+
+<Shot class="hero" eager name="overview" title="Overview" source="Apache Fineract · 1.4 million lines of Java">
+What the desktop app opens on after a scan: the size of the codebase, how healthy it is, where it tangles, and fourteen years of history.
+</Shot>
+
+## What it shows you
+
+Every picture on this page is the desktop app on an open-source codebase. Click one to see it full size.
+
+### The layers, and what breaks them
+
+<Shot name="units" title="Units" source="Apache Fineract">
+Controllers over services over repositories over entities. The red arcs are the 66, 5 and 13 references that run back up the stack; the map shows where each layer lives in the folders.
+</Shot>
+
+Archstats reads the code the way its framework does, so a Spring codebase comes back as controllers, services, repositories and entities, and a React one as components, hooks and data clients.
+
+### The tangles, and how to undo them
+
+<Shot name="cycles" title="Cycles" source="Apache Fineract">
+510 of 1,156 components reach each other through their imports. The guide on the right lists the imports to cut, the one that frees the most first.
+</Shot>
+
+### The code that costs the most to keep
+
+<Shot name="hotspots" title="Hotspots" source="Apache Fineract">
+Each circle is a component, sized by its lines and coloured by how complex it is and how often it changes.
+</Shot>
+
+### What the system serves, and how it ships
+
+<Shot name="http" title="HTTP" source="Apache Fineract">
+817 endpoints, each followed down through controllers, services and repositories to the tables it reads and writes.
+</Shot>
+
+<Shot name="cicd" title="CI/CD" source="LibreChat">
+Twenty GitHub Actions pipelines, each drawn the way it runs: what starts it, its jobs and steps, and what it builds.
+</Shot>
+
+### Who still knows the code
+
+<Shot name="authors" title="Authors" source="Apache Fineract · pseudonymised">
+For each part of the code: is anyone who wrote it, or changed it lately, still active? Names can be swapped for *Author 148* everywhere.
+</Shot>
+
+That is six of sixteen views. The [Tour of the app](tour.md) shows them all, with how to read each.
 
 <StatStrip />
 
-All of it goes into one SQLite file, the **snapshot**. You read it in one of three ways:
+## Three ways to read a snapshot
+
+Everything Archstats finds goes into one SQLite file, the **snapshot**. You read it the way that suits you:
 
 <WaysIn />
-
-New here? Start with [Install](install.md), then [Getting started](desktop/index.md) for the app or [Commands](cli.md) for the CLI. [Snapshot tables](snapshot.md) describes every table and column for your own SQL.
-
-```shell
-archstats -f path/to/project export sqlite snapshot.db
-sqlite3 snapshot.db "SELECT name, modularity__instability FROM components ORDER BY 2 DESC LIMIT 10"
-```
 
 ## What it reads
 
@@ -27,11 +70,6 @@ sqlite3 snapshot.db "SELECT name, modularity__instability FROM components ORDER 
 | Java, Kotlin, C#, Go, Python, PHP, JavaScript, TypeScript (with Vue and Svelte), Swift, Objective-C, Dart | tree-sitter: units, imports resolved to components and modules, cognitive complexity per function |
 | Scala | regular expressions: packages and imports |
 
-Modules come from the project's own manifests: go.mod, Maven, Gradle, npm workspaces, Composer, .csproj, SwiftPM, Xcode and pubspec. CI/CD comes from GitHub Actions, GitLab, Jenkins, Azure, Bitbucket, CircleCI and Rancher pipelines, and from Dockerfiles. [Ecosystems](ecosystems.md) says what each ecosystem looks like and why it is read the way it is.
+Modules come from the project's own manifests: go.mod, Maven, Gradle, npm workspaces, Composer, .csproj, SwiftPM, Xcode and pubspec. CI/CD comes from GitHub Actions, GitLab, Jenkins, Azure, Bitbucket, CircleCI and Rancher pipelines, and from Dockerfiles. [Ecosystems](ecosystems.md) explains how each one is read.
 
-## Where things are
-
-- Releases and their notes: [Releases](releases.md), and on GitHub for the [engine and CLI](https://github.com/archstats/archstats/releases) and the [desktop app](https://github.com/archstats/archstats-ui/releases).
-- What every metric means: [Metrics](metrics.md).
-- Why the engine is built the way it is: [Decisions](adr/README.md).
-- Bugs and questions: [GitHub issues](https://github.com/archstats/archstats-ui/issues) for the app, [archstats issues](https://github.com/archstats/archstats/issues) for the engine and CLI.
+Archstats runs on your machine. Nothing is uploaded, there is no account, and the AI features stay off until you turn them on.

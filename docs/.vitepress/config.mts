@@ -32,6 +32,10 @@ export default defineConfig({
     ["meta", { name: "theme-color", content: "#262932", media: "(prefers-color-scheme: dark)" }],
   ],
 
+  // The dev server leaves the production build alone; otherwise every
+  // `npm run build` reloads each open page.
+  vite: { server: { watch: { ignored: ["**/.vitepress/dist/**", "**/.vitepress/cache/**"] } } },
+
   markdown: {
     theme: codeThemes,
     // Tables get a frame that scrolls sideways on its own, so a wide
@@ -70,23 +74,13 @@ export default defineConfig({
         text: "Start",
         items: [
           { text: "Overview", link: "/", icon: "home" },
-          { text: "What you can do", link: "/use-cases", icon: "grid" },
-          { text: "Install", link: "/install", icon: "download" },
-        ],
-      },
-      {
-        text: "Desktop app",
-        items: [
-          { text: "Getting started", link: "/desktop/", icon: "app" },
-          { text: "Updates and releases", link: "/desktop/updates", icon: "refresh" },
+          { text: "Get started", link: "/desktop/", icon: "download" },
+          { text: "Tour of the app", link: "/tour", icon: "app" },
         ],
       },
       {
         text: "CLI",
-        items: [
-          { text: "Commands", link: "/cli", icon: "terminal" },
-          { text: "Rules", link: "/rules", icon: "check" },
-        ],
+        items: [{ text: "The CLI", link: "/cli", icon: "terminal" }],
       },
       {
         text: "Reference",
@@ -95,12 +89,17 @@ export default defineConfig({
           { text: "Metrics", link: "/metrics", icon: "gauge" },
           { text: "Ecosystems", link: "/ecosystems", icon: "layers" },
           { text: "Decisions", link: "/adr/", icon: "file" },
+          { text: "Releases", link: "/releases", icon: "tag" },
         ],
       },
-      {
-        text: "Project",
-        items: [{ text: "Releases", link: "/releases", icon: "tag" }],
-      },
     ],
+    // Pages that were merged into others: an old address lands on its new place.
+    moved: {
+      "/install": "/desktop/#install",
+      "/desktop/updates": "/desktop/#updates",
+      "/rules": "/cli#rules",
+      "/use-cases": "/tour#questions",
+      "/features": "/tour",
+    },
   },
 });

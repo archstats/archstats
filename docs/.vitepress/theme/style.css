@@ -114,6 +114,20 @@ html.dark .light-only {
   background: var(--surface-hover);
 }
 
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+.btn-primary:active {
+  background: var(--accent-pressed);
+}
+
 .btn-quiet {
   color: var(--ink-body);
 }
@@ -855,12 +869,21 @@ html.dark .vp-code span {
   box-shadow: inset 0 0 0 1px var(--hairline);
 }
 .stat-cell {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 12px 16px;
   border-left: 1px solid var(--hairline);
-  text-decoration: none !important;
+}
+.doc .stat-link {
+  color: inherit;
+  text-decoration: none;
+}
+.stat-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 .stat-cell:first-child {
   border-left: 0;
@@ -961,6 +984,139 @@ html.dark .vp-code span {
 }
 .way-chevron {
   color: var(--ink-muted);
+}
+
+/* ---------- Screenshots ---------- */
+
+.doc .shot {
+  margin: 24px 0 32px;
+}
+.shot-frame {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--hairline);
+  cursor: zoom-in;
+}
+.shot-frame:hover {
+  box-shadow: 0 0 0 1px var(--hairline-strong);
+}
+.doc .shot-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+html:not(.dark) .shot .dark-only,
+html.dark .shot .light-only {
+  display: none;
+}
+.shot figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+}
+.shot-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.shot-title {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.shot-source {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-muted);
+}
+.shot-text {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--ink-secondary);
+}
+
+.shot-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: var(--scrim);
+  backdrop-filter: blur(2px);
+  cursor: zoom-out;
+}
+.doc .shot-zoom img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+  box-shadow: var(--float);
+}
+.shot-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--surface);
+  box-shadow: var(--float);
+}
+
+/* The gallery on the overview: one wide figure, then two to a row. */
+.doc .gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 28px;
+  margin: 20px 0 8px;
+}
+.doc .gallery .shot {
+  margin: 0 0 16px;
+}
+.doc .gallery .shot.wide {
+  grid-column: 1 / -1;
+}
+
+/* The overview's lead figure runs a little past the text column. */
+.page.home .shot.hero {
+  margin: 28px 0 8px;
+}
+
+/* ---------- Overview page ---------- */
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 8px;
+}
+.doc .home-actions a {
+  text-decoration: none;
+}
+.doc .home-actions .btn {
+  height: 32px;
+  padding: 0 14px;
+  color: var(--ink-strong);
+}
+.doc .home-actions .btn-primary {
+  color: var(--on-accent);
+}
+.doc .home-actions .btn-quiet {
+  height: 32px;
+  color: var(--ink-body);
+}
+.page.home .doc h3 {
+  margin-top: 40px;
+  font-size: 17px;
 }
 
 /* ---------- Search palette ---------- */
@@ -1170,6 +1326,9 @@ html.dark .vp-code span {
   }
   .way-meta {
     display: none;
+  }
+  .doc .gallery {
+    grid-template-columns: minmax(0, 1fr);
   }
   .doc td {
     min-width: 9em;

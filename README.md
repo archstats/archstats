@@ -21,7 +21,7 @@ go install .
 
 `go install github.com/archstats/archstats@latest` does not work: the Swift grammar's generated C is fetched by `go generate`, not kept in git.
 
-[Install](docs/install.md) covers both the CLI and the desktop app, including opening an unsigned build.
+[Get started](docs/desktop/index.md) installs the desktop app, including opening an unsigned build; [The CLI](docs/cli.md) installs the command line.
 
 ## Use
 
