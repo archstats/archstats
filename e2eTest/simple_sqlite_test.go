@@ -13,6 +13,7 @@ import (
 )
 
 func TestElepy(t *testing.T) {
+	skipIfShort(t)
 	theRepo, err := repo.EnsureCloned("https://github.com/RyanSusana/elepy", "83d3069")
 	assert.NoError(t, err)
 
@@ -44,7 +45,7 @@ func TestElepy(t *testing.T) {
 
 		assert.NotEmpty(t, row["file"])
 		assert.NotEmpty(t, row["content"])
-		
+
 		if strings.HasSuffix(row["file"].(string), ".java") {
 			assert.Contains(t, row["content"].(string), "package ")
 		}
@@ -94,6 +95,7 @@ func queryToRowsOfMaps(db *sqlx.DB, query string) ([]map[string]interface{}, err
 }
 
 func TestSQLiteExporterStoreContentFlag(t *testing.T) {
+	skipIfShort(t)
 	theRepo, err := repo.EnsureCloned("https://github.com/RyanSusana/elepy", "83d3069")
 	assert.NoError(t, err)
 

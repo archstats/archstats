@@ -1,3 +1,7 @@
 # Golden files are compared byte for byte; a Windows checkout must not
 # turn their line endings into CRLF.
 *.golden text eol=lf
+
+# Fixtures are scanned and their scans pinned by digest (e2eTest/testdata/
+# scan_digest.golden): a Windows checkout must read the same bytes.
+/e2eTest/** text eol=lf

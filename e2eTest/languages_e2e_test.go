@@ -201,6 +201,7 @@ func Test_Languages_RealProjects(t *testing.T) {
 // settings — the ones the desktop app and anybody typing `archstats` get.
 func componentsOf(t *testing.T, url, commit string) []Component {
 	t.Helper()
+	skipIfShort(t)
 
 	cloned, err := repo.EnsureCloned(url, commit)
 	require.NoErrorf(t, err, "cloning %s", url)
@@ -226,6 +227,7 @@ type Module struct {
 
 func modulesOf(t *testing.T, url, commit string) []Module {
 	t.Helper()
+	skipIfShort(t)
 
 	cloned, err := repo.EnsureCloned(url, commit)
 	require.NoErrorf(t, err, "cloning %s", url)

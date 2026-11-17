@@ -59,7 +59,7 @@ The desktop app, `archstats assert`, reports and Ask all query snapshot tables b
 
 - Views declare their columns. `View.Check` reports a row value with no column, which is never exported, and a value of the wrong type.
 - `e2eTest/testdata/snapshot_schema.golden` records every table and column of a fixture scan. Regenerate it with `UPDATE_GOLDEN=1` and review the diff.
-- Anything that changes what a scan produces for the same source bumps `core.AnalysisRevision`, so readers can flag snapshots older than the engine.
+- Anything that changes what a scan produces for the same source bumps `core.AnalysisRevision`, so readers can flag snapshots older than the engine. `e2eTest/testdata/scan_digest.golden` pins what the fixtures' scans say, table by table, with the revision it was recorded at; `TestScanDigest` fails when the scans move and the revision does not.
 - Scans are deterministic:
   - graph ids follow component names;
   - randomised algorithms are seeded;
@@ -85,3 +85,4 @@ The desktop app, `archstats assert`, reports and Ask all query snapshot tables b
 | `extensions/cicd`, `mobile`, `navigation` | how the workspace ships, what a mobile app declares, what an architect navigates by; cicd reads build tools through `cicd/buildtool/<tool>` plug-ins, navigation reads languages through `navigation/recogniser/<family>` plug-ins |
 | `extensions/rules` | architecture rules scoped by ecosystem |
 | `e2eTest` | end-to-end tests on fixtures and real projects |
+| `internal/snapdigest` | a snapshot reduced to what the scan said, for the scan digest and `scripts/scan-parity.sh` |
