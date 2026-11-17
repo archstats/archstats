@@ -210,8 +210,13 @@ func (s *Source) bracketDecls() []Decl {
 			}
 			// The section may close on a later line, and a declaration may
 			// follow it on the same line.
+			// A section left open runs to the end of the file, which may
+			// be past the end of its last line.
 			endLine := s.Line(end - 1)
-			after := strings.TrimSpace(text[end:min(len(text), s.LineEnd(endLine))])
+			after := ""
+			if lineEnd := min(len(text), s.LineEnd(endLine)); end < lineEnd {
+				after = strings.TrimSpace(text[end:lineEnd])
+			}
 			line = endLine
 			if after == "" {
 				continue

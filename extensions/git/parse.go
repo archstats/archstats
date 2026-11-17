@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"io/fs"
@@ -175,6 +176,17 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 	// core.quotepath=off keeps non-ASCII paths as written instead of
 	// C-quoting them, which no file in the scan would ever match.
 	base := []string{"-C", filepath.Clean(path), "-c", "core.quotepath=off"}
+	// A repository with no commits yet has no HEAD, and `rev-list HEAD`
+	// failed the whole scan: `git init` in a folder was enough to stop it,
+	// and in a workspace of checkouts one fresh repository stopped them all.
+	// It has no history, which is not an error.
+	if err := exec.Command("git", append(append([]string{}, base...), "rev-parse", "--verify", "--quiet", "HEAD")...).Run(); err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to read HEAD: %w", err)
+	}
 	// Only the history of what is checked out. `--all` read every branch
 	// and ref: commits that never reached the analysed code, and the same
 	// change counted once per branch it was cherry-picked onto.

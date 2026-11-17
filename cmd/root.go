@@ -23,7 +23,10 @@ func Cmd() (*cobra.Command, error) {
 		Version: version.Version(),
 
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			log.Logger = log.Output(zerolog.ConsoleWriter{Out: cmd.ErrOrStderr(), NoColor: true, TimeFormat: "2006-01-02 15:04:05.000"})
+			// SyncWriter: the scan logs from many goroutines, and a caller
+			// that hands the CLI a buffer for stderr (the tests, a host
+			// embedding it) would otherwise see the lines race.
+			log.Logger = log.Output(zerolog.ConsoleWriter{Out: zerolog.SyncWriter(cmd.ErrOrStderr()), NoColor: true, TimeFormat: "2006-01-02 15:04:05.000"})
 			verbose, err := cmd.Flags().GetBool(common.FlagVerbose)
 			zerolog.SetGlobalLevel(zerolog.InfoLevel)
 

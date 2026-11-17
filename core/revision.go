@@ -164,10 +164,17 @@ package core
 //	               months), without the commit that added the file or
 //	               sweeping commits. Test files keep their health but
 //	               have no debt interest.
+//	22             not used: the fixes it was meant for landed as 24.
 //	23 2026-11-16  a tsconfig whose strings hold comment markers ("@/*"
 //	               beside "src/**/*.ts", as Next.js writes it) keeps its
 //	               path aliases; it lost them all, and imports through
 //	               them went unresolved. A Jenkins step after a parallel
 //	               inside a stage stays in that stage's job instead of a
 //	               job named after the file.
-const AnalysisRevision = 23
+//	24 2026-11-17  a repository with no commits yet has no history rather
+//	               than failing the scan; a root reached through a symlink
+//	               scans with its git history (it had none); a PHP or C#
+//	               file whose attribute section is left open at the end of
+//	               the file is read rather than skipped as failed. All
+//	               three found by the new fuzz and invariant tests.
+const AnalysisRevision = 24

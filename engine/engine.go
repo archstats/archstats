@@ -95,6 +95,13 @@ func Analyze(opts Options) (*core.Results, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A root reached through a symlink scans as the folder it points to.
+	// filepath.WalkDir does not follow a symlinked root, so the git
+	// extension found no repository behind one and the scan came back with
+	// no history at all (macOS's /tmp is one).
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		root = resolved
+	}
 	descriptors, _, err := Select(root, opts.Ignore, opts.Extensions)
 	if err != nil {
 		return nil, err
