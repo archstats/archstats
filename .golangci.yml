@@ -1,0 +1,90 @@
+# golangci-lint v2. CI runs it on every push and pull request; locally:
+#
+#   golangci-lint run ./...
+#
+# The general linters (errcheck, staticcheck and friends) report only what a
+# change adds over main: the code they would flag today is old and works,
+# and a ratchet keeps it from growing without a cleanup nobody asked for.
+# forbidigo holds everywhere, with the exceptions listed below by name.
+version: "2"
+
+run:
+  tests: true
+
+issues:
+  new-from-merge-base: main
+
+linters:
+  default: none
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - nilerr
+    - bodyclose
+    - forbidigo
+  settings:
+    errcheck:
+      exclude-functions:
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
+    forbidigo:
+      forbid:
+        # The engine runs inside the desktop app: a failure is an error the
+        # host can show, never the end of the process (see c4f600c).
+        - pattern: ^os\.Exit$
+          msg: the engine is embedded in the desktop app; return an error instead
+        - pattern: ^log\.(Fatal|Fatalf|Fatalln|Panic|Panicf|Panicln)$
+          msg: the engine is embedded in the desktop app; return an error instead
+        - pattern: ^log\.(Fatal|Panic)\(\)$
+          msg: zerolog's Fatal and Panic end the process; log at Error and return an error
+        - pattern: ^panic$
+          msg: return an error; a panic in a scan is recovered as a failed file and hides the bug
+        # The same commit scans the same (48fe88d). The clock and unseeded
+        # randomness are how a scan stops being a function of its tree.
+        - pattern: ^time\.Now$
+          msg: a scan must not depend on when it runs; take the time from the commit or the caller
+        - pattern: ^rand\.(Int|Uint|Float|Perm|Shuffle|N$|ExpFloat|NormFloat|Read$)
+          msg: the global random source is seeded per process; seed one explicitly, as communities does with rand.NewSource(1)
+  exclusions:
+    rules:
+      # The CLI, tools and tests may exit, panic and read the clock.
+      - path: (^|/)(cmd|scripts|internal/snapdigest/snapdiff)/|^main\.go$|_test\.go$|/grammar/fetch\.go$
+        linters: [forbidigo]
+      # Built-in tree-sitter queries are constants: a pack whose own query
+      # does not compile is a programmer error, like regexp.MustCompile, and
+      # FuzzScan's seeds build every pack.
+      - path: ^extensions/treesitter/[a-z]+/[a-z]+\.go$
+        source: ^\s*panic\(err\)$
+        linters: [forbidigo]
+      # Registering after Init is a programmer error the analyzer refuses.
+      - path: ^core/analyzer\.go$
+        source: 'panic\("core:'
+        linters: [forbidigo]
+      # Timing for the debug log, not for the scan's output.
+      - path: ^(core/walker/walker\.go|extensions/treesitter/common/language_pack\.go)$
+        source: start := time\.Now\(\)
+        linters: [forbidigo]
+      # --git-based-on now reads the clock on purpose; head mode, the
+      # default, replaces it with the newest commit.
+      - path: ^extensions/git/extension\.go$
+        source: 'BasedOn:\s+time\.Now\(\),'
+        linters: [forbidigo]
+    paths:
+      - e2eTest/temp_testdata
+      - scratch
+      - tasks
+      - \.claude
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    paths:
+      - e2eTest/temp_testdata
+      - scratch
+      - tasks
+      - \.claude

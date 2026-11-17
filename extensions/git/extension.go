@@ -35,7 +35,7 @@ const (
 	// RecentCommitCount is commits weighted by age, halving every six
 	// months, sweeping commits left out: how busy a file is now.
 	RecentCommitCount = "git__commits__recent"
-	Repository                 = "git__repository"
+	Repository        = "git__repository"
 
 	File                = "file"
 	Component           = "component"

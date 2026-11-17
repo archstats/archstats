@@ -23,3 +23,9 @@ scratch/
 # tree-sitter-swift's generated C, downloaded by `go generate` (see extensions/treesitter/swift/grammar/fetch.go)
 /extensions/treesitter/swift/grammar/*.c
 /extensions/treesitter/swift/grammar/tree_sitter/
+
+# Claude Code: per-person settings and session worktrees stay local;
+# .claude/settings.json (the hooks) is shared.
+/.claude/settings.local.json
+/.claude/worktrees/
+/.claude/launch.json

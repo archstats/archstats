@@ -1,0 +1,54 @@
+name: Nightly
+
+# What is too slow for every push: a long fuzz, the heavy real projects
+# (Sylius, django-oscar) and the race detector over the full suite. A
+# failing fuzz input is uploaded; commit it under engine/testdata/fuzz with
+# the fix, and it is a seed from then on.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Fetch the Swift grammar
+      run: go generate ./extensions/treesitter/swift/grammar
+
+    - name: Fuzz the scan
+      run: go test ./engine -run '^$' -fuzz FuzzScan -fuzztime 20m
+
+    - name: Keep what the fuzzer found
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuzz-failures
+        path: engine/testdata/fuzz
+        if-no-files-found: ignore
+
+  heavy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Fetch the Swift grammar
+      run: go generate ./extensions/treesitter/swift/grammar
+
+    - name: Real projects, heavy ones included, under the race detector
+      run: go test -race -tags heavy_e2e -timeout 60m ./...

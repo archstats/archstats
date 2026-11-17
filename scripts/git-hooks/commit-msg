@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Refuses AI attribution in a commit message (CLAUDE.md). Install once per
+# clone:
+#
+#   git config core.hooksPath scripts/git-hooks
+if grep -Eiq '^co-authored-by:.*(claude|anthropic)|generated with \[?claude' "$1"; then
+  echo "commit-msg: no AI attribution in commits; remove the Co-Authored-By / Generated-with line." >&2
+  exit 1
+fi

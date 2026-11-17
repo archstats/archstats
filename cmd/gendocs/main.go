@@ -32,7 +32,7 @@ func main() {
 	// metrics went undocumented while the doc claimed to list them all.
 	rootCmd.SetArgs([]string{"view", "definitions", "--extension", documentedExtensions})
 
-	// To prevent executing the "view definitions" action, we'll parse the flags manually 
+	// To prevent executing the "view definitions" action, we'll parse the flags manually
 	// and run common.Analyze directly!
 	// Execute the parse command to set all flags on rootCmd
 	err = rootCmd.ParseFlags(os.Args[1:])
@@ -100,11 +100,11 @@ func main() {
 		sb.WriteString(fmt.Sprintf("## %s\n\n", groupName))
 		for _, def := range defsInGroup {
 			sb.WriteString(fmt.Sprintf("### `%s` (%s)\n\n", def.Id, def.Name))
-			
+
 			// Make sure short description is clean
 			shortDesc := strings.TrimSpace(def.ShortDescription)
 			sb.WriteString(fmt.Sprintf("**Description:** %s\n\n", shortDesc))
-			
+
 			if def.LongDescription != "" {
 				sb.WriteString(fmt.Sprintf("**Details:**\n%s\n\n", strings.TrimSpace(def.LongDescription)))
 			}

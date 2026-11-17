@@ -15,7 +15,7 @@ func ImportResolver() component.ImportResolver { return pyImports{} }
 
 type pyImports struct{}
 
-func (pyImports) Name() string                   { return "python" }
+func (pyImports) Name() string                    { return "python" }
 func (pyImports) Prepare(string, []*file.Results) {}
 
 func (pyImports) Resolve(fromFile, fromDir, imp string, dirs component.Dirs) (string, bool) {

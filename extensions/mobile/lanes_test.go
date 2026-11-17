@@ -109,8 +109,8 @@ const niaManifest = `<?xml version="1.0" encoding="utf-8"?>
 // Java corner (a Fragment with its ViewModel and adapter, a receiver), as an
 // app that has been around for a while looks.
 var androidApp = map[string]string{
-	"settings.gradle.kts":         `include(":app")` + "\n",
-	"app/build.gradle.kts":        "plugins { id(\"com.android.application\") }\nandroid {\n    namespace = \"com.acme.nia\"\n}\n",
+	"settings.gradle.kts":              `include(":app")` + "\n",
+	"app/build.gradle.kts":             "plugins { id(\"com.android.application\") }\nandroid {\n    namespace = \"com.acme.nia\"\n}\n",
 	"app/src/main/AndroidManifest.xml": niaManifest,
 	"app/src/main/java/com/acme/nia/NiaApplication.kt": `package com.acme.nia
 

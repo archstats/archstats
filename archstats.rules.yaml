@@ -1,0 +1,82 @@
+# Archstats' rules for its own code, checked by Archstats on every push:
+#
+#   go run . assert -r archstats.rules.yaml -f . --ignore 'e2eTest/**' \
+#     --ignore 'tasks/**' --ignore 'docs/**' --ignore 'scratch/**' --ignore '.claude/**'
+#
+# Each query lists violations; `expect` is how many there may be (0 for a
+# rule). The ratchets hold a count at today's number: lower it when a cleanup
+# lands, never raise it to make a change pass.
+#
+# The import rules overlap engine/boundary_test.go on purpose. That test reads
+# imports with go/build; these read them the way Archstats reads anyone's Go,
+# so a break in Archstats' Go support fails here even when the code is fine.
+assertions:
+  - name: Archstats still reads its own Go imports
+    description: >-
+      engine wires every extension, so it imports over forty of them. Fewer
+      than thirty edges from engine means Go import resolution broke, as it was
+      broken before revision 14, and every rule below would pass for nothing.
+    query: >-
+      SELECT n FROM (SELECT count(DISTINCT "to") AS n FROM component_connections_direct
+                     WHERE "from" = 'engine' AND "to" LIKE 'extensions/%')
+      WHERE n < 30
+    expect: 0
+
+  - name: core imports nothing outside core
+    description: ADR 0025. Core is the model and the questions; it knows no extension, engine or CLI.
+    query: >-
+      SELECT "from", "to", file FROM component_connections_direct
+      WHERE "from" LIKE 'core%' AND "to" NOT LIKE 'core%' AND file NOT LIKE '%_test.go'
+    expect: 0
+
+  - name: extensions import neither engine nor the CLI
+    description: >-
+      Only engine names every extension; an extension that reaches back up
+      couples it to all of them. A tool of an extension's own (a main package
+      under its cmd/, such as the CI/CD corpus runner) may run the engine.
+    query: >-
+      SELECT "from", "to", file FROM component_connections_direct
+      WHERE "from" LIKE 'extensions/%' AND "from" NOT LIKE 'extensions/%/cmd/%'
+        AND ("to" = 'engine' OR "to" LIKE 'cmd%') AND file NOT LIKE '%_test.go'
+    expect: 0
+
+  - name: engine imports no CLI package
+    description: The desktop app embeds engine; the CLI is one of its callers, not part of it.
+    query: >-
+      SELECT "from", "to", file FROM component_connections_direct
+      WHERE "from" = 'engine' AND "to" LIKE 'cmd%' AND file NOT LIKE '%_test.go'
+    expect: 0
+
+  - name: no two packages import each other outside tests
+    description: >-
+      Go refuses such a cycle, so one here is Archstats misreading an import.
+      Tests are left out: an external test package (package x_test) may import
+      what imports x, and Archstats files it with x.
+    query: >-
+      SELECT DISTINCT a."from", a."to" FROM component_connections_direct a
+      JOIN component_connections_direct b ON a."from" = b."to" AND a."to" = b."from"
+      WHERE a.file NOT LIKE '%_test.go' AND b.file NOT LIKE '%_test.go'
+    expect: 0
+
+  - name: no source file over 1,500 lines of code
+    description: Split it by what changes together before it grows further.
+    query: >-
+      SELECT name, complexity__lines__code FROM files
+      WHERE name LIKE '%.go' AND name NOT LIKE '%_test.go' AND complexity__lines__code > 1500
+    expect: 0
+
+  - name: "ratchet: functions with cognitive complexity over 50"
+    description: Today's count is 53. Lower the limit when one is simplified; never raise it.
+    query: >-
+      SELECT n FROM (SELECT count(*) AS n FROM functions
+                     WHERE file LIKE '%.go' AND file NOT LIKE '%_test.go' AND cognitive > 50)
+      WHERE n > 53
+    expect: 0
+
+  - name: "ratchet: files with code health under 5"
+    description: Today's count is 20. Lower the limit when one is fixed; never raise it.
+    query: >-
+      SELECT n FROM (SELECT count(*) AS n FROM files
+                     WHERE name LIKE '%.go' AND name NOT LIKE '%_test.go' AND codesmells__code_health < 5)
+      WHERE n > 20
+    expect: 0

@@ -1,5 +1,8 @@
 name: Go
 
+# What every push and pull request must keep true. Fast checks on every OS;
+# the slow and network-bound ones once, on Linux. nightly.yml runs the long
+# fuzz, the heavy real projects and the race detector over everything.
 on:
   push:
     branches: [ "main" ]
@@ -9,7 +12,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Unit tests, fixtures, the boundary tests, the scan digest and the fuzz
+  # seeds, on each OS a release ships for. -short leaves out what clones
+  # real projects or generates a thousand files.
   supported-platforms:
     strategy:
       fail-fast: false
@@ -35,4 +45,157 @@ jobs:
       run: go build -v ./...
 
     - name: Test
-      run: go test -v ./...
+      run: go test -short ./...
+
+  # The real projects, the scan budget, and the guarantees that need a
+  # second look: one thread, the race detector, a minute of fuzzing.
+  thorough:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Fetch the Swift grammar
+      run: go generate ./extensions/treesitter/swift/grammar
+
+    - name: Test, real projects and budgets included
+      run: go test ./...
+
+    # The digest was recorded by another process on another machine; one
+    # thread here finds an order that only the scheduler decided.
+    - name: Same scans on one thread
+      run: GOMAXPROCS=1 go test -count=1 ./e2eTest -run 'TestScanDigest|TestSnapshot_SameTreeSameSnapshot|TestScan_Metamorphic'
+
+    - name: Race detector
+      run: go test -race -short ./...
+
+    - name: Fuzz the scan for a minute
+      run: go test ./engine -run '^$' -fuzz FuzzScan -fuzztime 60s
+
+    - name: Keep what the fuzzer found
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuzz-failures
+        path: engine/testdata/fuzz
+        if-no-files-found: ignore
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # golangci-lint reports what a change adds over main, so it needs
+        # main's history.
+        fetch-depth: 0
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Fetch the Swift grammar
+      run: go generate ./extensions/treesitter/swift/grammar
+
+    - name: gofmt
+      run: |
+        unformatted="$(git ls-files -z '*.go' | xargs -0 gofmt -l)"
+        if [ -n "$unformatted" ]; then
+          echo "Not gofmt'd; run gofmt -w on:"; echo "$unformatted"; exit 1
+        fi
+
+    - name: go mod tidy
+      run: |
+        go mod tidy
+        git diff --exit-code go.mod go.sum || { echo "go.mod or go.sum is not tidy: run go mod tidy"; exit 1; }
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: v2.15
+        args: --new-from-merge-base=origin/main
+
+  # Vulnerabilities in the code and the Go it is built with. It reads the
+  # toolchain go.mod names, which is the one the release workflow ships.
+  vulnerabilities:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Fetch the Swift grammar
+      run: go generate ./extensions/treesitter/swift/grammar
+
+    - name: govulncheck
+      run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  # Archstats checks its own architecture, with its own rules and its own
+  # reading of Go: archstats.rules.yaml.
+  self-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Fetch the Swift grammar
+      run: go generate ./extensions/treesitter/swift/grammar
+
+    - name: archstats assert
+      run: |
+        go run . assert -r archstats.rules.yaml -f . \
+          --ignore 'e2eTest/**' --ignore 'tasks/**' --ignore 'docs/**' --ignore 'scratch/**' --ignore '.claude/**'
+
+  changelog:
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip-changelog')
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: CHANGELOG.md and the analysis revision
+      run: scripts/check-changelog.sh origin/${{ github.base_ref }}
+
+  # How long a scan takes, against the base branch. Shared runners are too
+  # noisy to fail a build on; the comparison lands in the job summary.
+  benchmark:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Benchmark this change and its base
+      run: |
+        go generate ./extensions/treesitter/swift/grammar
+        go test ./e2eTest -run '^$' -bench BenchmarkScan -count 6 > "$RUNNER_TEMP/new.txt"
+        git worktree add "$RUNNER_TEMP/base" "origin/${{ github.base_ref }}"
+        cp extensions/treesitter/swift/grammar/*.c "$RUNNER_TEMP/base/extensions/treesitter/swift/grammar/" || true
+        cp -R extensions/treesitter/swift/grammar/tree_sitter "$RUNNER_TEMP/base/extensions/treesitter/swift/grammar/" || true
+        if (cd "$RUNNER_TEMP/base" && go test ./e2eTest -run '^$' -bench BenchmarkScan -count 6 > "$RUNNER_TEMP/old.txt"); then
+          { echo '### Scan benchmark: base → this change'; echo '```'
+            go run golang.org/x/perf/cmd/benchstat@latest "$RUNNER_TEMP/old.txt" "$RUNNER_TEMP/new.txt"
+            echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+        else
+          { echo '### Scan benchmark'; echo 'The base branch has no BenchmarkScan yet.'; echo '```'
+            cat "$RUNNER_TEMP/new.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+        fi
