@@ -462,12 +462,23 @@ func (e *extension) EditResults(results *core.Results) {
 	sort.Strings(paths)
 	l := newLinker(results, files)
 
+	// Each step writes its own rows for the views. What a later step reads
+	// of an earlier one it is handed, so the order is the data's: routes
+	// are traced through the wiring to the data they touch.
 	e.placeUnits(l)
-	e.linkWiring(l, files, paths)
+	w := e.linkWiring(l, files, paths)
 	e.linkEntries(l, files, paths)
-	e.linkData(l, files, paths)
+	access := e.linkData(l, files, paths)
 	e.linkDocs(l, files, paths)
-	e.linkHTTP(l, files, paths)
+	e.linkHTTP(l, files, paths, w, access)
+}
+
+// wiring is what linkWiring found that later steps read: which unit
+// extends or implements which, and which implementation an interface is
+// bound to.
+type wiring struct {
+	supers   []superRow
+	bindings []bindingRow
 }
 
 // placeUnits gives every unit the line it is declared on and its signature:
@@ -627,6 +638,14 @@ func (e *extension) linkEntries(l *linker, files map[string]*facts, paths []stri
 	}
 	e.conventionalActions(l, files, paths, seen)
 	sortEntries(e.entryRows)
+	// The entries are complete: number them, and give each route its template.
+	for i := range e.entryRows {
+		r := &e.entryRows[i]
+		r.ID = i + 1
+		if r.Kind == kindHTTP || r.Kind == kindPage {
+			r.Template = pathTemplate(r.Path)
+		}
+	}
 }
 
 // methodsByName is an HTTP route that takes any method as the methods its
@@ -840,7 +859,9 @@ type accessRow struct {
 	Line                                                         int
 }
 
-func (e *extension) linkData(l *linker, files map[string]*facts, paths []string) {
+// linkData reads entities and the functions that access them; it returns
+// the accesses, which tracing a route reads.
+func (e *extension) linkData(l *linker, files map[string]*facts, paths []string) []accessRow {
 	byKey := map[string]*entityRow{}
 	var order []string
 	addEntity := func(r entityRow) {
@@ -1083,6 +1104,7 @@ func (e *extension) linkData(l *linker, files map[string]*facts, paths []string)
 			e.accessRows = append(e.accessRows, r)
 		}
 	}
+	return e.accessRows
 }
 
 // importsOf are the raw import specifiers of a file.
@@ -1147,7 +1169,7 @@ func isInterface(u *unit.Unit) bool {
 	return false
 }
 
-func (e *extension) linkWiring(l *linker, files map[string]*facts, paths []string) {
+func (e *extension) linkWiring(l *linker, files map[string]*facts, paths []string) wiring {
 	supers := map[string][]*unit.Unit{}
 	for _, u := range l.results.Units {
 		if u.Kind != unit.KindType || !own(l.results, firstFile(u)) {
@@ -1247,6 +1269,7 @@ func (e *extension) linkWiring(l *linker, files map[string]*facts, paths []strin
 		}
 		return a.File < b.File
 	})
+	return wiring{supers: e.superRows, bindings: e.bindingRows}
 }
 
 type linkRow struct {

@@ -84,16 +84,10 @@ func (idx routeIndex) match(template, method string) *entryRow {
 	return best
 }
 
-func (e *extension) linkHTTP(l *linker, files map[string]*facts, paths []string) {
-	// Routes: ids and templates.
-	for i := range e.entryRows {
-		r := &e.entryRows[i]
-		r.ID = i + 1
-		if r.Kind == kindHTTP || r.Kind == kindPage {
-			r.Template = pathTemplate(r.Path)
-		}
-	}
-
+// linkHTTP links the numbered entries: who guards a route (through the
+// wiring's supertypes), the contracts that describe it, outbound calls, and
+// what each route reaches (through the wiring and the data accesses).
+func (e *extension) linkHTTP(l *linker, files map[string]*facts, paths []string, w wiring, access []accessRow) {
 	cfg := e.indexConfig(l, files, paths)
 	routes := routeIndex{}
 	for i := range e.entryRows {
@@ -106,10 +100,10 @@ func (e *extension) linkHTTP(l *linker, files map[string]*facts, paths []string)
 			routes[segmentsKey(t)] = append(routes[segmentsKey(t)], routeAt{r, t})
 		}
 	}
-	e.linkAuth(l, files, paths, cfg)
+	e.linkAuth(l, files, paths, cfg, w.supers)
 	consumed := e.linkContracts(l, files, paths, routes)
 	e.linkOutbound(l, files, paths, cfg, routes, consumed)
-	e.trace(l, files)
+	e.trace(l, files, w, access)
 }
 
 func (e *extension) indexConfig(l *linker, files map[string]*facts, paths []string) *configIndex {
@@ -185,7 +179,7 @@ func (c *configIndex) fileOf(key string) (string, int) {
 	return "", 0
 }
 
-func (e *extension) linkAuth(l *linker, files map[string]*facts, paths []string, cfg *configIndex) {
+func (e *extension) linkAuth(l *linker, files map[string]*facts, paths []string, cfg *configIndex, supers []superRow) {
 	var rules []authRule
 	// Security rules see the path below the context path but above the
 	// servlet a framework is mounted on: JAX-RS's @ApplicationPath, Jersey's
@@ -241,7 +235,7 @@ func (e *extension) linkAuth(l *linker, files map[string]*facts, paths []string,
 					}
 				}
 				var next *unit.Unit
-				for _, s := range e.superRows {
+				for _, s := range supers {
 					if s.Unit == u.ID && s.Supertype != "" {
 						next = l.results.UnitByID[s.Supertype]
 						break
@@ -1030,16 +1024,16 @@ const (
 	maxTraceNodes = 400
 )
 
-func (e *extension) trace(l *linker, files map[string]*facts) {
+func (e *extension) trace(l *linker, files map[string]*facts, w wiring, access []accessRow) {
 	implementors := map[string][]*unit.Unit{}
-	for _, s := range e.superRows {
+	for _, s := range w.supers {
 		if s.Supertype != "" {
 			if u := l.results.UnitByID[s.Unit]; u != nil {
 				implementors[s.Supertype] = append(implementors[s.Supertype], u)
 			}
 		}
 	}
-	for _, b := range e.bindingRows {
+	for _, b := range w.bindings {
 		if b.InterfaceUnit != "" && b.ImplementationUnit != "" && b.InterfaceUnit != b.ImplementationUnit {
 			if u := l.results.UnitByID[b.ImplementationUnit]; u != nil && !containsUnit(implementors[b.InterfaceUnit], u) {
 				implementors[b.InterfaceUnit] = append(implementors[b.InterfaceUnit], u)
@@ -1047,14 +1041,14 @@ func (e *extension) trace(l *linker, files map[string]*facts) {
 		}
 	}
 	supers := map[string][]*unit.Unit{}
-	for _, s := range e.superRows {
+	for _, s := range w.supers {
 		if t := l.results.UnitByID[s.Supertype]; t != nil {
 			supers[s.Unit] = append(supers[s.Unit], t)
 		}
 	}
 	// What each function touches: tables and outbound calls.
 	tables := map[string][]string{}
-	for _, a := range e.accessRows {
+	for _, a := range access {
 		k := a.Unit + "\x00" + a.Function
 		t := a.Entity
 		if t == "" {

@@ -178,6 +178,9 @@ type builder struct {
 	pipelines   []*pipelineFact
 	gitRepos    []*gitRepo
 
+	// What goes into each artifact, gathered from contents() on and moved
+	// into the model by moduleExpansion. Nil after that: a content added
+	// later would never reach the model, so adding one fails loudly.
 	pendingContents map[*Artifact][]*Content
 
 	byID        map[string]*Artifact
@@ -199,6 +202,7 @@ func Build(in *Input) *Model {
 		buildOf: map[*imageBuild]*Artifact{}, runs: map[string][]string{},
 		workloadsBy: map[string]*workload{}, allFileSet: map[string]bool{}, dirSet: map[string]bool{},
 		chartDeps: map[string][]string{}, valuesOwner: map[string][]string{},
+		pendingContents: map[*Artifact][]*Content{},
 	}
 	if in.RepoOf == nil {
 		in.RepoOf = func(string) string { return "" }
@@ -588,7 +592,6 @@ func (b *builder) addContent(d *Artifact, c *Content) {
 }
 
 func (b *builder) contents() {
-	b.pendingContents = map[*Artifact][]*Content{}
 	for _, d := range b.m.Artifacts {
 		if d.function != nil {
 			b.addContent(d, &Content{Path: d.function.CodeDir, File: d.function.File, Line: d.function.Line, Resolution: "declared"})
@@ -918,6 +921,7 @@ func (b *builder) moduleExpansion() {
 	for _, d := range b.m.Artifacts {
 		b.m.Contents = append(b.m.Contents, b.pendingContents[d]...)
 	}
+	b.pendingContents = nil
 }
 
 // ---------------------------------------------------------------------------
