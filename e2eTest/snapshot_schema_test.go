@@ -175,9 +175,7 @@ func schemaWorkspace(t *testing.T) string {
 	git := func(args ...string) {
 		cmd := exec.Command("git", args...)
 		cmd.Dir = root
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=Fixture", "GIT_AUTHOR_EMAIL=fixture@example.com", "GIT_AUTHOR_DATE=2026-01-01T00:00:00Z",
-			"GIT_COMMITTER_NAME=Fixture", "GIT_COMMITTER_EMAIL=fixture@example.com", "GIT_COMMITTER_DATE=2026-01-01T00:00:00Z")
+		cmd.Env = fixtureGitEnv()
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, string(out))
 	}
@@ -195,6 +193,25 @@ func schemaWorkspace(t *testing.T) string {
 	write("svc/main.go", "package main\n\nimport \"example.com/svc/store\"\n\nfunc main() { store.Open(); store.Close() }\n")
 	git("commit", "-q", "-am", "second")
 	return root
+}
+
+// fixtureGitEnv is the environment for git commands that build a fixture's
+// history. Author, committer and dates are pinned, and the user's and the
+// system's git config are not read: a global commit.gpgsign signs the
+// commits, which changes every hash and so every digest of them. Inherited
+// GIT_ variables are dropped: run from a git hook, GIT_DIR and
+// GIT_INDEX_FILE would have committed the fixture into this repository.
+func fixtureGitEnv() []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(strings.ToUpper(kv), "GIT_") {
+			env = append(env, kv)
+		}
+	}
+	return append(env,
+		"GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1",
+		"GIT_AUTHOR_NAME=Fixture", "GIT_AUTHOR_EMAIL=fixture@example.com", "GIT_AUTHOR_DATE=2026-01-01T00:00:00Z",
+		"GIT_COMMITTER_NAME=Fixture", "GIT_COMMITTER_EMAIL=fixture@example.com", "GIT_COMMITTER_DATE=2026-01-01T00:00:00Z")
 }
 
 // dumpSchema is every table and view in the snapshot with its columns and

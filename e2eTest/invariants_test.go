@@ -147,6 +147,7 @@ func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
+	cmd.Env = fixtureGitEnv()
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(out))
 }

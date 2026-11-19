@@ -2,7 +2,7 @@ package core
 
 import (
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 	"sync"
 
@@ -425,13 +425,16 @@ func mapDirectoryToFiles(files []string) map[string][]string {
 }
 
 // getParentDirectories returns all parent directories of the given path.
-func getParentDirectories(path string) []string {
+// Scan paths are slash-separated on every OS: filepath.Dir would name them
+// with backslashes on Windows, where nothing else (git history, the
+// directory column of files) would match them.
+func getParentDirectories(p string) []string {
 	var dirs []string
-	dir := filepath.Dir(path)
+	dir := path.Dir(p)
 
 	for dir != "." && dir != "/" {
 		dirs = append(dirs, dir)
-		dir = filepath.Dir(dir)
+		dir = path.Dir(dir)
 	}
 
 	return dirs

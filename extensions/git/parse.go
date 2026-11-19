@@ -173,14 +173,12 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 		return nil, fmt.Errorf("git command not found")
 	}
 
-	// core.quotepath=off keeps non-ASCII paths as written instead of
-	// C-quoting them, which no file in the scan would ever match.
-	base := []string{"-C", filepath.Clean(path), "-c", "core.quotepath=off"}
+	base := []string{"-C", filepath.Clean(path)}
 	// A repository with no commits yet has no HEAD, and `rev-list HEAD`
 	// failed the whole scan: `git init` in a folder was enough to stop it,
 	// and in a workspace of checkouts one fresh repository stopped them all.
 	// It has no history, which is not an error.
-	if err := exec.Command("git", append(append([]string{}, base...), "rev-parse", "--verify", "--quiet", "HEAD")...).Run(); err != nil {
+	if err := gitCommand(append(append([]string{}, base...), "rev-parse", "--verify", "--quiet", "HEAD")...).Run(); err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
 			return nil, nil
@@ -203,7 +201,9 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 	// is used before any guessing.
 	// -M follows a moved file: a move is a rename row, not a deletion and
 	// an unrelated new file, so the file keeps its commits, age and authors.
-	logArgs := append(append([]string{}, base...), "log", "--no-walk=unsorted", "--stdin", "--numstat", "-M", "--pretty=format:"+gitLogFormat)
+	// --no-textconv and --no-ext-diff: line counts come from what was
+	// committed, not from a diff driver the user configured.
+	logArgs := append(append([]string{}, base...), "log", "--no-walk=unsorted", "--stdin", "--numstat", "-M", "--no-textconv", "--no-ext-diff", "--pretty=format:"+gitLogFormat)
 
 	// A merge changes a file when it differs from every parent: what was
 	// written while resolving it. Those are the only files a merge reports
@@ -257,7 +257,7 @@ func (e *extension) parseGitLog(path string) ([]*rawCommit, error) {
 var minPerChunk = 500
 
 func logInParallel(repo string, revArgs, logArgs []string) ([]*rawCommit, error) {
-	listed, err := exec.Command("git", revArgs...).Output()
+	listed, err := gitCommand(revArgs...).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func logInParallel(repo string, revArgs, logArgs []string) ([]*rawCommit, error)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cmd := exec.Command("git", logArgs...)
+			cmd := gitCommand(logArgs...)
 			cmd.Stdin = strings.NewReader(strings.Join(part, "\n") + "\n")
 			out, err := cmd.Output()
 			if err != nil {
@@ -319,9 +319,11 @@ func parseCommitString(repo, commitRaw string) *rawCommit {
 	unixTimestamp, _ := strconv.ParseInt(fields[1], 10, 64)
 
 	commit := &rawCommit{
-		Repo:        repo,
-		Hash:        fields[0],
-		Time:        time.Unix(unixTimestamp, 0),
+		Repo: repo,
+		Hash: fields[0],
+		// In UTC, like the head times: time.Unix is in the machine's zone, and
+		// the same history scanned in two zones wrote two different snapshots.
+		Time:        time.Unix(unixTimestamp, 0).UTC(),
 		AuthorName:  asUTF8(fields[2]),
 		AuthorEmail: asUTF8(fields[3]),
 		// A subject can itself contain the separator in principle; keep
@@ -423,7 +425,7 @@ func (l LazyRepo) Advice() string {
 // it.
 // partialCloneFilter reads the filter a repository was cloned with, if any.
 func partialCloneFilter(dir string) (setting string, filter string, ok bool) {
-	out, err := exec.Command("git", "-C", dir, "config", "--get-regexp", `remote\..*\.partialclonefilter`).Output()
+	out, err := gitCommand("-C", dir, "config", "--get-regexp", `remote\..*\.partialclonefilter`).Output()
 	if err != nil || len(out) == 0 {
 		return "", "", false
 	}
@@ -457,7 +459,7 @@ func shallowRepos(rootPath string, repos []string) map[string]bool {
 	out := map[string]bool{}
 	for _, repo := range repos {
 		dir := filepath.Join(rootPath, repo)
-		answer, err := exec.Command("git", "-C", dir, "rev-parse", "--is-shallow-repository").Output()
+		answer, err := gitCommand("-C", dir, "rev-parse", "--is-shallow-repository").Output()
 		if err == nil && strings.TrimSpace(string(answer)) == "true" {
 			out[repo] = true
 			log.Warn().Msgf("%s is a shallow clone, so its history is cut short: commit counts, contributors and file ages cover only what was fetched. `git -C %s fetch --unshallow` fetches the rest.", dir, dir)
@@ -486,7 +488,7 @@ func warnAboutLazyRepos(rootPath string, repos []string) {
 // nothing here needs saying. Two cheap commands, no walk of the whole
 // history.
 func missesObjects(dir string) bool {
-	oldest, err := exec.Command("git", "-C", dir, "rev-list", "--all", "--max-parents=0", "-n", "1").Output()
+	oldest, err := gitCommand("-C", dir, "rev-list", "--all", "--max-parents=0", "-n", "1").Output()
 	if err != nil {
 		return false
 	}
@@ -494,7 +496,7 @@ func missesObjects(dir string) bool {
 	if commit == "" {
 		return false
 	}
-	probe := exec.Command("git", "-C", dir, "log", "--numstat", "--no-renames", "-n", "1", "--format=", commit)
-	probe.Env = append(os.Environ(), "GIT_NO_LAZY_FETCH=1")
+	probe := gitCommand("-C", dir, "log", "--numstat", "--no-renames", "-n", "1", "--format=", commit)
+	probe.Env = append(probe.Env, "GIT_NO_LAZY_FETCH=1")
 	return probe.Run() != nil
 }

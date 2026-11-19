@@ -87,9 +87,7 @@ func syntheticWorkspace(t testing.TB, packages, classes int) string {
 	git := func(args ...string) {
 		cmd := exec.Command("git", args...)
 		cmd.Dir = root
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=Fixture", "GIT_AUTHOR_EMAIL=fixture@example.com", "GIT_AUTHOR_DATE=2026-01-01T00:00:00Z",
-			"GIT_COMMITTER_NAME=Fixture", "GIT_COMMITTER_EMAIL=fixture@example.com", "GIT_COMMITTER_DATE=2026-01-01T00:00:00Z")
+		cmd.Env = fixtureGitEnv()
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, string(out))
 	}

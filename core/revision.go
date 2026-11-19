@@ -181,4 +181,14 @@ package core
 //	               CMD's arguments after it; a CMD after an ENTRYPOINT
 //	               replaced it. A plist value with no key before it is
 //	               dropped instead of filed under the previous key.
-const AnalysisRevision = 25
+//	26 2026-11-18  on Windows, directories are named with forward slashes
+//	               like every other path in a scan; they were named with
+//	               backslashes, so no directory had git history or
+//	               co-changed with another. Commit times are written in
+//	               UTC, not in the zone of the machine that scanned. Git
+//	               history no longer depends on the user's git config
+//	               (core.abbrev renamed every commit; diff.algorithm,
+//	               diff.renameLimit and textconv drivers moved line counts
+//	               and renames) or on an inherited GIT_DIR, which made every
+//	               repository read as the one it named.
+const AnalysisRevision = 26

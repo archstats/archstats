@@ -1,8 +1,8 @@
 # Scan digest of the e2eTest fixtures. Regenerate with UPDATE_GOLDEN=1 go test ./e2eTest -run TestScanDigest
-revision 25
+revision 26
 ## workspace
 _metric_definitions rows=93 sha=5c06059676e92f22
-_snapshot rows=11 sha=d885d722ae929199
+_snapshot rows=11 sha=d1c3e7c7d64aa3de
 api_findings rows=0 sha=0ab89f0db892ace0
 api_operations rows=0 sha=f1540fde75db14d1
 app_declarations rows=0 sha=787ea2d6a51aff07
@@ -35,14 +35,14 @@ entry_points rows=1 sha=8614468a15d68f38
 files rows=45 sha=cdea97ebbc7ecc7c
 functions rows=7 sha=d4435cd55f128cea
 git_authors rows=1 sha=a5aedda6ff715e3c
-git_commit_files rows=47 sha=8b7524cf71f7c087
-git_commit_info rows=2 sha=84e9a075cc6ac159
-git_commits rows=47 sha=b63b39681add926e
+git_commit_files rows=47 sha=f0ab1cf2f2a2dc77
+git_commit_info rows=2 sha=8d2135a3950ff316
+git_commits rows=47 sha=8989b1742ce80ba2
 git_component_cycles_shortest_shared_commits rows=2 sha=2f82f2dfee6fd5e6
 git_component_shared_commits rows=462 sha=0100e8075b9fb3fd
 git_directory_shared_commits rows=2 sha=abb14b9f201f6381
 git_file_shared_commits rows=0 sha=89730b28488648b6
-git_repos rows=2 sha=da0b702cea522736
+git_repos rows=2 sha=86d3260ee6baa431
 java_class_connections_direct rows=1 sha=3e3bfea5d1e3b726
 modules rows=9 sha=02ec16c95564b232
 outbound_calls rows=0 sha=c974fd8633b95c79

@@ -1,7 +1,6 @@
 package git
 
 import (
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -22,23 +21,23 @@ type headInfo struct {
 
 func readHead(dir string) headInfo {
 	var h headInfo
-	sha, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	sha, err := gitCommand("-C", dir, "rev-parse", "HEAD").Output()
 	if err != nil {
 		return h
 	}
 	h.Commit = strings.TrimSpace(string(sha))
-	if branch, err := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
+	if branch, err := gitCommand("-C", dir, "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
 		h.Branch = strings.TrimSpace(string(branch))
 		if h.Branch == "HEAD" {
 			h.Branch = "detached"
 		}
 	}
-	if when, err := exec.Command("git", "-C", dir, "log", "-1", "--format=%cI", "HEAD").Output(); err == nil {
+	if when, err := gitCommand("-C", dir, "log", "-1", "--format=%cI", "HEAD").Output(); err == nil {
 		if t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(when))); err == nil {
 			h.Time = t
 		}
 	}
-	if status, err := exec.Command("git", "-C", dir, "status", "--porcelain", "--untracked-files=normal").Output(); err == nil {
+	if status, err := gitCommand("-C", dir, "status", "--porcelain", "--untracked-files=normal").Output(); err == nil {
 		for _, line := range strings.Split(string(status), "\n") {
 			if strings.TrimSpace(line) != "" {
 				h.Dirty++

@@ -23,7 +23,7 @@ func TestWindowsCountBackFromTheNewestCommit(t *testing.T) {
 		for _, args := range [][]string{{"add", "."}, {"commit", "-q", "-m", name}} {
 			cmd := exec.Command("git", args...)
 			cmd.Dir = dir
-			cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=Ann", "GIT_AUTHOR_EMAIL=ann@x.org", "GIT_COMMITTER_NAME=Ann", "GIT_COMMITTER_EMAIL=ann@x.org",
+			cmd.Env = append(gitEnv(os.Environ()), "GIT_AUTHOR_NAME=Ann", "GIT_AUTHOR_EMAIL=ann@x.org", "GIT_COMMITTER_NAME=Ann", "GIT_COMMITTER_EMAIL=ann@x.org",
 				"GIT_AUTHOR_DATE="+date, "GIT_COMMITTER_DATE="+date, "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
 			out, err := cmd.CombinedOutput()
 			require.NoErrorf(t, err, "git %v: %s", args, out)
