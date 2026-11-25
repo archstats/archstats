@@ -58,6 +58,24 @@ assertions:
       WHERE a.file NOT LIKE '%_test.go' AND b.file NOT LIKE '%_test.go'
     expect: 0
 
+  - name: no import cycle of any length among core and extensions
+    description: >-
+      The pair rule above catches two packages importing each other; this one
+      follows the imports between core and extension packages all the way
+      round. Go refuses any cycle, so one here is Archstats misreading an
+      import. Tests are left out for the same reason as above.
+    query: >-
+      WITH RECURSIVE e(f, t) AS (
+        SELECT DISTINCT "from", "to" FROM component_connections_direct
+        WHERE file NOT LIKE '%_test.go' AND "from" <> "to"
+          AND ("from" LIKE 'core%' OR "from" LIKE 'extensions/%')
+          AND ("to" LIKE 'core%' OR "to" LIKE 'extensions/%')),
+      reach(start, node) AS (
+        SELECT f, t FROM e
+        UNION SELECT reach.start, e.t FROM reach JOIN e ON e.f = reach.node)
+      SELECT DISTINCT start AS component FROM reach WHERE start = node
+    expect: 0
+
   - name: no source file over 1,500 lines of code
     description: Split it by what changes together before it grows further.
     query: >-

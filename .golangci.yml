@@ -25,7 +25,37 @@ linters:
     - nilerr
     - bodyclose
     - forbidigo
+    - depguard
   settings:
+    # The layer rules, as you edit. engine/boundary_test.go holds the finer
+    # ADR 0025 rules (packs, plug-ins, contracts) and archstats.rules.yaml
+    # checks them again through Archstats' own reading of Go.
+    depguard:
+      rules:
+        # The engine is a library the desktop app embeds; it carries no UI.
+        no-desktop:
+          files: [$all]
+          deny:
+            - pkg: github.com/wailsapp/wails
+              desc: archstats is the engine; the desktop shell lives in archstats-ui
+        core-is-the-model:
+          files: ["**/core/**"]
+          deny:
+            - pkg: github.com/archstats/archstats/extensions
+              desc: ADR 0025, core knows no extension; register a hook in core and implement it in the extension
+            - pkg: github.com/archstats/archstats/engine
+              desc: ADR 0025, only engine names every extension; core never imports it
+            - pkg: github.com/archstats/archstats/cmd
+              desc: core is embedded by archstats-ui and must not depend on the CLI
+        extensions-are-library-code:
+          # An extension's own tool (a main package under its cmd/, such as
+          # the CI/CD corpus runner) may run the engine.
+          files: ["**/extensions/**", "!**/extensions/*/cmd/**"]
+          deny:
+            - pkg: github.com/archstats/archstats/cmd
+              desc: extensions are embedded by archstats-ui; take settings through core/plugin, not CLI flags or state
+            - pkg: github.com/archstats/archstats/engine
+              desc: only engine names every extension; an extension that imports it couples itself to all of them
     errcheck:
       exclude-functions:
         - (*database/sql.DB).Close

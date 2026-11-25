@@ -2,6 +2,7 @@ package e2eTest
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -29,7 +30,14 @@ import (
 // change to a public interface:
 //
 //	UPDATE_GOLDEN=1 go test ./e2eTest -run TestSnapshotSchema
+//
+// The desktop app's tests can read the very snapshot this golden describes:
+// -export-db copies it out (scripts/ui-fixture-db.sh wraps this).
+//
+//	go test ./e2eTest -run 'TestSnapshotSchema$' -export-db=/abs/path/ui-fixture.db
 const schemaGolden = "testdata/snapshot_schema.golden"
+
+var exportDB = flag.String("export-db", "", "copy the TestSnapshotSchema fixture snapshot to this path")
 
 func TestSnapshotSchema(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
@@ -55,6 +63,14 @@ func TestSnapshotSchema(t *testing.T) {
 	require.NoError(t, sqlite.SaveToDB(&sqlite.SqlOptions{DatabaseName: dbFile, ReportId: "schema", ScanTime: time.Unix(0, 0), StoreContent: false}, results, views))
 	actual := dumpSchema(t, dbFile)
 
+	if *exportDB != "" {
+		data, err := os.ReadFile(dbFile)
+		require.NoError(t, err)
+		require.NoError(t, os.MkdirAll(filepath.Dir(*exportDB), 0o755))
+		require.NoError(t, os.WriteFile(*exportDB, data, 0o644))
+		t.Logf("fixture snapshot written to %s", *exportDB)
+	}
+
 	if os.Getenv("UPDATE_GOLDEN") != "" {
 		require.NoError(t, os.MkdirAll(filepath.Dir(schemaGolden), 0o755))
 		require.NoError(t, os.WriteFile(schemaGolden, []byte(actual), 0o644))
@@ -62,7 +78,9 @@ func TestSnapshotSchema(t *testing.T) {
 	}
 	expected, err := os.ReadFile(schemaGolden)
 	require.NoError(t, err, "no golden schema yet: run with UPDATE_GOLDEN=1")
-	assert.Equal(t, string(expected), actual, "the snapshot schema changed; if that was meant, run with UPDATE_GOLDEN=1 and review the diff")
+	assert.Equal(t, string(expected), actual, "the snapshot schema changed. archstats-ui, `archstats assert` rules, reports and Ask query these tables and columns by name, "+
+		"so a rename or drop breaks them. If the change is meant, run UPDATE_GOLDEN=1 go test ./e2eTest -run TestSnapshotSchema, review the diff, "+
+		"update DESCRIPTION.md and note the archstats-ui impact in CHANGELOG.md")
 }
 
 // Every table in the schema is described in DESCRIPTION.md, which the

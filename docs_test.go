@@ -23,7 +23,7 @@ var (
 
 func documents(t *testing.T) []string {
 	t.Helper()
-	docs := []string{"README.md", "ARCHITECTURE.md", "DESCRIPTION.md", "CHANGELOG.md", "CLAUDE.md"}
+	docs := []string{"README.md", "ARCHITECTURE.md", "DESCRIPTION.md", "CHANGELOG.md", "CLAUDE.md", "AGENTS.md", "extensions/AGENTS.md"}
 	err := filepath.WalkDir("docs", func(path string, d os.DirEntry, err error) error {
 		// The site's packages and build output are not documents.
 		if err == nil && d.IsDir() && (d.Name() == "node_modules" || d.Name() == ".vitepress") {

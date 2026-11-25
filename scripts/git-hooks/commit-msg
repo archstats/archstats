@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Refuses AI attribution in a commit message (CLAUDE.md). Install once per
+# Refuses AI attribution in a commit message (AGENTS.md). Install once per
 # clone:
 #
 #   git config core.hooksPath scripts/git-hooks
