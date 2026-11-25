@@ -171,3 +171,12 @@ func TestComponentEdgesComeFromTypeReferences(t *testing.T) {
 	assert.Empty(t, edges("Sources/Timeline/Rows/StatusRow.swift")[1:], "a generic parameter named Content is not the type called Content")
 	assert.Empty(t, edges("Sources/Timeline/Other/Other.swift"), "a nested State means its own, not another type's")
 }
+
+// tree-sitter-swift's error recovery never finishes on this file (found by
+// FuzzScan; 0.7.4 too): it ran for half an hour and 11 GB. The parse budget
+// stops it, the file is left out, and the same file still parses whole.
+func TestAParseThatNeverEndsIsCutOff(t *testing.T) {
+	lp := createSwiftLanguagePack()
+	assert.Nil(t, lp.AnalyzeContent("A.swift", []byte(`import F struct A: View { var body: some View { T": Vi`)))
+	assert.NotNil(t, lp.AnalyzeContent("A.swift", []byte("import F\nstruct A: View { var body: some View { T(\": Vi\") } }\n")))
+}

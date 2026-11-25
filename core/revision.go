@@ -191,4 +191,11 @@ package core
 //	               diff.renameLimit and textconv drivers moved line counts
 //	               and renames) or on an inherited GIT_DIR, which made every
 //	               repository read as the one it named.
-const AnalysisRevision = 26
+//	27 2026-11-25  tree-sitter's runtime moves to 0.25 (go-tree-sitter
+//	               v0.25.0, with the Java, JavaScript and Python grammars
+//	               it requires): some files its error recovery misread now
+//	               parse whole (a Kotlin file's extension functions, a C#
+//	               static class). Every parse has a step budget, so a file
+//	               whose recovery never ends is left out instead of hanging
+//	               the scan.
+const AnalysisRevision = 27

@@ -1,5 +1,5 @@
 # Scan digest of the e2eTest fixtures. Regenerate with UPDATE_GOLDEN=1 go test ./e2eTest -run TestScanDigest
-revision 26
+revision 27
 ## workspace
 _metric_definitions rows=93 sha=5c06059676e92f22
 _snapshot rows=11 sha=d1c3e7c7d64aa3de

@@ -1,8 +1,8 @@
 package common
 
 import (
-	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -169,17 +169,49 @@ func (lp *LanguagePack) AnalyzeContent(path string, content []byte) *file.Result
 // parse reads the file once for all three query sets. The binding keeps
 // parsers, trees and cursors in C memory with no finalizer, so each one is
 // closed here; left open, every file parsed stayed in memory for the scan.
+//
+// A parse is stopped once it has spent its budget (parseBudget). Error
+// recovery in some grammars never ends on some broken files: 54 bytes of
+// Swift ran a parse for half an hour and 11 GB. The budget counts the
+// parser's own steps, not time, so the same file is cut off on every machine.
 func parse(content []byte, language *sitter.Language) (*sitter.Tree, error) {
 	parser := sitter.NewParser()
 	defer parser.Close()
 	if err := parser.SetLanguage(language); err != nil {
 		return nil, err
 	}
-	tree := parser.ParseCtx(context.Background(), content, nil)
+	budget, checks := parseBudget(len(content)), 0
+	tree := parser.ParseWithOptions(func(i int, _ sitter.Point) []byte {
+		if i < len(content) {
+			return content[i:]
+		}
+		return nil
+	}, nil, &sitter.ParseOptions{ProgressCallback: func(sitter.ParseState) bool {
+		checks++
+		return checks > budget
+	}})
+	if checks > budget {
+		return nil, fmt.Errorf("parsing it took over %d steps, the most a file of %d bytes is given; the grammar's error recovery did not finish", budget*parseStepsPerCheck, len(content))
+	}
 	if tree == nil {
 		return nil, errors.New("tree-sitter returned no tree")
 	}
 	return tree, nil
+}
+
+// The parser asks whether to go on once every parseStepsPerCheck steps
+// (OP_COUNT_PER_PARSER_TIMEOUT_CHECK in tree-sitter's parser.c), so the
+// budget is counted in those checks.
+const parseStepsPerCheck = 100
+
+// parseBudget is how many checks a file of n bytes may take: a floor for
+// small files and one check (100 steps) per byte for the rest. Measured
+// 2026-11-25 over 21,639 files of the e2e projects, Swift and Dart included,
+// the hungriest took 0.021 checks per byte and the largest 1,683 checks for
+// 142 KB: the budget leaves every real file thirty times its need or more,
+// and stops the Swift file above in under a second.
+func parseBudget(n int) int {
+	return 2_000 + n
 }
 
 func runQueries(filePath string, tree *sitter.Tree, content []byte, queries []*sitter.Query) []*file.Snippet {

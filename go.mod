@@ -16,14 +16,14 @@ require (
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.7.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/tree-sitter-grammars/tree-sitter-objc v1.2.1-0.20241216003420-18802acf31d0
-	github.com/tree-sitter/go-tree-sitter v0.24.0
+	github.com/tree-sitter/go-tree-sitter v0.25.0
 	github.com/tree-sitter/tree-sitter-go v0.23.4
-	github.com/tree-sitter/tree-sitter-java v0.23.4
-	github.com/tree-sitter/tree-sitter-javascript v0.23.0
+	github.com/tree-sitter/tree-sitter-java v0.23.5
+	github.com/tree-sitter/tree-sitter-javascript v0.23.1
 	github.com/tree-sitter/tree-sitter-php v0.23.12
-	github.com/tree-sitter/tree-sitter-python v0.23.0
+	github.com/tree-sitter/tree-sitter-python v0.23.6
 	github.com/tree-sitter/tree-sitter-typescript v0.23.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	gonum.org/v1/gonum v0.14.0

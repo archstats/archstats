@@ -7,7 +7,9 @@
 //
 // Every file is pinned to the 0.7.3-with-generated-files tag (commit 31d17fe)
 // and checked against its sha256; a file already present with the right hash
-// is left alone, so running it again is cheap.
+// is left alone, so running it again is cheap. A failed request is tried
+// again with backoff: raw.githubusercontent.com answers 5xx now and then, and
+// every CI job runs this before it builds.
 package main
 
 import (
@@ -45,15 +47,17 @@ func fetch(client *http.Client, path, want string) error {
 	if have, err := os.ReadFile(path); err == nil && sum(have) == want {
 		return nil
 	}
-	resp, err := client.Get(base + path)
-	if err != nil {
-		return err
+	var body []byte
+	var err error
+	for attempt, wait := 1, 2*time.Second; ; attempt, wait = attempt+1, wait*2 {
+		var retry bool
+		body, retry, err = get(client, base+path)
+		if err == nil || !retry || attempt == 5 {
+			break
+		}
+		fmt.Fprintf(os.Stderr, "swift grammar: %s: %v; trying again in %s\n", path, err, wait)
+		time.Sleep(wait)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: %s", base+path, resp.Status)
-	}
-	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -68,6 +72,22 @@ func fetch(client *http.Client, path, want string) error {
 		return err
 	}
 	return os.Rename(tmp, path)
+}
+
+// get reports whether a failure is worth another try: the network, a
+// timeout, 429 or a 5xx. A 404 or other 4xx will not change.
+func get(client *http.Client, url string) (body []byte, retry bool, err error) {
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, true, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		retry = resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
+		return nil, retry, fmt.Errorf("GET %s: %s", url, resp.Status)
+	}
+	body, err = io.ReadAll(resp.Body)
+	return body, err != nil, err
 }
 
 func sum(b []byte) string {

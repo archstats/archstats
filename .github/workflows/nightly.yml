@@ -29,6 +29,18 @@ jobs:
     - name: Fuzz the scan
       run: go test ./engine -run '^$' -fuzz FuzzScan -fuzztime 20m
 
+    # The fuzzer throws a worker's stderr away, so "hung or terminated
+    # unexpectedly" is all a dead worker leaves. Say whether the kernel killed
+    # it for memory, and replay each input in a plain test run, where a fatal
+    # error (stack overflow, a fault in the C grammars) prints in full.
+    - name: Why a worker died
+      if: failure()
+      run: |
+        sudo dmesg | grep -iE 'out of memory|oom-kill|killed process' | tail -20 || true
+        for f in engine/testdata/fuzz/FuzzScan/*; do
+          go test ./engine -run "FuzzScan/$(basename "$f")" -count 1 -timeout 5m || true
+        done
+
     - name: Keep what the fuzzer found
       if: failure()
       uses: actions/upload-artifact@v4
